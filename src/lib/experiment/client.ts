@@ -21,7 +21,7 @@ export async function requestExperimentLesson(
   prompt: string,
   signal?: AbortSignal,
   answers?: IntakeAnswers,
-  kind: "tutor" | "system" = "tutor",
+  kind: "tutor" | "system" | "physics" = "tutor",
 ): Promise<ExperimentDrawResult> {
   const res = await fetch("/api/experiment/draw", {
     method: "POST",
@@ -29,7 +29,11 @@ export async function requestExperimentLesson(
     body: JSON.stringify({
       prompt,
       ...(answers ? { answers } : {}),
-      ...(kind === "system" ? { mode: "system" } : {}),
+      ...(kind === "system"
+        ? { mode: "system" }
+        : kind === "physics"
+          ? { mode: "physics" }
+          : {}),
     }),
     signal,
   });
@@ -101,13 +105,17 @@ export async function requestSystemDesignRevision(
 export async function requestExperimentSpeak(
   text: string,
   signal?: AbortSignal,
+  mode: "tutor" | "physics" = "tutor",
 ): Promise<{ mimeType: string; base64: string } | null> {
   const clipped = text.trim().slice(0, 900);
   if (!clipped) return null;
   const res = await fetch("/api/experiment/speak", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: clipped }),
+    body: JSON.stringify({
+      text: clipped,
+      ...(mode === "physics" ? { mode: "physics" } : {}),
+    }),
     signal,
   });
   if (res.status === 503) return null;
@@ -152,6 +160,7 @@ export async function requestExperimentReact(
     expect: string;
     answer: string;
     lastSay: string;
+    mode?: "tutor" | "physics";
   },
   signal?: AbortSignal,
 ): Promise<ExperimentFollowup> {

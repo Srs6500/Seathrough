@@ -9,9 +9,13 @@ export function browserExperienceSseResponse(
       let closed = false;
       const send = (event: BrowserStreamEvent) => {
         if (closed) return;
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
-        );
+        try {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+          );
+        } catch {
+          closed = true;
+        }
       };
 
       void (async () => {

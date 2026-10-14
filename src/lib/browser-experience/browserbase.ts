@@ -64,3 +64,23 @@ export async function closeBrowserbaseRemote(sessionId: string): Promise<void> {
     /* best-effort */
   }
 }
+
+/** Refresh the interactive debugger URL for human take-control. */
+export async function refreshBrowserbaseLiveView(
+  remoteSessionId: string,
+): Promise<string | null> {
+  const { apiKey } = getBrowserbaseConfig();
+  if (!apiKey || !remoteSessionId) return null;
+  try {
+    const bb = new Browserbase({ apiKey });
+    const debug = await bb.sessions.debug(remoteSessionId);
+    return (
+      debug.debuggerFullscreenUrl ||
+      debug.debuggerUrl ||
+      debug.pages?.[0]?.debuggerFullscreenUrl ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}

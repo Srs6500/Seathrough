@@ -20,6 +20,7 @@ export async function GET(request: Request) {
         llm: presence.GROQ_API_KEY || presence.OPENAI_API_KEY,
         tavily: presence.TAVILY_API_KEY,
         browserbase: presence.BROWSERBASE_API_KEY,
+        browserless: presence.BROWSERLESS_API_KEY,
         voice: presence.DEEPGRAM_API_KEY,
       },
     });

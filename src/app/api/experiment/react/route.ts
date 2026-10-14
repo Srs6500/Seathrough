@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     const expect = clip(body.expect, 80);
     const answer = clip(body.answer, 400);
     const lastSay = clip(body.lastSay, 400);
+    const mode = body.mode === "physics" ? "physics" : "tutor";
     if (!answer) {
       return Response.json({ error: "An answer is required." }, { status: 400 });
     }
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       expect,
       answer,
       lastSay,
+      mode,
     });
     return Response.json({ followup });
   } catch (error) {

@@ -32,8 +32,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*
+# env files — real keys (Browserless, Groq, Deepgram, etc.) stay out of git
+.env
+.env.*
 !.env.example
 
 # vercel
@@ -55,3 +56,14 @@ next-env.d.ts
 # local research / dataset folders (not part of the Next deploy)
 /Analytics-Dashboard
 /metaphor-dataset
+
+# Physics tutor local dumps (PDFs, raw SVG downloads, ingest output, screenshots).
+# Curated diagrams that ship: public/physics/vfpt/
+# Seed RAG that ships: src/lib/physics-tutor/chunks/
+Physics-tutor-data/**
+!Physics-tutor-data/README.md
+
+# Accidental root drops (move into Physics-tutor-data/vfpt-svgs/_downloads/)
+/VFPt_*.svg
+/VFPt_*.png
+/screenshot.png

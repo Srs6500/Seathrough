@@ -1,0 +1,79 @@
+[
+  {
+    "id": "seed-charge-field",
+    "source": "seed",
+    "title": "Electric charge and field idea",
+    "topic": "electric field",
+    "text": "Electric charge comes in two kinds, positive and negative. Like charges repel; opposite charges attract. The electric field at a point is the force per unit positive test charge at that point. Field lines leave positive charge and enter negative charge. Closer spacing means a stronger field.",
+    "diagram": "VFPt charges plus minus potential+contour.svg"
+  },
+  {
+    "id": "seed-monopole",
+    "source": "seed",
+    "title": "Single point charge field",
+    "topic": "point charge",
+    "text": "A lone positive point charge has field lines radiating outward in all directions. A lone negative charge has lines radiating inward. Magnitude falls with distance (Coulomb 1/r² in space). On a 2D board, draw radial arrows or lines around one charge symbol.",
+    "diagram": "VFPt plus.svg"
+  },
+  {
+    "id": "seed-dipole",
+    "source": "seed",
+    "title": "Electric dipole field",
+    "topic": "dipole",
+    "text": "An electric dipole is equal and opposite charges separated by a small distance. Field lines leave the positive charge and curve into the negative charge. Along the axis the fields partly add; on the perpendicular bisector they partly cancel. Do not draw closed loops for electrostatic E fields in empty space.",
+    "diagram": "VFPt dipoles electric.svg"
+  },
+  {
+    "id": "seed-coulomb",
+    "source": "seed",
+    "title": "Coulomb's law",
+    "topic": "coulomb",
+    "text": "Coulomb's law: the magnitude of the force between two point charges is k|q1 q2|/r², along the line joining them. Direction: repulsion if same sign, attraction if opposite. k is Coulomb's constant. Force on each charge is equal and opposite (Newton's third law)."
+  },
+  {
+    "id": "seed-potential",
+    "source": "seed",
+    "title": "Electric potential vs field",
+    "topic": "potential",
+    "text": "Electric potential V is electric potential energy per unit charge. The field points from high potential toward low potential for a positive test charge. Equipotential surfaces are perpendicular to field lines. Moving along an equipotential does no work. Potential is a scalar; field is a vector.",
+    "diagram": "VFPt charges plus minus potential+contour.svg"
+  },
+  {
+    "id": "seed-conductor",
+    "source": "seed",
+    "title": "Conductors in electrostatics",
+    "topic": "conductor",
+    "text": "In electrostatic equilibrium, the electric field inside a conducting material is zero. Excess charge resides on the outer surface. The conductor is an equipotential. Near a sharp point, surface charge density and field outside are larger. Induced charges rearrange when an external charge approaches.",
+    "diagram": "VFPt metal balls largesmall potential+contour.svg"
+  },
+  {
+    "id": "seed-capacitor",
+    "source": "seed",
+    "title": "Parallel-plate capacitor",
+    "topic": "capacitor",
+    "text": "An ideal parallel-plate capacitor has equal and opposite charge on two plates. Between the plates the field is approximately uniform and perpendicular to the plates; outside it is nearly zero. Capacitance C = Q/V. Energy stored is (1/2)CV². Adding a dielectric increases C for fixed plate geometry.",
+    "diagram": "VFPt capacitor.svg"
+  },
+  {
+    "id": "seed-sheet-wire",
+    "source": "seed",
+    "title": "Charged sheet and wire",
+    "topic": "continuous charge",
+    "text": "An infinite charged sheet has a roughly uniform field perpendicular to the sheet on each side. A long charged wire has radial field in the plane perpendicular to the wire, falling like 1/r. Use symmetry (Gauss's law ideas) to argue direction before writing formulas.",
+    "diagram": "VFPt charged-sheet.svg"
+  },
+  {
+    "id": "seed-superposition",
+    "source": "seed",
+    "title": "Superposition of fields",
+    "topic": "superposition",
+    "text": "Electric fields from several sources add as vectors at each point (superposition). Draw each contribution, then tip-to-tail or components. Cancelling components explain null points between like charges or on a dipole's midplane in the right places."
+  },
+  {
+    "id": "seed-image-charge",
+    "source": "seed",
+    "title": "Image charge intuition",
+    "topic": "image charge",
+    "text": "A point charge near a grounded conducting plane induces opposite surface charge. Outside the conductor, the field matches a simpler 'image' charge behind the plane. Inside the conductor the field stays zero. Use this only as an intuition bridge for high school — mention the image is a calculation trick, not a real charge behind the wall."
+  }
+]

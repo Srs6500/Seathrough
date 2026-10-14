@@ -7,6 +7,17 @@ import {
   type ExperimentLesson,
 } from "@/lib/experiment/scene";
 import { graphFromPrompt, overlayPromptGraph, mentionsSecantAndTangent } from "@/lib/experiment/graph";
+import {
+  buildPhysicsTutorContext,
+  formatPhysicsContextBlock,
+} from "@/lib/physics-tutor/context";
+import {
+  attachPhysicsDiagramToLesson,
+  summarizePhysicsRag,
+} from "@/lib/physics-tutor/attach";
+import { physicsCorpusStats } from "@/lib/physics-tutor/retrieve";
+
+export type ExperimentLessonMode = "tutor" | "physics";
 
 function optionalEnv(name: string): string | undefined {
   const value = process.env[name]?.trim();
@@ -31,15 +42,68 @@ function getDrawingClient() {
   };
 }
 
+/**
+ * Repair near-miss JSON: raw newlines in strings, trailing commas, and invalid
+ * backslash escapes (models often emit TeX like \frac / \varepsilon inside "say").
+ */
+function repairJson(text: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]!;
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        out += char;
+        continue;
+      }
+      if (char === "\\") {
+        const next = text[i + 1];
+        if (next && "\"\\/bfnrtu".includes(next)) {
+          escaped = true;
+          out += char;
+        } else {
+          // Invalid JSON escape (often TeX) → keep as a literal backslash.
+          out += "\\\\";
+        }
+        continue;
+      }
+      if (char === '"') inString = false;
+      else if (char === "\n") {
+        out += "\\n";
+        continue;
+      } else if (char === "\r") {
+        continue;
+      } else if (char === "\t") {
+        out += "\\t";
+        continue;
+      }
+    } else if (char === '"') {
+      inString = true;
+    }
+    out += char;
+  }
+  return out.replace(/,(\s*[}\]])/g, "$1");
+}
+
+function parseLenient(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return JSON.parse(repairJson(text));
+  }
+}
+
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
-  if (trimmed.startsWith("{")) return JSON.parse(trimmed);
+  if (trimmed.startsWith("{")) return parseLenient(trimmed);
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) return JSON.parse(fenced[1].trim());
+  if (fenced?.[1]) return parseLenient(fenced[1].trim());
   const start = trimmed.indexOf("{");
   const end = trimmed.lastIndexOf("}");
   if (start >= 0 && end > start) {
-    return JSON.parse(trimmed.slice(start, end + 1));
+    return parseLenient(trimmed.slice(start, end + 1));
   }
   throw new Error("Model did not return JSON");
 }
@@ -176,6 +240,7 @@ async function requestLesson(
   model: string,
   user: string,
   useJsonObject = true,
+  systemContent: string = SYSTEM,
 ): Promise<ExperimentLesson> {
   let content = "";
   try {
@@ -187,7 +252,7 @@ async function requestLesson(
         ? { response_format: { type: "json_object" as const } }
         : {}),
       messages: [
-        { role: "system", content: SYSTEM },
+        { role: "system", content: systemContent },
         { role: "user", content: user },
       ],
     });
@@ -232,6 +297,7 @@ function stampPromptGraph(
 
 export async function generateExperimentLesson(
   prompt: string,
+  options?: { mode?: ExperimentLessonMode },
 ): Promise<ExperimentLesson> {
   const trimmed = prompt.trim();
   if (!trimmed) throw new Error("Prompt is required");
@@ -239,15 +305,52 @@ export async function generateExperimentLesson(
     throw new Error("Prompt is too long (max 800 characters)");
   }
 
-  if (!graphFromPrompt(trimmed) && !mentionsSecantAndTangent(trimmed)) {
+  const physics = options?.mode === "physics";
+
+  // Coding demos only for generic tutor — physics always plans a real lesson.
+  if (
+    !physics &&
+    !graphFromPrompt(trimmed) &&
+    !mentionsSecantAndTangent(trimmed)
+  ) {
     const simple = simpleShapeLesson(trimmed);
     if (simple) return simple;
   }
 
   const { client, model } = getDrawingClient();
-  const ask = `Question:\n${trimmed}\n\nWrite the teaching script and draw the example.`;
+  const physicsCtx = physics ? buildPhysicsTutorContext(trimmed) : null;
+  const physicsBlock = physicsCtx
+    ? `\n\n${formatPhysicsContextBlock(physicsCtx)}`
+    : "";
+  const systemContent = physics
+    ? `${SYSTEM}
+
+You are teaching high-school physics on this whiteboard. Follow the PHYSICS MODE block in the user message. Keep Smart-tutor beat structure. Ground spoken beats in RETRIEVED CONTEXT.`
+    : SYSTEM;
+  const ask = `Question:\n${trimmed}\n\nWrite the teaching script and draw the example.${physicsBlock}`;
+
+  const finish = (lesson: ExperimentLesson): ExperimentLesson => {
+    let next = stampPromptGraph(lesson, trimmed);
+    if (physicsCtx) {
+      next = attachPhysicsDiagramToLesson(next, physicsCtx);
+      const rag = summarizePhysicsRag(physicsCtx, physicsCorpusStats());
+      next.rag = {
+        corpusTotal: rag.corpus.total,
+        chunks: rag.chunks,
+        diagrams: rag.diagrams,
+      };
+      console.info("[physics-rag]", {
+        prompt: trimmed.slice(0, 80),
+        corpus: rag.corpus,
+        hits: rag.chunks.map((c) => `${c.source}:${c.id}:${c.score}`),
+        diagrams: rag.diagrams.map((d) => d.filename),
+      });
+    }
+    return next;
+  };
+
   try {
-    return stampPromptGraph(await requestLesson(client, model, ask), trimmed);
+    return finish(await requestLesson(client, model, ask, true, systemContent));
   } catch (firstError) {
     console.warn(
       "[experiment-draw] first lesson attempt failed",
@@ -256,7 +359,7 @@ export async function generateExperimentLesson(
     try {
       const reason =
         firstError instanceof Error ? firstError.message : "invalid lesson";
-      return stampPromptGraph(
+      return finish(
         await requestLesson(
           client,
           model,
@@ -264,8 +367,8 @@ export async function generateExperimentLesson(
 
 Previous JSON failed (${reason}). Return 4 beats. If the topic is a physical thing, draw a clustered figure with callouts naming each part. If it is a graph, return graph.expression and no fake axes.`,
           false,
+          systemContent,
         ),
-        trimmed,
       );
     } catch {
       throw new Error("Could not explain that. Try another question.");
@@ -302,8 +405,10 @@ export async function generateExperimentFollowup(input: {
   expect: string;
   answer: string;
   lastSay: string;
+  mode?: ExperimentLessonMode;
 }): Promise<ExperimentFollowup> {
   const { client, model } = getDrawingClient();
+  const physics = input.mode === "physics";
   const user = `Topic: ${input.topic}
 Title: ${input.title}
 Tutor just said: ${input.lastSay}
@@ -312,7 +417,11 @@ Expected: ${input.expect}
 Student answered: ${input.answer}
 
 Choose continue, simplify, or revisit and draw if needed.
-If their answer captures the idea, continue even if the wording differs.`;
+If their answer captures the idea, continue even if the wording differs.${
+    physics
+      ? "\nStay in high-school physics. Prefer field-line sketches if you reteach."
+      : ""
+  }`;
 
   const completion = await client.chat.completions.create({
     model,
@@ -320,7 +429,12 @@ If their answer captures the idea, continue even if the wording differs.`;
     max_tokens: 2048,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: FOLLOWUP_SYSTEM },
+      {
+        role: "system",
+        content: physics
+          ? `${FOLLOWUP_SYSTEM}\nPhysics follow-up: keep electrostatics ideas; do not switch to unrelated topics.`
+          : FOLLOWUP_SYSTEM,
+      },
       { role: "user", content: user },
     ],
   });
