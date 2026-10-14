@@ -211,11 +211,41 @@ export async function extractPageText(
       };
       for (const el of Array.from(
         document.querySelectorAll(
-          "h1,h2,h3,h4,h5,h6,figcaption,dt,th,strong,b,summary",
+          [
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "figcaption",
+            "dt",
+            "th",
+            "strong",
+            "b",
+            "summary",
+            "label",
+            "[aria-label]",
+            ".mw-headline",
+            "li > a",
+            "p > strong",
+            "p > b",
+          ].join(","),
         ),
       )) {
-        push((el.textContent || "").trim());
-        if (anchors.length >= 40) break;
+        const aria = el.getAttribute("aria-label");
+        push(aria || (el.textContent || "").trim());
+        if (anchors.length >= 56) break;
+      }
+      // First short paragraph lines often highlight better than long body dumps.
+      for (const p of Array.from(document.querySelectorAll("p")).slice(0, 12)) {
+        const line = (p.textContent || "").replace(/\s+/g, " ").trim();
+        if (line.length >= 12 && line.length <= 72) push(line);
+        else if (line.length > 72) {
+          const cut = line.split(/(?<=[,;:])\s+/).find((s) => s.length >= 12 && s.length <= 72);
+          if (cut) push(cut);
+        }
+        if (anchors.length >= 56) break;
       }
       for (const img of Array.from(document.querySelectorAll("img[alt]"))) {
         push(img.getAttribute("alt") || "");

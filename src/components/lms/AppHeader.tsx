@@ -43,9 +43,9 @@ export function AppHeader({
         className,
       )}
     >
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-3 py-2 md:px-4">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 px-3 py-2.5 md:flex-nowrap md:px-4">
         {leading}
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 shrink-0 items-center gap-2.5">
           <BrandMark compact={brandCompact} />
           {eyebrow || title ? (
             <div className="hidden min-w-0 max-w-44 lg:block">
@@ -62,12 +62,13 @@ export function AppHeader({
         </div>
 
         {center ? (
-          <div className="order-last min-w-0 basis-full md:order-0 md:flex-1 md:basis-auto md:px-2">
+          <div className="order-last min-w-0 basis-full md:order-0 md:min-w-0 md:flex-1 md:basis-auto md:px-2">
             <div className="mx-auto w-full max-w-2xl">{center}</div>
           </div>
         ) : null}
 
-        <div className="ml-auto flex min-w-0 items-center justify-end gap-1">
+        {/* shrink-0: never let Log in / Study / End get clipped or wrap under the prompt */}
+        <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5 self-center">
           {actions}
           <StudyMenu current={current} />
           {account}

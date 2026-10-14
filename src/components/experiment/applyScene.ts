@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  AssetRecordType,
   createShapeId,
+  getHashForString,
   getIndices,
   toRichText,
   type Editor,
@@ -318,6 +320,50 @@ function createNodeUnsafe(
       },
     });
     return id;
+  }
+  if (shape.type === "image") {
+    const assetId = AssetRecordType.createId(getHashForString(shape.src));
+    try {
+      editor.createAssets([
+        {
+          id: assetId,
+          type: "image",
+          typeName: "asset",
+          props: {
+            name: shape.label || shape.id,
+            src: shape.src,
+            w: shape.w,
+            h: shape.h,
+            mimeType: shape.src.toLowerCase().endsWith(".svg")
+              ? "image/svg+xml"
+              : "image/png",
+            isAnimated: false,
+          },
+          meta: {},
+        },
+      ]);
+      editor.createShape({
+        id,
+        type: "image",
+        x: shape.x + dx,
+        y: shape.y + dy,
+        props: {
+          assetId,
+          w: shape.w,
+          h: shape.h,
+          playing: false,
+          url: "",
+          crop: null,
+          flipX: false,
+          flipY: false,
+          altText: shape.label || "",
+        },
+      });
+      return id;
+    } catch (error) {
+      console.warn("[experiment-draw] image failed", shape.id, error);
+      return null;
+    }
   }
   if (shape.type === "callout") {
     const box = shapeBounds(shape);

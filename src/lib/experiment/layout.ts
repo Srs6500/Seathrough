@@ -194,6 +194,9 @@ export function shapeBounds(shape: ExperimentShape): ShapeBox | null {
   if (shape.type === "geo") {
     return { id: shape.id, x: shape.x, y: shape.y, w: shape.w, h: shape.h };
   }
+  if (shape.type === "image") {
+    return { id: shape.id, x: shape.x, y: shape.y, w: shape.w, h: shape.h };
+  }
   if (shape.type === "text" || shape.type === "callout") {
     const size = measureText(shape.text);
     return { id: shape.id, x: shape.x, y: shape.y, w: size.w, h: size.h };
@@ -235,7 +238,7 @@ function applyBox(shape: ExperimentShape, box: ShapeBox) {
   if (shape.type === "arrow" || shape.type === "route") return;
   shape.x = box.x;
   shape.y = box.y;
-  if (shape.type === "geo") {
+  if (shape.type === "geo" || shape.type === "image") {
     shape.w = box.w;
     shape.h = box.h;
   }

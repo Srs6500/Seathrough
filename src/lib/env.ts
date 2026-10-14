@@ -139,6 +139,18 @@ export function getBrowserbaseConfig() {
   };
 }
 
+/**
+ * Cloud browser alternative (Browserless).
+ * When BROWSERLESS_API_KEY is set it is preferred over Browserbase.
+ */
+export function getBrowserlessConfig() {
+  return {
+    apiKey: optional("BROWSERLESS_API_KEY"),
+    /** e.g. wss://production-sfo.browserless.io or wss://production-lon.browserless.io */
+    wsEndpoint: optional("BROWSERLESS_WS_ENDPOINT"),
+  };
+}
+
 export function getSupabaseConfig() {
   return {
     url: required("NEXT_PUBLIC_SUPABASE_URL"),
@@ -162,6 +174,7 @@ export function envPresence() {
     TAVILY_API_KEY: Boolean(optional("TAVILY_API_KEY")),
     BROWSERBASE_API_KEY: Boolean(optional("BROWSERBASE_API_KEY")),
     BROWSERBASE_PROJECT_ID: Boolean(optional("BROWSERBASE_PROJECT_ID")),
+    BROWSERLESS_API_KEY: Boolean(optional("BROWSERLESS_API_KEY")),
     IMAGE_REFERENCE_ENABLED: !imageReferenceExplicitOff,
     DEEPGRAM_API_KEY: Boolean(optional("DEEPGRAM_API_KEY")),
     NEXT_PUBLIC_SUPABASE_URL: Boolean(optional("NEXT_PUBLIC_SUPABASE_URL")),

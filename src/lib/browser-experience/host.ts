@@ -1,4 +1,8 @@
-/** Vercel / other serverless hosts cannot launch a local Chromium binary. */
+/**
+ * Vercel / other serverless hosts cannot launch a local Chromium binary.
+ * Railway is a long-running Docker container — Chromium is installed in the
+ * Dockerfile and BROWSER_EXPERIENCE_PROVIDER=local is set there.
+ */
 export function isServerlessHost(): boolean {
   return Boolean(
     process.env.VERCEL ||

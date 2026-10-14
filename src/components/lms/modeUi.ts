@@ -32,6 +32,11 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     hint: "Ask a question. The tutor draws, talks, and checks you understood.",
     tone: "blue",
   },
+  "physics-tutor": {
+    icon: Atom,
+    hint: "Ask physics. Field diagrams, short steps, then a check you understood.",
+    tone: "teal",
+  },
   "browser-experience": {
     icon: Compass,
     hint: "Ask a question. We open a live browser, find a credible page, and highlight while explaining.",

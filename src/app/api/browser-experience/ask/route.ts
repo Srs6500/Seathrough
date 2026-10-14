@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     return Response.json(
       {
         error:
-          "Add BROWSERBASE_API_KEY to Vercel env to run Browser Experience in production. Local Chromium cannot start on this host.",
+          "Add BROWSERLESS_API_KEY or BROWSERBASE_API_KEY to Vercel env to run Browser Experience in production. Local Chromium cannot start on this host.",
       },
       { status: 503 },
     );

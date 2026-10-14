@@ -1,10 +1,13 @@
 import OpenAI from "openai";
 import { getLlmConfig } from "@/lib/env";
 import {
+  actPlanSchema,
   teachPlanSchema,
+  type ActPlanParsed,
   type TeachPlanParsed,
 } from "@/lib/browser-experience/schemas";
 import type {
+  BrowserActQuestion,
   BrowserChatMessage,
   BrowserTeachBeat,
 } from "@/lib/browser-experience/types";
@@ -144,16 +147,16 @@ Return ONLY a JSON object with this shape:
 }
 
 Rules:
-- 3 to 7 beats. Prefer pointing at DIFFERENT parts/sections.
+- 4 to 7 beats. Prefer pointing at DIFFERENT parts/sections.
 - Use kind "highlight" to point. Use kind "click" when the student needs a tab, accordion, "show more", or in-page link opened (text = visible button/link label).
-- annotation.text MUST be copied verbatim from POINTABLE ANCHORS when possible.
-- Prefer concrete labels over long sentences.
-- speech explains the pointed/clicked thing; do not invent facts missing from PAGE TEXT + SOURCE.
-- First beat orients; last beat wraps up.
+- annotation.text MUST be copied VERBATIM from POINTABLE ANCHORS (same spelling/casing). Never invent labels.
+- Prefer short concrete labels (2–6 words) that appear on the page.
+- speech: clear tutor voice, 1–2 short sentences, tie the highlight to the QUESTION. No filler (“basically”, “as you can see”).
+- First beat orients on the page; middle beats teach; last beat wraps up.
 - JSON only.`;
 
 const YOUTUBE_SYSTEM = `You are SeeThrough Browser Tutor for YouTube.
-You teach by playing a video, seeking to key moments, pausing, and explaining.
+You teach by seeking to the most relevant moments, pausing, and explaining.
 
 Return ONLY JSON:
 {
@@ -174,12 +177,13 @@ Return ONLY JSON:
 }
 
 Rules:
-- 4 to 8 beats.
-- Start with youtube_play (brief intro), then mostly youtube_seek beats.
-- youtube_seek MUST include seconds (integer). After seek the player pauses so you can explain the frozen frame.
-- Pick increasing timestamps that match the topic (estimate from title/description if needed). Keep seeks under the video duration when known.
-- speech explains what is on screen at that moment.
-- End with a short wrap-up (youtube_pause or final seek).
+- 5 to 8 beats.
+- Beat 1 MUST be youtube_seek to the first on-topic moment (not 0 unless the intro is the topic). Include seconds.
+- Then youtube_play briefly, then more youtube_seek beats at increasing timestamps.
+- Every youtube_seek MUST include integer seconds under DURATION_SECONDS when known.
+- Prefer moments that answer the QUESTION; skip unrelated chapters.
+- speech: 1–2 short sentences about what is on screen at that timestamp.
+- End with youtube_pause wrap-up.
 - JSON only.`;
 
 function pickPhrases(
@@ -405,27 +409,41 @@ function fallbackYouTubePlan(input: {
   durationSec?: number | null;
 }): TeachPlanParsed {
   const duration = input.durationSec && input.durationSec > 30 ? input.durationSec : 240;
-  const marks = [8, 35, 70, 110, 160]
-    .map((s) => Math.min(s, Math.max(5, duration - 5)))
+  const marks = [25, 55, 95, 140, 190]
+    .map((s) => Math.min(s, Math.max(8, duration - 5)))
     .filter((s, i, arr) => i === 0 || s > arr[i - 1]!);
   const title = clip(input.pageTitle || input.source.title || "YouTube lesson", 160);
   const summary = clip(
-    `We'll watch key moments from this video about: ${input.question}`,
+    `We'll jump to the parts of this video that matter for: ${input.question}`,
     600,
   );
+  const first = marks[0] ?? 20;
   const beats = [
     {
       id: "b1",
-      speech: "I'll play this video and pause on the important parts.",
+      speech: clip(
+        `Jumping to ${first}s — a moment that should relate to your question.`,
+        500,
+      ),
+      annotation: {
+        kind: "youtube_seek" as const,
+        seconds: first,
+        label: `${first}s`,
+      },
+      holdMs: 1400,
+    },
+    {
+      id: "b2",
+      speech: "I'll play from here, then pause on the next key spots.",
       annotation: { kind: "youtube_play" as const },
       holdMs: 1600,
     },
-    ...marks.map((seconds, index) => ({
-      id: `b${index + 2}`,
+    ...marks.slice(1).map((seconds, index) => ({
+      id: `b${index + 3}`,
       speech: clip(
-        index === marks.length - 1
-          ? "That covers the main idea from this clip."
-          : `Here's a key moment — I'll pause so we can look at it.`,
+        index === marks.length - 2
+          ? "That covers the main idea from this clip for your question."
+          : `Here's another useful moment for your question — pausing so we can look.`,
         500,
       ),
       annotation: {
@@ -437,6 +455,46 @@ function fallbackYouTubePlan(input: {
     })),
   ];
   return teachPlanSchema.parse({ title, summary, beats });
+}
+
+/** Ensure Ground video plans always seek before long play. */
+export function ensureYouTubeSeeks(plan: TeachPlanParsed): TeachPlanParsed {
+  const hasSeek = plan.beats.some((b) => b.annotation.kind === "youtube_seek");
+  if (hasSeek) {
+    const first = plan.beats[0];
+    if (first && first.annotation.kind !== "youtube_seek") {
+      const seekBeat = plan.beats.find((b) => b.annotation.kind === "youtube_seek");
+      if (seekBeat) {
+        const rest = plan.beats.filter((b) => b.id !== seekBeat.id);
+        return {
+          ...plan,
+          beats: [
+            {
+              ...seekBeat,
+              id: "b1",
+              speech:
+                seekBeat.speech ||
+                "Jumping to a relevant moment in the video first.",
+            },
+            ...rest.map((b, i) => ({ ...b, id: `b${i + 2}` })),
+          ],
+        };
+      }
+    }
+    return plan;
+  }
+  return {
+    ...plan,
+    beats: [
+      {
+        id: "b0",
+        speech: "Jumping to a relevant moment in the video first.",
+        annotation: { kind: "youtube_seek", seconds: 25, label: "25s" },
+        holdMs: 1200,
+      },
+      ...plan.beats,
+    ],
+  };
 }
 
 export async function planBrowserLesson(input: {
@@ -479,14 +537,14 @@ export async function planBrowserLesson(input: {
     try {
       const raw = await completeJson(YOUTUBE_SYSTEM, user);
       const plan = teachPlanSchema.safeParse(normalizePlan(raw));
-      if (plan.success) return plan.data;
+      if (plan.success) return ensureYouTubeSeeks(plan.data);
     } catch (error) {
       console.warn(
         "[browser-experience] youtube plan failed",
         error instanceof Error ? error.message : error,
       );
     }
-    return fallbackYouTubePlan(input);
+    return ensureYouTubeSeeks(fallbackYouTubePlan(input));
   }
 
   const user = [
@@ -581,11 +639,129 @@ function rewriteBeatsToAnchors(
   return { ...plan, beats };
 }
 
-export function beatsFromPlan(plan: TeachPlanParsed): BrowserTeachBeat[] {
+export function beatsFromPlan(
+  plan: TeachPlanParsed,
+  role?: "ground" | "truth",
+  tabId?: string,
+): BrowserTeachBeat[] {
   return plan.beats.map((beat) => ({
-    id: beat.id,
+    id: role ? `${role}-${beat.id}` : beat.id,
     speech: beat.speech,
     annotation: beat.annotation,
     holdMs: beat.holdMs ?? 900,
+    ...(role ? { role } : {}),
+    ...(tabId ? { tabId } : {}),
   }));
+}
+
+const ACT_SYSTEM = `You write short multiple-choice checks after a browser lesson.
+Return ONLY JSON:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "short question",
+      "choices": ["A", "B", "C"],
+      "answerIndex": 0
+    }
+  ]
+}
+Rules:
+- Exactly 2 or 3 questions.
+- Each has 3 choices; answerIndex is 0, 1, or 2.
+- Ground answers in PAGE TEXT / SOURCE only — no invented facts.
+- Keep prompts under 120 characters.
+- JSON only.`;
+
+function fallbackActPlan(input: {
+  question: string;
+  pageTitle: string;
+  pageText: string;
+}): ActPlanParsed {
+  const phrases = pickPhrases(input.pageText, [], 3);
+  const topic = clip(input.pageTitle || input.question, 80);
+  const decoys = [
+    "It is unrelated to this topic.",
+    "It only happens in outer space.",
+    "It was invented last week.",
+  ];
+  const questions =
+    phrases.length >= 2
+      ? phrases.slice(0, 2).map((phrase, index) => ({
+          id: `q${index + 1}`,
+          prompt: clip(`What does this lesson say about: ${phrase}?`, 400),
+          choices: [
+            clip(`It matters for understanding ${topic}.`, 200),
+            decoys[index % decoys.length]!,
+            "The page does not mention it.",
+          ],
+          answerIndex: 0,
+        }))
+      : [
+          {
+            id: "q1",
+            prompt: clip(`What was this page mainly about?`, 400),
+            choices: [
+              clip(topic, 200),
+              "An unrelated sports scoreboard",
+              "A cooking recipe only",
+            ],
+            answerIndex: 0,
+          },
+          {
+            id: "q2",
+            prompt: "What should you do next if you are still unsure?",
+            choices: [
+              "Ask a follow-up about this page",
+              "Ignore the explanation",
+              "Close the browser forever",
+            ],
+            answerIndex: 0,
+          },
+        ];
+  return actPlanSchema.parse({ questions });
+}
+
+export async function planActChecks(input: {
+  question: string;
+  pageTitle: string;
+  pageText: string;
+  source?: LessonSource | null;
+}): Promise<BrowserActQuestion[]> {
+  const user = [
+    `QUESTION: ${input.question}`,
+    `PAGE TITLE: ${input.pageTitle}`,
+    input.source
+      ? `SOURCE: ${input.source.title} (${input.source.publisher})`
+      : "",
+    `PAGE TEXT:\n${input.pageText.slice(0, 6_000)}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  try {
+    const raw = await completeJson(ACT_SYSTEM, user);
+    const parsed = actPlanSchema.safeParse(raw);
+    if (parsed.success) {
+      return parsed.data.questions.map((q) => ({
+        ...q,
+        answerIndex: Math.min(q.answerIndex, q.choices.length - 1),
+      }));
+    }
+  } catch (error) {
+    console.warn(
+      "[browser-experience] act plan failed",
+      error instanceof Error ? error.message : error,
+    );
+  }
+  return fallbackActPlan(input).questions;
+}
+
+/** Cap beat count for a Ground intro so Truth stays the main walkthrough. */
+export function limitBeats(
+  beats: BrowserTeachBeat[],
+  max: number,
+): BrowserTeachBeat[] {
+  if (beats.length <= max) return beats;
+  return beats.slice(0, max);
 }

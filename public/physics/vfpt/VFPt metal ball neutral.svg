@@ -1,0 +1,267 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" version="1.1" baseProfile="full" width="800" height="600">
+  <title>VFPt_metal_ball_neutral</title>
+  <desc>VFPt_metal_ball_neutral
+created with VectorFieldPlot 1.1
+http://commons.wikimedia.org/wiki/User:Geek3/VectorFieldPlot
+
+about: http://commons.wikimedia.org/wiki/File:VFPt_metal_ball_neutral.svg
+rights: GNU Free Documentation license,
+        Creative Commons Attribution ShareAlike license
+  </desc>
+  <defs>
+    <radialGradient id="white_spot" cx="0.65" cy="0.7" r="0.75">
+      <stop stop-color="#ffffff" offset="0" stop-opacity="0.7"/>
+      <stop stop-color="#ffffff" offset="0.1" stop-opacity="0.5"/>
+      <stop stop-color="#ffffff" offset="0.6" stop-opacity="0"/>
+      <stop stop-color="#000000" offset="0.6" stop-opacity="0"/>
+      <stop stop-color="#000000" offset="0.75" stop-opacity="0.05"/>
+      <stop stop-color="#000000" offset="0.85" stop-opacity="0.15"/>
+      <stop stop-color="#000000" offset="1" stop-opacity="0.5"/>
+    </radialGradient>
+    <path id="arrow1" stroke="none" fill="#000000" transform="scale(0.00833333333333)" d="M 0.3,0 L -2.2,2.25 L 3.8,0 L -2.2,-2.25 L 0.3,0 Z"/>
+  </defs>
+  <rect id="background" x="0" y="0" width="800" height="600" fill="#ffffff"/>
+  <g id="image" transform="translate(400.0,300.0) scale(120.0,-120.0)">
+    <g id="fieldlines" fill="none" stroke="#000000" stroke-width="0.0166666666667" stroke-linejoin="round" stroke-linecap="round">
+      <g id="fieldline1">
+        <path d="M 1.0000,0.0000 L 1.1450,0.0360 L 1.2781,0.0714 L 1.4462,0.1188 L 1.8367,0.2318 L 2.0362,0.2875 L 2.2242,0.3377 L 2.4152,0.3864 L 2.6167,0.4354 L 2.8343,0.4860 L 3.0738,0.5393 L 3.3417,0.5966"/>
+        <g id="arrows1">
+          <use xlink:href="#arrow1" transform="translate(2.4471,0.3941) rotate(13.68) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline2">
+        <path d="M 1.0000,0.0000 L 1.0732,0.0653 L 1.1282,0.1174 L 1.1807,0.1704 L 1.2344,0.2281 L 1.2930,0.2946 L 1.3667,0.3827 L 1.5230,0.5744 L 1.6036,0.6700 L 1.6731,0.7489 L 1.7408,0.8223 L 1.8092,0.8929 L 1.8801,0.9626 L 1.9546,1.0326 L 2.0338,1.1037 L 2.1186,1.1765 L 2.2101,1.2519 L 2.3093,1.3305 L 2.4173,1.4130 L 2.5356,1.5002 L 2.6657,1.5930 L 2.8091,1.6924 L 2.9679,1.7994 L 3.1445,1.9155 L 3.3417,2.0420"/>
+        <g id="arrows2">
+          <use xlink:href="#arrow1" transform="translate(2.0231,1.0938) rotate(41.35) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(2.8881,1.7456) rotate(33.98) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline3">
+        <path d="M 1.0000,0.0000 L 1.0273,0.0782 L 1.0442,0.1331 L 1.0570,0.1830 L 1.0669,0.2312 L 1.0741,0.2789 L 1.0788,0.3266 L 1.0811,0.3748 L 1.0809,0.4241 L 1.0782,0.4751 L 1.0727,0.5286 L 1.0642,0.5866 L 1.0515,0.6543 L 1.0219,0.7904 L 1.0090,0.8567 L 1.0014,0.9076 L 0.9970,0.9531 L 0.9953,0.9958 L 0.9961,1.0375 L 0.9994,1.0794 L 1.0053,1.1220 L 1.0140,1.1663 L 1.0257,1.2129 L 1.0409,1.2625 L 1.0599,1.3156 L 1.0831,1.3729 L 1.1113,1.4354 L 1.1448,1.5034 L 1.1843,1.5777 L 1.2307,1.6592 L 1.2847,1.7488 L 1.3469,1.8471 L 1.4183,1.9549 L 1.5001,2.0736 L 1.5934,2.2045 L 1.6996,2.3489 L 1.8201,2.5083"/>
+        <g id="arrows3">
+          <use xlink:href="#arrow1" transform="translate(1.1235,1.4601) rotate(63.76) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline4">
+        <path d="M -1.0000,0.0000 L -0.9020,0.2265 L -0.8419,0.3599 L -0.7899,0.4700 L -0.7409,0.5680 L -0.6927,0.6591 L -0.6436,0.7464 L -0.5926,0.8322 L -0.5379,0.9191 L -0.4773,1.0107 L -0.4049,1.1150 L -0.2231,1.3678 L -0.1441,1.4802 L -0.0796,1.5761 L -0.0211,1.6674 L 0.0347,1.7592 L 0.0897,1.8546 L 0.1457,1.9567 L 0.2040,2.0686 L 0.2665,2.1941 L 0.3354,2.3385 L 0.4134,2.5083"/>
+        <g id="arrows4">
+          <use xlink:href="#arrow1" transform="translate(-0.6817,0.6787) rotate(60.68) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(0.0981,1.8698) rotate(61.27) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline5">
+        <path d="M -1.0000,0.0000 L -0.9789,0.2444 L -0.9632,0.4040 L -0.9469,0.5462 L -0.9290,0.6836 L -0.9083,0.8241 L -0.8835,0.9768 L -0.8510,1.1602 L -0.7594,1.6491 L -0.7175,1.8809 L -0.6822,2.0889 L -0.6496,2.2947 L -0.6181,2.5083"/>
+        <g id="arrows5">
+          <use xlink:href="#arrow1" transform="translate(-0.9199,0.7456) rotate(81.63) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-0.7110,1.9194) rotate(80.37) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline6">
+        <path d="M -1.0000,0.0000 L -1.0580,0.2490 L -1.0976,0.4275 L -1.1335,0.5992 L -1.1693,0.7810 L -1.2084,0.9908 L -1.2610,1.2885 L -1.3588,1.8500 L -1.4195,2.1871 L -1.4793,2.5083"/>
+        <g id="arrows6">
+          <use xlink:href="#arrow1" transform="translate(-1.1598,0.7327) rotate(101.15) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-1.3709,1.9168) rotate(100.19) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline7">
+        <path d="M -1.0000,0.0000 L -1.1492,0.2513 L -1.2663,0.4527 L -1.3895,0.6697 L -1.5404,0.9408 L -1.8882,1.5745 L -2.1586,2.0651 L -2.4054,2.5083"/>
+        <g id="arrows7">
+          <use xlink:href="#arrow1" transform="translate(-1.3772,0.6482) rotate(119.46) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.0615,1.8889) rotate(118.86) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline8">
+        <path d="M -1.0000,0.0000 L -1.2470,0.2229 L -1.4641,0.4220 L -1.7257,0.6652 L -2.1977,1.1084 L -2.8271,1.6997 L -3.3417,2.1802"/>
+        <g id="arrows8">
+          <use xlink:href="#arrow1" transform="translate(-1.5540,0.5055) rotate(137.09) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.7451,1.6227) rotate(136.79) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline9">
+        <path d="M -1.0000,0.0000 L -1.3527,0.1655 L -1.7140,0.3373 L -2.3002,0.6193 L -3.3417,1.1215"/>
+        <g id="arrows9">
+          <use xlink:href="#arrow1" transform="translate(-1.6782,0.3203) rotate(154.55) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.7873,0.8542) rotate(154.26) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline10">
+        <path d="M -1.0000,0.0000 L -1.7029,0.1038 L -3.3417,0.3499"/>
+        <g id="arrows10">
+          <use xlink:href="#arrow1" transform="translate(-1.7419,0.1096) rotate(171.46) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.8084,0.2698) rotate(171.46) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline11">
+        <path d="M -1.0000,0.0000 L -1.7029,-0.1038 L -3.3417,-0.3499"/>
+        <g id="arrows11">
+          <use xlink:href="#arrow1" transform="translate(-1.7419,-0.1096) rotate(-171.46) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.8084,-0.2698) rotate(-171.46) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline12">
+        <path d="M -1.0000,0.0000 L -1.3527,-0.1655 L -1.7140,-0.3373 L -2.3002,-0.6193 L -3.3417,-1.1215"/>
+        <g id="arrows12">
+          <use xlink:href="#arrow1" transform="translate(-1.6782,-0.3203) rotate(-154.55) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.7873,-0.8542) rotate(-154.26) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline13">
+        <path d="M -1.0000,0.0000 L -1.2470,-0.2229 L -1.4641,-0.4220 L -1.7257,-0.6652 L -2.1977,-1.1084 L -2.8271,-1.6997 L -3.3417,-2.1802"/>
+        <g id="arrows13">
+          <use xlink:href="#arrow1" transform="translate(-1.5540,-0.5055) rotate(-137.09) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.7451,-1.6227) rotate(-136.79) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline14">
+        <path d="M -1.0000,0.0000 L -1.1492,-0.2513 L -1.2663,-0.4527 L -1.3895,-0.6697 L -1.5404,-0.9408 L -1.8882,-1.5745 L -2.1586,-2.0651 L -2.4054,-2.5083"/>
+        <g id="arrows14">
+          <use xlink:href="#arrow1" transform="translate(-1.3772,-0.6482) rotate(-119.46) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-2.0615,-1.8889) rotate(-118.86) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline15">
+        <path d="M -1.0000,0.0000 L -1.0580,-0.2490 L -1.0976,-0.4275 L -1.1335,-0.5992 L -1.1693,-0.7810 L -1.2084,-0.9908 L -1.2610,-1.2885 L -1.3588,-1.8500 L -1.4195,-2.1871 L -1.4793,-2.5083"/>
+        <g id="arrows15">
+          <use xlink:href="#arrow1" transform="translate(-1.1598,-0.7327) rotate(-101.15) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-1.3709,-1.9168) rotate(-100.19) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline16">
+        <path d="M -1.0000,0.0000 L -0.9789,-0.2444 L -0.9632,-0.4040 L -0.9469,-0.5462 L -0.9290,-0.6836 L -0.9083,-0.8241 L -0.8835,-0.9768 L -0.8510,-1.1602 L -0.7594,-1.6491 L -0.7175,-1.8809 L -0.6822,-2.0889 L -0.6496,-2.2947 L -0.6181,-2.5083"/>
+        <g id="arrows16">
+          <use xlink:href="#arrow1" transform="translate(-0.9199,-0.7456) rotate(-81.63) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(-0.7110,-1.9194) rotate(-80.37) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline17">
+        <path d="M -1.0000,0.0000 L -0.9020,-0.2265 L -0.8419,-0.3599 L -0.7899,-0.4700 L -0.7409,-0.5680 L -0.6927,-0.6591 L -0.6436,-0.7464 L -0.5926,-0.8322 L -0.5379,-0.9191 L -0.4773,-1.0107 L -0.4049,-1.1150 L -0.2231,-1.3678 L -0.1441,-1.4802 L -0.0796,-1.5761 L -0.0211,-1.6674 L 0.0347,-1.7592 L 0.0897,-1.8546 L 0.1457,-1.9567 L 0.2040,-2.0686 L 0.2665,-2.1941 L 0.3354,-2.3385 L 0.4134,-2.5083"/>
+        <g id="arrows17">
+          <use xlink:href="#arrow1" transform="translate(-0.6817,-0.6787) rotate(-60.68) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(0.0981,-1.8698) rotate(-61.27) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline18">
+        <path d="M 1.0000,0.0000 L 1.0273,-0.0782 L 1.0442,-0.1331 L 1.0570,-0.1830 L 1.0669,-0.2312 L 1.0741,-0.2789 L 1.0788,-0.3266 L 1.0811,-0.3748 L 1.0809,-0.4241 L 1.0782,-0.4751 L 1.0727,-0.5286 L 1.0642,-0.5866 L 1.0515,-0.6543 L 1.0219,-0.7904 L 1.0090,-0.8567 L 1.0014,-0.9076 L 0.9970,-0.9531 L 0.9953,-0.9958 L 0.9961,-1.0375 L 0.9994,-1.0794 L 1.0053,-1.1220 L 1.0140,-1.1663 L 1.0257,-1.2129 L 1.0409,-1.2625 L 1.0599,-1.3156 L 1.0831,-1.3729 L 1.1113,-1.4354 L 1.1448,-1.5034 L 1.1843,-1.5777 L 1.2307,-1.6592 L 1.2847,-1.7488 L 1.3469,-1.8471 L 1.4183,-1.9549 L 1.5001,-2.0736 L 1.5934,-2.2045 L 1.6996,-2.3489 L 1.8201,-2.5083"/>
+        <g id="arrows18">
+          <use xlink:href="#arrow1" transform="translate(1.1235,-1.4601) rotate(-63.76) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline19">
+        <path d="M 1.0000,0.0000 L 1.0732,-0.0653 L 1.1282,-0.1174 L 1.1807,-0.1704 L 1.2344,-0.2281 L 1.2930,-0.2946 L 1.3667,-0.3827 L 1.5230,-0.5744 L 1.6036,-0.6700 L 1.6731,-0.7489 L 1.7408,-0.8223 L 1.8092,-0.8929 L 1.8801,-0.9626 L 1.9546,-1.0326 L 2.0338,-1.1037 L 2.1186,-1.1765 L 2.2101,-1.2519 L 2.3093,-1.3305 L 2.4173,-1.4130 L 2.5356,-1.5002 L 2.6657,-1.5930 L 2.8091,-1.6924 L 2.9679,-1.7994 L 3.1445,-1.9155 L 3.3417,-2.0420"/>
+        <g id="arrows19">
+          <use xlink:href="#arrow1" transform="translate(2.0231,-1.0938) rotate(-41.35) scale(2.0)"/>
+          <use xlink:href="#arrow1" transform="translate(2.8881,-1.7456) rotate(-33.98) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline20">
+        <path d="M 1.0000,0.0000 L 1.1450,-0.0360 L 1.2781,-0.0714 L 1.4462,-0.1188 L 1.8367,-0.2318 L 2.0362,-0.2875 L 2.2242,-0.3377 L 2.4152,-0.3864 L 2.6167,-0.4354 L 2.8343,-0.4860 L 3.0738,-0.5393 L 3.3417,-0.5966"/>
+        <g id="arrows20">
+          <use xlink:href="#arrow1" transform="translate(2.4471,-0.3941) rotate(-13.68) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline21">
+        <path d="M 1.0000,0.0000 L 0.9216,0.0395 L 0.8793,0.0585 L 0.8458,0.0711 L 0.8163,0.0796 L 0.7890,0.0850 L 0.7629,0.0876 L 0.7371,0.0877 L 0.7110,0.0851 L 0.6839,0.0798 L 0.6546,0.0714 L 0.6214,0.0589 L 0.5793,0.0400 L 0.5000,0.0000"/>
+        <g id="arrows21">
+          <use xlink:href="#arrow1" transform="translate(0.7500,0.0864) rotate(-177.69) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline22">
+        <path d="M 1.0000,0.0000 L 0.9777,0.0717 L 0.9622,0.1145 L 0.9472,0.1493 L 0.9320,0.1789 L 0.9161,0.2047 L 0.8995,0.2273 L 0.8822,0.2468 L 0.8643,0.2636 L 0.8458,0.2776 L 0.8268,0.2890 L 0.8076,0.2978 L 0.7881,0.3041 L 0.7685,0.3079 L 0.7490,0.3093 L 0.7294,0.3083 L 0.7101,0.3048 L 0.6910,0.2989 L 0.6721,0.2905 L 0.6536,0.2795 L 0.6355,0.2660 L 0.6180,0.2497 L 0.6010,0.2305 L 0.5847,0.2082 L 0.5689,0.1825 L 0.5537,0.1527 L 0.5387,0.1175 L 0.5230,0.0739 L 0.5000,0.0000"/>
+        <g id="arrows22">
+          <use xlink:href="#arrow1" transform="translate(0.7494,0.3069) rotate(-176.39) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline23">
+        <path d="M -1.0000,0.0000 L -0.8316,0.1839 L -0.7391,0.2820 L -0.6659,0.3565 L -0.6019,0.4183 L -0.5440,0.4711 L -0.4899,0.5172 L -0.4386,0.5578 L -0.3893,0.5937 L -0.3417,0.6255 L -0.2954,0.6536 L -0.2504,0.6781 L -0.2065,0.6992 L -0.1637,0.7172 L -0.1221,0.7320 L -0.0818,0.7438 L -0.0429,0.7528 L -0.0055,0.7589 L 0.0303,0.7624 L 0.0643,0.7633 L 0.0965,0.7617 L 0.1268,0.7579 L 0.1551,0.7518 L 0.1814,0.7438 L 0.2059,0.7338 L 0.2285,0.7220 L 0.2493,0.7083 L 0.2686,0.6928 L 0.2864,0.6753 L 0.3027,0.6557 L 0.3178,0.6336 L 0.3318,0.6087 L 0.3448,0.5802 L 0.3571,0.5471 L 0.3689,0.5076 L 0.3811,0.4568 L 0.3991,0.3675 L 0.4185,0.2707 L 0.4342,0.2043 L 0.4508,0.1440 L 0.4704,0.0827 L 0.5000,0.0000"/>
+        <g id="arrows23">
+          <use xlink:href="#arrow1" transform="translate(-0.1248,0.7304) rotate(17.54) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline24">
+        <path d="M -1.0000,0.0000 L -0.7596,0.1243 L -0.6401,0.1839 L -0.5519,0.2257 L -0.4798,0.2576 L -0.4172,0.2828 L -0.3617,0.3028 L -0.3112,0.3186 L -0.2647,0.3308 L -0.2213,0.3398 L -0.1804,0.3460 L -0.1417,0.3495 L -0.1048,0.3506 L -0.0693,0.3492 L -0.0351,0.3457 L -0.0018,0.3398 L 0.0307,0.3317 L 0.0629,0.3212 L 0.0948,0.3083 L 0.1271,0.2927 L 0.1603,0.2739 L 0.1953,0.2512 L 0.2337,0.2232 L 0.2803,0.1860 L 0.4133,0.0720 L 0.5000,0.0000"/>
+        <g id="arrows24">
+          <use xlink:href="#arrow1" transform="translate(-0.2305,0.3373) rotate(10.07) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline25">
+        <path d="M -1.0000,0.0000 L -0.6443,0.0552 L -0.4874,0.0777 L -0.3780,0.0911 L -0.2910,0.0995 L -0.2164,0.1044 L -0.1498,0.1062 L -0.0878,0.1055 L -0.0278,0.1022 L 0.0323,0.0963 L 0.0954,0.0875 L 0.1665,0.0747 L 0.2618,0.0544 L 0.5000,0.0000"/>
+        <g id="arrows25">
+          <use xlink:href="#arrow1" transform="translate(-0.2483,0.1022) rotate(3.38) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline26">
+        <path d="M -1.0000,0.0000 L -0.6443,-0.0552 L -0.4874,-0.0777 L -0.3780,-0.0911 L -0.2910,-0.0995 L -0.2164,-0.1044 L -0.1498,-0.1062 L -0.0878,-0.1055 L -0.0278,-0.1022 L 0.0323,-0.0963 L 0.0954,-0.0875 L 0.1665,-0.0747 L 0.2618,-0.0544 L 0.5000,0.0000"/>
+        <g id="arrows26">
+          <use xlink:href="#arrow1" transform="translate(-0.2483,-0.1022) rotate(-3.38) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline27">
+        <path d="M -1.0000,0.0000 L -0.7596,-0.1243 L -0.6401,-0.1839 L -0.5519,-0.2257 L -0.4798,-0.2576 L -0.4172,-0.2828 L -0.3617,-0.3028 L -0.3112,-0.3186 L -0.2647,-0.3308 L -0.2213,-0.3398 L -0.1804,-0.3460 L -0.1417,-0.3495 L -0.1048,-0.3506 L -0.0693,-0.3492 L -0.0351,-0.3457 L -0.0018,-0.3398 L 0.0307,-0.3317 L 0.0629,-0.3212 L 0.0948,-0.3083 L 0.1271,-0.2927 L 0.1603,-0.2739 L 0.1953,-0.2512 L 0.2337,-0.2232 L 0.2803,-0.1860 L 0.4133,-0.0720 L 0.5000,0.0000"/>
+        <g id="arrows27">
+          <use xlink:href="#arrow1" transform="translate(-0.2305,-0.3373) rotate(-10.07) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline28">
+        <path d="M -1.0000,0.0000 L -0.8316,-0.1839 L -0.7391,-0.2820 L -0.6659,-0.3565 L -0.6019,-0.4183 L -0.5440,-0.4711 L -0.4899,-0.5172 L -0.4386,-0.5578 L -0.3893,-0.5937 L -0.3417,-0.6255 L -0.2954,-0.6536 L -0.2504,-0.6781 L -0.2065,-0.6992 L -0.1637,-0.7172 L -0.1221,-0.7320 L -0.0818,-0.7438 L -0.0429,-0.7528 L -0.0055,-0.7589 L 0.0303,-0.7624 L 0.0643,-0.7633 L 0.0965,-0.7617 L 0.1268,-0.7579 L 0.1551,-0.7518 L 0.1814,-0.7438 L 0.2059,-0.7338 L 0.2285,-0.7220 L 0.2493,-0.7083 L 0.2686,-0.6928 L 0.2864,-0.6753 L 0.3027,-0.6557 L 0.3178,-0.6336 L 0.3318,-0.6087 L 0.3448,-0.5802 L 0.3571,-0.5471 L 0.3689,-0.5076 L 0.3811,-0.4568 L 0.3991,-0.3675 L 0.4185,-0.2707 L 0.4342,-0.2043 L 0.4508,-0.1440 L 0.4704,-0.0827 L 0.5000,0.0000"/>
+        <g id="arrows28">
+          <use xlink:href="#arrow1" transform="translate(-0.1248,-0.7304) rotate(-17.54) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline29">
+        <path d="M 1.0000,0.0000 L 0.9777,-0.0717 L 0.9622,-0.1145 L 0.9472,-0.1493 L 0.9320,-0.1789 L 0.9161,-0.2047 L 0.8995,-0.2273 L 0.8822,-0.2468 L 0.8643,-0.2636 L 0.8458,-0.2776 L 0.8268,-0.2890 L 0.8076,-0.2978 L 0.7881,-0.3041 L 0.7685,-0.3079 L 0.7490,-0.3093 L 0.7294,-0.3083 L 0.7101,-0.3048 L 0.6910,-0.2989 L 0.6721,-0.2905 L 0.6536,-0.2795 L 0.6355,-0.2660 L 0.6180,-0.2497 L 0.6010,-0.2305 L 0.5847,-0.2082 L 0.5689,-0.1825 L 0.5537,-0.1527 L 0.5387,-0.1175 L 0.5230,-0.0739 L 0.5000,0.0000"/>
+        <g id="arrows29">
+          <use xlink:href="#arrow1" transform="translate(0.7494,-0.3069) rotate(176.39) scale(2.0)"/>
+        </g>
+      </g>
+      <g id="fieldline30">
+        <path d="M 1.0000,0.0000 L 0.9216,-0.0395 L 0.8793,-0.0585 L 0.8458,-0.0711 L 0.8163,-0.0796 L 0.7890,-0.0850 L 0.7629,-0.0876 L 0.7371,-0.0877 L 0.7110,-0.0851 L 0.6839,-0.0798 L 0.6546,-0.0714 L 0.6214,-0.0589 L 0.5793,-0.0400 L 0.5000,0.0000"/>
+        <g id="arrows30">
+          <use xlink:href="#arrow1" transform="translate(0.7500,-0.0864) rotate(177.69) scale(2.0)"/>
+        </g>
+      </g>
+    </g>
+    <g id="symbols">
+      <g id="charge1" transform="translate(-1.0,0.0) scale(0.00833333333333,0.00833333333333)">
+        <circle style="fill:#ff0000; stroke:none" cx="0" cy="0" r="14"/>
+        <circle cx="0" cy="0" r="14" style="fill:url(#white_spot); stroke:#000000; stroke-width:2"/>
+        <path d="M 2,2 V 8 H -2 V 2 H -8 V -2 H -2 V -8 H 2 V -2 H 8 V 2 H 2 Z" style="fill:#000000; stroke:none"/>
+      </g>
+      <g id="charge2" transform="translate(0.5,0.0) scale(0.00589255650989,0.00589255650989)">
+        <circle style="fill:#0000ff; stroke:none" cx="0" cy="0" r="14"/>
+        <circle cx="0" cy="0" r="14" style="fill:url(#white_spot); stroke:#000000; stroke-width:2"/>
+        <path d="M 8,2 H -8 V -2 H 8 V 2 Z" style="fill:#000000; stroke:none"/>
+      </g>
+      <g id="charge3" transform="translate(1.0,0.0) scale(0.00589255650989,0.00589255650989)">
+        <circle style="fill:#ff0000; stroke:none" cx="0" cy="0" r="14"/>
+        <circle cx="0" cy="0" r="14" style="fill:url(#white_spot); stroke:#000000; stroke-width:2"/>
+        <path d="M 2,2 V 8 H -2 V 2 H -8 V -2 H -2 V -8 H 2 V -2 H 8 V 2 H 2 Z" style="fill:#000000; stroke:none"/>
+      </g>
+      <g id="metal_ball" transform="translate(1,0)" style="fill:none; stroke:#000;stroke-linecap:square">
+        <radialGradient id="metal_spot" cx="0.53" cy="0.54" r="0.55" fx="0.65" fy="0.7" gradientUnits="objectBoundingBox">
+          <stop stop-color="#fff" offset="0" stop-opacity="1"/>
+          <stop stop-color="#e7e7e7" offset="0.15" stop-opacity="1"/>
+          <stop stop-color="#ddd" offset="0.25" stop-opacity="1"/>
+          <stop stop-color="#aaa" offset="0.7" stop-opacity="1"/>
+          <stop stop-color="#888" offset="0.9" stop-opacity="1"/>
+          <stop stop-color="#666" offset="1" stop-opacity="1"/>
+        </radialGradient>
+        <circle cy="0" cx="0" r="1.0" style="fill:url(#metal_spot); fill-opacity:1; stroke-width:0.02"/>
+        <g style="stroke-width:0.01667">
+          <path d="M 0.85,0.24167 h 0.03333 m -0.01667,-0.01667 v 0.03333"/>
+          <path d="M 0.85,-0.24167 h 0.03333 m -0.01667,-0.01667 v 0.03333"/>
+          <path d="M 0.6,0.66667 h 0.03333 m -0.01667,-0.01667 v 0.03333"/>
+          <path d="M 0.6,-0.66667 h 0.03333 m -0.01667,-0.01667 v 0.03333"/>
+          <path d="M -0.025,0.9 h 0.03333 m -0.01667,-0.01667 v 0.03333"/>
+          <path d="M -0.025,-0.9 h 0.03333 m -0.01667,-0.01667 v 0.03333"/>
+          <path d="M -0.66667,0.61667 h 0.03333"/>
+          <path d="M -0.66667,-0.61667 h 0.03333"/>
+          <path d="M -0.86667,0.29167 h 0.03333"/>
+          <path d="M -0.86667,-0.29167 h 0.03333"/>
+          <path d="M -0.90833,0.09167 h 0.03333"/>
+          <path d="M -0.90833,-0.09167 h 0.03333"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

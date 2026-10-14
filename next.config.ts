@@ -9,12 +9,15 @@ const nextConfig: NextConfig = {
     "tesseract.js-core",
     "playwright-core",
     "@browserbasehq/sdk",
+    "speech-rule-engine",
+    "temml",
   ],
   // Local datasets / Python backend must not be NFT-traced into every serverless function.
   outputFileTracingExcludes: {
     "*": [
       "./Analytics-Dashboard/**",
       "./metaphor-dataset/**",
+      "./Physics-tutor-data/**",
       "./backend/**",
       "./browser-engine/**",
       "./.cache/**",

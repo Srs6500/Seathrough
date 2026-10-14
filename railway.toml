@@ -1,0 +1,19 @@
+# Railway = full Node host with local Chromium (see Dockerfile).
+# Vercel stays serverless + Browserless — do not point Railway at Browserless keys
+# unless you intentionally want the API path.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "npm run start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Non-secret defaults (API keys still go in the Railway dashboard).
+[variables]
+BROWSER_EXPERIENCE_PROVIDER = "local"
+BROWSER_LOCAL_HEADED = "0"

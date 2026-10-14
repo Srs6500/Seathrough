@@ -1,16 +1,49 @@
 import { getDeepgramConfig } from "@/lib/env";
+import {
+  deepgramPhonetics,
+  speakMathDynamically,
+} from "@/lib/math/dynamicMathSpeech";
 import { mathToSpeech } from "@/lib/math/mathToSpeech";
+import { physicsToSpeech } from "@/lib/physics-tutor/physicsToSpeech";
 
 export type TtsResult = {
   mimeType: string;
   base64: string;
 };
 
+/** Prefer SRE when the line has TeX / unicode math / calculus spellings. */
+function prefersDynamicMath(text: string): boolean {
+  return /\$|\\\(|\\\[|\\begin\{|\\frac|\\int|\\sum|\\sqrt|\\partial|\\nabla|\\mu|\\pi|\\theta|[πμθε∫∂∇√∞]|\bd[a-zA-Z]?\s*\/\s*d[a-zA-Z]/.test(
+    text,
+  );
+}
+
 /**
- * Deepgram Aura-2 TTS. Returns audio as base64 for SSE delivery.
+ * Deepgram Aura-2 TTS. Captions stay as written; only this path rewrites math.
+ * Structured math → Temml + Speech Rule Engine (ClearSpeak); else legacy mathToSpeech.
+ * Thin Deepgram phonetics (mu→mew, pi→pie) always; physics mode adds domain phrasing.
  */
-export async function synthesizeSpeech(text: string): Promise<TtsResult> {
-  const spoken = mathToSpeech(text);
+export async function synthesizeSpeech(
+  text: string,
+  options?: { mode?: "tutor" | "physics" },
+): Promise<TtsResult> {
+  let spoken = "";
+  if (prefersDynamicMath(text)) {
+    try {
+      spoken = await speakMathDynamically(text);
+    } catch (error) {
+      console.warn(
+        "[tts] dynamic math speech failed; using legacy rewriter",
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+  if (!spoken) {
+    spoken = deepgramPhonetics(mathToSpeech(text));
+  }
+  if (options?.mode === "physics") {
+    spoken = physicsToSpeech(spoken);
+  }
   if (!spoken) {
     throw new Error("TTS text is empty");
   }
