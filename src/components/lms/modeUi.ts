@@ -74,9 +74,14 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     hint: "Watch a full design stay on the board, diagram under diagram.",
     tone: "copper",
   },
-  developer: {
-    icon: Monitor,
-    hint: "Two agents take work from a project manager and code at their desks.",
+  "data-flow": {
+    icon: GitBranch,
+    hint: "Trace how data moves through an app — requests, stores, and side effects.",
+    tone: "copper",
+  },
+  "bug-analyzer": {
+    icon: Bug,
+    hint: "Paste a failure. We map likely causes and where to look in the stack.",
     tone: "ink",
   },
   "scene-explain": {

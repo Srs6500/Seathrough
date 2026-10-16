@@ -7,6 +7,7 @@
  */
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { mathToSpeech } from "@/lib/math/mathToSpeech";
 
 type SreApi = {
@@ -22,8 +23,10 @@ type TemmlApi = {
   ) => string;
 };
 
-// cwd-based so this works in Next and in esbuild-bundled smokes (no import.meta.url).
-const require = createRequire(join(process.cwd(), "package.json"));
+// File URL so webpack/Next can parse createRequire; works in smokes too.
+const require = createRequire(
+  pathToFileURL(join(process.cwd(), "package.json")).href,
+);
 
 let srePromise: Promise<SreApi> | null = null;
 let temml: TemmlApi | null = null;

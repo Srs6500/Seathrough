@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { access, mkdir, mkdtemp } from "node:fs/promises";
 import net from "node:net";
@@ -28,7 +28,8 @@ export type LocalRunState = {
 };
 
 type InternalRun = LocalRunState & {
-  child: ChildProcessWithoutNullStreams | null;
+  /** stdin may be ignored when stdio[0] is "ignore". */
+  child: ChildProcess | null;
 };
 
 const globalKey = "__seethrough_local_runs__";

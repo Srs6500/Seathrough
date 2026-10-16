@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "build:debug": "npm install --prefix packages/debug --include=dev && npm run build --prefix packages/debug",
+    "prebuild": "npm run build:debug",
+    "predev": "npm run build:debug",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",

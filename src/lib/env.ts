@@ -159,6 +159,37 @@ export function getSupabaseConfig() {
   };
 }
 
+/**
+ * GitHub App for Bug Analyzer / data-flow repo connect.
+ * Private key may be stored with literal \n in env dashboards.
+ */
+export function getGithubAppConfig() {
+  const appId = optional("GITHUB_APP_ID");
+  const slug = optional("GITHUB_APP_SLUG");
+  const rawKey = optional("GITHUB_APP_PRIVATE_KEY");
+  let privateKey = "";
+  let privateKeyError: string | undefined;
+  if (rawKey) {
+    privateKey = rawKey.includes("\\n")
+      ? rawKey.replace(/\\n/g, "\n")
+      : rawKey;
+    if (!/BEGIN [A-Z ]*PRIVATE KEY/.test(privateKey)) {
+      privateKeyError = "GITHUB_APP_PRIVATE_KEY does not look like a PEM private key";
+    }
+  }
+  const configured = Boolean(appId && slug && privateKey && !privateKeyError);
+  return {
+    configured,
+    appId: appId ?? "",
+    slug: slug ?? "",
+    privateKey,
+    privateKeyError,
+    clientId: optional("GITHUB_APP_CLIENT_ID"),
+    clientSecret: optional("GITHUB_APP_CLIENT_SECRET"),
+    webhookSecret: optional("GITHUB_APP_WEBHOOK_SECRET"),
+  };
+}
+
 export function envPresence() {
   const imageRefRaw = optional("IMAGE_REFERENCE_ENABLED")?.toLowerCase();
   const imageReferenceExplicitOff =
@@ -181,5 +212,8 @@ export function envPresence() {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Boolean(optional("NEXT_PUBLIC_SUPABASE_ANON_KEY")),
     SUPABASE_SERVICE_ROLE_KEY: Boolean(optional("SUPABASE_SERVICE_ROLE_KEY")),
     SEETHROUGH_ADMIN_PASSWORD: Boolean(optional("SEETHROUGH_ADMIN_PASSWORD")),
+    GITHUB_APP_ID: Boolean(optional("GITHUB_APP_ID")),
+    GITHUB_APP_SLUG: Boolean(optional("GITHUB_APP_SLUG")),
+    GITHUB_APP_PRIVATE_KEY: Boolean(optional("GITHUB_APP_PRIVATE_KEY")),
   };
 }
