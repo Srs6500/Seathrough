@@ -48,7 +48,7 @@ export function AccountMenu({
         <button
           type="button"
           onClick={onLogin}
-          className="text-[14px] font-medium text-[#3a3a3a] outline-none transition-colors hover:text-[#111111] focus-visible:text-[#111111]"
+          className="hidden text-[13px] font-medium text-white/70 outline-none transition-colors hover:text-white focus-visible:text-white sm:inline"
         >
           Login
         </button>

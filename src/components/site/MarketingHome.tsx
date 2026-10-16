@@ -16,7 +16,7 @@ export function MarketingHome() {
 
   return (
     <StudioAccessProvider>
-      <div className="marketing-shell flex min-h-dvh flex-col text-[#142433]">
+      <div className="marketing-shell marketing-shell--dark flex min-h-dvh flex-col text-white">
         <div className="relative z-10 flex min-h-dvh flex-col">
           <SiteHeader variant="marketing" />
           <main className="flex flex-1 flex-col">

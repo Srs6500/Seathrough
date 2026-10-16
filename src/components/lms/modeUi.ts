@@ -10,6 +10,8 @@ import {
   LayoutDashboard,
   Lightbulb,
   Monitor,
+  Bug,
+  GitBranch,
   Network,
   PenLine,
   Sparkles,
@@ -52,9 +54,29 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     hint: "Answer in your own words. A picture appears when a mix-up shows up.",
     tone: "blue",
   },
+  "ai-tutor-v2": {
+    icon: Sparkles,
+    hint: "Ask a question. Watch a streamed whiteboard lesson with follow-ups.",
+    tone: "blue",
+  },
+  developer: {
+    icon: Monitor,
+    hint: "Two agents take work from a project manager and code at their desks.",
+    tone: "ink",
+  },
   "system-design": {
     icon: Network,
     hint: "Watch a full design stay on the board, diagram under diagram.",
+    tone: "copper",
+  },
+  "data-flow": {
+    icon: GitBranch,
+    hint: "Connect GitHub, then see where a request field goes.",
+    tone: "copper",
+  },
+  "bug-analyzer": {
+    icon: Bug,
+    hint: "Connect a repository, then hunt bugs in the code.",
     tone: "copper",
   },
   "scene-explain": {

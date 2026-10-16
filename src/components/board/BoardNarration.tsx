@@ -123,6 +123,7 @@ export function BoardNarration({
 
         {visibleLines.map((line, index) => {
           const text = line.text;
+          const lineKey = `${line.id}-${index}`;
           const numbered =
             line.kind !== "student" &&
             line.kind !== "error" &&
@@ -141,7 +142,7 @@ export function BoardNarration({
           if (line.kind === "error") {
             return (
               <p
-                key={line.id}
+                key={lineKey}
                 className="animate-fade-up text-[14px] leading-6 text-error"
               >
                 {text}
@@ -150,7 +151,7 @@ export function BoardNarration({
           }
           if (line.kind === "student") {
             return (
-              <div key={line.id} className="animate-fade-up">
+              <div key={lineKey} className="animate-fade-up">
                 <p className="text-[11px] font-medium text-[#1b6ca8]">You</p>
                 <p className="mt-1 text-[14px] leading-6 text-[#17324a]">
                   {text}
@@ -161,7 +162,7 @@ export function BoardNarration({
           if (line.kind === "summary") {
             return (
               <p
-                key={line.id}
+                key={lineKey}
                 className="animate-fade-up border-l-2 border-[#2a7a5c] pl-3 text-[14.5px] leading-6 text-[#17324a]"
               >
                 {text}
@@ -169,7 +170,7 @@ export function BoardNarration({
             );
           }
           return (
-            <div key={line.id} className="animate-fade-up flex gap-3">
+            <div key={lineKey} className="animate-fade-up flex gap-3">
               <span
                 className="mt-0.5 w-4 shrink-0 font-mono text-[11px] text-[#8a9aab]"
                 aria-hidden

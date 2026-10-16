@@ -1,6 +1,10 @@
 # Teaching backend (Python)
 
-Interactive CLI that detects misconceptions, switches teaching strategies, and opens visual lessons. The Next.js `/ai-tutor` page calls the same logic through `web_session.py`.
+This folder is the current tutor only. The Next.js `/ai-tutor` page calls it through `web_session.py`.
+
+AI Tutor v2.0 is a separate FastAPI service in `ai-tutor-v2/`. Do not add v2 lesson, Scene IR, or streaming code here.
+
+Interactive CLI that detects misconceptions, switches teaching strategies, and opens visual lessons.
 
 ## Requirements
 

@@ -1,216 +1,60 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Pause, Play, Volume2, VolumeX } from "lucide-react";
+import { MarketingProductPreview } from "@/components/site/MarketingProductPreview";
 import { useStudioAccess } from "@/components/site/StudioAccess";
-
-function DemoFrame({
-  src,
-  label,
-  aspect,
-  sound = false,
-}: {
-  src: string;
-  label: string;
-  aspect: string;
-  sound?: boolean;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [paused, setPaused] = useState(false);
-  const [muted, setMuted] = useState(true);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (reduce.matches) {
-      video.pause();
-      setPaused(true);
-      return;
-    }
-    void video.play().catch(() => undefined);
-  }, []);
-
-  function togglePlayback() {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      void video.play().catch(() => undefined);
-      setPaused(false);
-      return;
-    }
-    video.pause();
-    setPaused(true);
-  }
-
-  function toggleSound() {
-    const video = videoRef.current;
-    if (!video) return;
-    const next = !video.muted;
-    video.muted = next;
-    setMuted(next);
-  }
-
-  return (
-    <div className="bg-[#085080] p-6 sm:p-10 md:p-14">
-      <div className="relative">
-        <video
-          ref={videoRef}
-          src={src}
-          className={`${aspect} w-full bg-[#111111] object-contain shadow-[0_24px_60px_-24px_rgba(8,12,40,0.55)]`}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-label={label}
-        />
-        <div className="absolute right-3 bottom-3 flex gap-2">
-          {sound ? (
-            <button
-              type="button"
-              onClick={toggleSound}
-              className="inline-flex size-9 items-center justify-center bg-white/90 text-[#111111] outline-none hover:bg-white focus-visible:ring-2 focus-visible:ring-white/70"
-              aria-label={muted ? `Unmute ${label}` : `Mute ${label}`}
-            >
-              {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={togglePlayback}
-            className="inline-flex size-9 items-center justify-center bg-white/90 text-[#111111] outline-none hover:bg-white focus-visible:ring-2 focus-visible:ring-white/70"
-            aria-label={paused ? `Play ${label}` : `Pause ${label}`}
-          >
-            {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Underline({ children }: { children: string }) {
-  return (
-    <span className="relative inline-block">
-      {children}
-      <svg
-        className="draw-stroke pointer-events-none absolute -bottom-1 left-0 h-3 w-full sm:-bottom-2 sm:h-4"
-        viewBox="0 0 120 16"
-        aria-hidden
-      >
-        <path pathLength="1" d="M2 9 C 22 3, 40 14, 64 8 S 96 3, 118 10" />
-      </svg>
-    </span>
-  );
-}
 
 export function MarketingHero() {
   const { openStudio } = useStudioAccess();
 
   return (
-    <section className="bg-white">
-      <div className="relative mx-auto max-w-6xl px-6 pt-16 pb-16 md:px-8 md:pt-24 md:pb-24">
-        <p className="marketing-rise marketing-rise-1">
-          <span className="inline-flex rounded-full bg-[#085080] px-2.5 py-1 text-[12px] font-semibold tracking-[0.08em] text-white uppercase">
-            New
-          </span>
-        </p>
-        <h1 className="marketing-rise marketing-rise-1 mt-4 max-w-3xl text-[2.6rem] leading-[1.08] font-medium tracking-[-0.035em] text-[#111111] sm:text-[3.25rem] md:text-[3.75rem]">
-          Visual video explanation
-          <br />
-          from one <Underline>sentence.</Underline>
-        </h1>
-        <div className="marketing-rise marketing-rise-2 mt-8 flex flex-col items-start gap-6 sm:mt-10 sm:flex-row sm:items-end sm:justify-between">
-          <p className="max-w-sm text-[15px] leading-6 text-[#5c6370]">
-            Type a topic. Video explainer draws it, talks through it, and hands
-            you a film you can save.
-          </p>
-          <button
-            type="button"
-            onClick={() => openStudio("/video")}
-            className="inline-flex h-11 shrink-0 items-center bg-[#085080] px-5 text-[14px] font-medium text-white outline-none transition hover:bg-[#083068] focus-visible:ring-2 focus-visible:ring-[#085080]/40"
-          >
-            Try Video explainer
-          </button>
-        </div>
-
-        <div className="marketing-rise marketing-rise-3 mt-12 sm:mt-16">
-          <DemoFrame
-            src="/magnetic-pole-basics.mp4"
-            label="Video explainer demo"
-            aspect="aspect-video"
-            sound
-          />
-          <p className="mt-4 font-[family-name:var(--font-ibm-plex-mono)] text-[11px] tracking-[0.08em] text-[#5c6370] uppercase">
-            Picture / Voice / Caption
-          </p>
-        </div>
-      </div>
-
-      <div className="border-t border-[#e7eef4]">
-        <div className="mx-auto max-w-6xl px-6 py-16 md:px-8 md:py-24">
-          <h2 className="max-w-3xl text-[2rem] leading-[1.12] font-medium tracking-[-0.035em] text-[#111111] sm:text-[2.6rem]">
-            A whole system,
-            <br />
-            drawn on one <Underline>board.</Underline>
-          </h2>
-          <div className="mt-8 flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <p className="max-w-sm text-[15px] leading-6 text-[#5c6370]">
-              Ask for a chat app or a photo feed. Architecture, data, and what
-              happens when it fails stay on the board, one diagram under the last.
-            </p>
-            <button
-              type="button"
-              onClick={() => openStudio("/system-design")}
-              className="inline-flex h-11 shrink-0 items-center bg-[#085080] px-5 text-[14px] font-medium text-white outline-none transition hover:bg-[#083068] focus-visible:ring-2 focus-visible:ring-[#085080]/40"
-            >
-              Try a system design
-            </button>
-          </div>
-          <div className="mt-12 sm:mt-16">
-            <DemoFrame
-              src="/system-design-demo.mp4"
-              label="System design demo"
-              aspect="aspect-video"
+    <section className="relative flex flex-1 flex-col overflow-hidden">
+      {/* Centered light dot grid behind hero content */}
+      <div
+        className="marketing-hero-dots pointer-events-none absolute inset-0 z-0"
+        aria-hidden
+      />
+      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 pt-20 pb-16 md:px-16 md:pt-28 md:pb-24 lg:px-24">
+        <div className="max-w-3xl text-left">
+          <div className="marketing-rise marketing-rise-1 mb-5 inline-flex items-center gap-2">
+            <span
+              className="h-1.5 w-3 rounded-full bg-white"
+              aria-hidden
             />
-            <p className="mt-4 font-[family-name:var(--font-ibm-plex-mono)] text-[11px] tracking-[0.08em] text-[#5c6370] uppercase">
-              Architecture / Data model / Request flow / Reliability / Deployment
-            </p>
+            <span className="font-[family-name:var(--font-inter)] text-[14px] font-medium tracking-[-0.01em] text-white/90">
+              Visualize
+            </span>
           </div>
-        </div>
-      </div>
 
-      <div className="border-t border-[#e7eef4]">
-        <div className="mx-auto max-w-6xl px-6 py-16 md:px-8 md:py-24">
-          <h2 className="max-w-3xl text-[2rem] leading-[1.12] font-medium tracking-[-0.035em] text-[#111111] sm:text-[2.6rem]">
-            Ask a question.
-            <br />
-            Watch and learn.
-          </h2>
-          <div className="mt-8 flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <p className="max-w-sm text-[15px] leading-6 text-[#5c6370]">
-              The tutor explains it with a visualization, talks through each
-              step, then checks you understood.
-            </p>
+          <h1 className="marketing-rise marketing-rise-1 font-[family-name:var(--font-inter)] text-[2rem] leading-[1.12] font-medium tracking-[-0.035em] text-white sm:text-[2.5rem] md:text-[2.85rem]">
+            Learn systems, debug code, and see every step drawn for you.
+          </h1>
+
+          <p className="marketing-rise marketing-rise-2 mt-5 max-w-md font-[family-name:var(--font-inter)] text-[14px] leading-[1.55] font-normal text-[#e0e0e0] sm:text-[15px] sm:leading-[1.6]">
+            AI tutor walks you through ideas on a live board. System design maps
+            architecture as you ask. Debugging visuals turn repo issues into
+            clickable diagrams you can follow.
+          </p>
+
+          <div className="marketing-rise marketing-rise-2 mt-8 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => openStudio("/smart-tutor")}
-              className="inline-flex h-11 shrink-0 items-center bg-[#085080] px-5 text-[14px] font-medium text-white outline-none transition hover:bg-[#083068] focus-visible:ring-2 focus-visible:ring-[#085080]/40"
+              onClick={() => openStudio("/bug-analyzer")}
+              className="inline-flex h-10 items-center rounded-lg bg-white px-5 font-[family-name:var(--font-inter)] text-[13px] font-bold text-black outline-none transition hover:bg-white/92 focus-visible:ring-2 focus-visible:ring-white/50"
             >
-              Try it out
+              Get started now
             </button>
-          </div>
-          <div className="mt-12 sm:mt-16">
-            <p className="mb-3 text-center text-[15px] font-medium tracking-[-0.01em] text-[#111111]">
+            <button
+              type="button"
+              onClick={() => openStudio("/video")}
+              className="inline-flex h-10 items-center rounded-lg bg-[#262626] px-5 font-[family-name:var(--font-inter)] text-[13px] font-bold text-white outline-none transition hover:bg-[#303030] focus-visible:ring-2 focus-visible:ring-white/30"
+            >
               Watch demo
-            </p>
-            <DemoFrame
-              src="/demovid.mp4"
-              label="Smart tutor demo"
-              aspect="aspect-[1920/1166]"
-            />
+            </button>
           </div>
+        </div>
+
+        <div className="marketing-rise marketing-rise-3 mt-14 w-full sm:mt-16">
+          <MarketingProductPreview />
         </div>
       </div>
     </section>

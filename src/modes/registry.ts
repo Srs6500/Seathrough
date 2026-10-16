@@ -2,6 +2,9 @@ import { automaticDrawingMode } from "@/modules/automatic-drawing/mode";
 import { browserExperienceMode } from "@/modules/browser-experience/mode";
 import { explainVideoMode } from "@/modules/explain-video/mode";
 import { aiTutorMode } from "@/modules/ai-tutor/mode";
+import { aiTutorV2Mode } from "@/modules/ai-tutor-v2/mode";
+import { bugAnalyzerMode } from "@/modules/bug-analyzer/mode";
+import { dataFlowMode } from "@/modules/data-flow/mode";
 import { dashboardMode } from "@/modules/dashboard/mode";
 import { drawEngineMode } from "@/modules/draw-engine/mode";
 import { figures3dMode } from "@/modules/figures-3d/mode";
@@ -23,7 +26,10 @@ const ALL_MODES: ModeDefinition[] = [
   dashboardMode,
   lessonsMode,
   aiTutorMode,
+  aiTutorV2Mode,
   systemDesignMode,
+  dataFlowMode,
+  bugAnalyzerMode,
   sceneExplainMode,
   screenshotExplainMode,
   leetcodeMode,

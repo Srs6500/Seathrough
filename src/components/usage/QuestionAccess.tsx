@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -44,7 +45,7 @@ export function QuestionAccessProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  const { user, accessToken, loading } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>("signup");
   const [authOpen, setAuthOpen] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
@@ -55,7 +56,10 @@ export function QuestionAccessProvider({
     () => false,
   );
 
-  const remaining = user
+  // Session token means signed-in for quota even while /api/auth/me is still loading.
+  const signedIn = Boolean(user || accessToken);
+
+  const remaining = signedIn
     ? Number.POSITIVE_INFINITY
     : quotaHydrated
       ? remainingQuestions()
@@ -67,13 +71,23 @@ export function QuestionAccessProvider({
     setAuthOpen(true);
   }, []);
 
+  // Dismiss the free-quota modal once a session is present.
+  useEffect(() => {
+    if (!signedIn) return;
+    setAuthOpen(false);
+    setAuthRequired(false);
+  }, [signedIn]);
+
   const canAsk = useCallback(() => {
-    if (user) return true;
+    if (loading) return false;
+    if (signedIn) return true;
     return canAskAnonymous();
-  }, [user]);
+  }, [loading, signedIn]);
 
   const beginQuestion = useCallback(() => {
-    if (user) return true;
+    // Wait for auth hydration — don't burn anonymous quota mid-login.
+    if (loading) return false;
+    if (signedIn) return true;
     if (!canAskAnonymous()) {
       setAuthMode("signup");
       setAuthRequired(true);
@@ -89,13 +103,13 @@ export function QuestionAccessProvider({
       return false;
     }
     return true;
-  }, [user]);
+  }, [loading, signedIn]);
 
   const cancelQuestion = useCallback(() => {
-    if (user) return;
+    if (signedIn) return;
     refundQuestion();
     setTick((n) => n + 1);
-  }, [user]);
+  }, [signedIn]);
 
   const value = useMemo(
     () => ({
