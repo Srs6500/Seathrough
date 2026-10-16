@@ -133,8 +133,10 @@ let runtimeGlobals: Set<string> | null = null;
 function knownGlobals(): Set<string> {
   if (runtimeGlobals) return runtimeGlobals;
   const names = new Set(LANGUAGE_GLOBALS);
+  const root = /* turbopackIgnore: true */ process.cwd();
   for (const file of ["core.js", "kit.js"]) {
-    const source = readFileSync(path.join(process.cwd(), "public", "film-engine", file), "utf8");
+    const filePath = path.join(root, "public", "film-engine", file);
+    const source = readFileSync(/* turbopackIgnore: true */ filePath, "utf8");
     const program = acorn.parse(source, { ecmaVersion: 2022, sourceType: "script" });
     for (const node of program.body) {
       if (node.type === "FunctionDeclaration" && node.id) names.add(node.id.name);

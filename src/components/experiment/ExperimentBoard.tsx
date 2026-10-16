@@ -163,7 +163,7 @@ export function ExperimentBoard({
   kind = "tutor",
   sessionId,
 }: {
-  kind?: "tutor" | "system";
+  kind?: "tutor" | "system" | "physics";
   /** A saved system design to reopen. */
   sessionId?: string;
 } = {}) {
@@ -514,7 +514,11 @@ export function ExperimentBoard({
   async function speakLine(text: string, signal: AbortSignal) {
     if (!voiceReady || !text.trim()) return;
     try {
-      const spoken = await requestExperimentSpeak(text, signal);
+      const spoken = await requestExperimentSpeak(
+        text,
+        signal,
+        kind === "physics" ? "physics" : "tutor",
+      );
       if (!spoken || signal.aborted) return;
       await playExperimentAudio(spoken, signal);
     } catch {
@@ -949,6 +953,7 @@ export function ExperimentBoard({
                 expect: check.expect,
                 answer: text,
                 lastSay: current.beats[indexRef.current]?.say ?? "",
+                ...(kind === "physics" ? { mode: "physics" as const } : {}),
               },
               ac.signal,
             );
@@ -1354,7 +1359,9 @@ export function ExperimentBoard({
         ? "Change the design, like “use AWS instead of Supabase”…"
       : kind === "system"
         ? "Describe a system, like a chat app or a URL shortener…"
-        : "Ask a question or tap the mic…";
+        : kind === "physics"
+          ? "Ask a physics question, like electric fields or capacitors…"
+          : "Ask a question or tap the mic…";
   const graph =
     lesson && currentBeat >= 0
       ? visibleLessonGraph(lesson.beats, currentBeat)
@@ -1386,7 +1393,13 @@ export function ExperimentBoard({
             {Tldraw ? (
               <Tldraw
                 hideUi
-                persistenceKey={kind === "system" ? "seethrough-system-design" : "seethrough-experiment"}
+                persistenceKey={
+                  kind === "system"
+                    ? "seethrough-system-design"
+                    : kind === "physics"
+                      ? "seethrough-physics-tutor"
+                      : "seethrough-experiment"
+                }
                 onMount={(editor) => {
                   editorRef.current = editor;
                   editor.selectNone();
@@ -1665,7 +1678,9 @@ export function ExperimentBoard({
             intro={
               kind === "system"
                 ? "Describe a system. Four short questions come first, then the design is drawn on the board. Ask for a change at any point, like a different provider or a new feature, and every diagram follows."
-                : undefined
+                : kind === "physics"
+                  ? "Ask a high-school physics question. The tutor teaches in short steps, draws field diagrams on the board, and checks you understood — same Smart tutor flow."
+                  : undefined
             }
           />
         )}

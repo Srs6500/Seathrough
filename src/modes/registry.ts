@@ -12,6 +12,7 @@ import { leetcodeMode } from "@/modules/leetcode/mode";
 import { lessonsMode } from "@/modules/lessons/mode";
 import { sceneExplainMode } from "@/modules/scene-explain/mode";
 import { screenshotExplainMode } from "@/modules/screenshot-explain/mode";
+import { physicsTutorMode } from "@/modules/physics-tutor/mode";
 import { smartTutorMode } from "@/modules/smart-tutor/mode";
 import { systemDesignMode } from "@/modules/system-design/mode";
 import type { ModeDefinition, ModeGroup, ModeId, ModeKind } from "@/modes/types";
@@ -22,6 +23,7 @@ import type { ModeDefinition, ModeGroup, ModeId, ModeKind } from "@/modes/types"
  */
 const ALL_MODES: ModeDefinition[] = [
   smartTutorMode,
+  physicsTutorMode,
   browserExperienceMode,
   dashboardMode,
   lessonsMode,

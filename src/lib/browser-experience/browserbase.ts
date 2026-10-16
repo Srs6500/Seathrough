@@ -11,7 +11,7 @@ export async function openBrowserbaseSession(): Promise<LiveBrowserHandle> {
   const { apiKey, projectId } = getBrowserbaseConfig();
   if (!apiKey) {
     throw new Error(
-      "Add BROWSERBASE_API_KEY to enable the live cloud browser, or install Playwright Chromium for local mode.",
+      "Add BROWSERBASE_API_KEY to enable the live cloud browser. On Vercel, local Chromium is not available.",
     );
   }
 
@@ -62,5 +62,25 @@ export async function closeBrowserbaseRemote(sessionId: string): Promise<void> {
     await bb.sessions.update(sessionId, { status: "REQUEST_RELEASE" });
   } catch {
     /* best-effort */
+  }
+}
+
+/** Refresh the interactive debugger URL for human take-control. */
+export async function refreshBrowserbaseLiveView(
+  remoteSessionId: string,
+): Promise<string | null> {
+  const { apiKey } = getBrowserbaseConfig();
+  if (!apiKey || !remoteSessionId) return null;
+  try {
+    const bb = new Browserbase({ apiKey });
+    const debug = await bb.sessions.debug(remoteSessionId);
+    return (
+      debug.debuggerFullscreenUrl ||
+      debug.debuggerUrl ||
+      debug.pages?.[0]?.debuggerFullscreenUrl ||
+      null
+    );
+  } catch {
+    return null;
   }
 }

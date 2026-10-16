@@ -106,10 +106,15 @@ const PACK_TOPICS: Record<string, string> = {
 };
 
 function drawingsDir(): string {
-  const publicLibs = path.join(process.cwd(), "public", "libraries");
-  const assetsDir = path.join(process.cwd(), "assets", "drawings");
+  const root = /* turbopackIgnore: true */ process.cwd();
+  const publicLibs = path.join(root, "public", "libraries");
+  const assetsDir = path.join(root, "assets", "drawings");
   try {
-    if (readdirSync(publicLibs).some((f) => f.toLowerCase().endsWith(".excalidrawlib"))) {
+    if (
+      readdirSync(/* turbopackIgnore: true */ publicLibs).some((f) =>
+        f.toLowerCase().endsWith(".excalidrawlib"),
+      )
+    ) {
       return publicLibs;
     }
   } catch {
@@ -200,7 +205,7 @@ export function loadAllDrawingLibraries(): DrawingLibraryItem[] {
   if (cachedItems) return cachedItems;
 
   const dir = drawingsDir();
-  const files = readdirSync(dir)
+  const files = readdirSync(/* turbopackIgnore: true */ dir)
     .filter((f) => f.toLowerCase().endsWith(".excalidrawlib"))
     .sort((a, b) => a.localeCompare(b));
 
@@ -211,7 +216,9 @@ export function loadAllDrawingLibraries(): DrawingLibraryItem[] {
     const filePath = path.join(dir, fileName);
     let raw: ExcalidrawLibFile;
     try {
-      raw = JSON.parse(readFileSync(filePath, "utf8")) as ExcalidrawLibFile;
+      raw = JSON.parse(
+        readFileSync(/* turbopackIgnore: true */ filePath, "utf8"),
+      ) as ExcalidrawLibFile;
     } catch {
       continue;
     }

@@ -2,6 +2,7 @@ import type {
   BrowserAnnotation,
   BrowserAskResult,
   BrowserFollowUpResult,
+  BrowserLessonRole,
   BrowserSessionPublic,
   BrowserStreamEvent,
   BrowserTeachBeat,
@@ -131,6 +132,225 @@ export async function annotateBrowserSession(
   if (!res.ok) {
     const body = await readJson<{ error?: string }>(res);
     throw new Error(body.error || "Could not highlight that on the page.");
+  }
+}
+
+export async function switchBrowserRole(
+  sessionId: string,
+  role: Exclude<BrowserLessonRole, "act">,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/role", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, role }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not switch to that lesson step.");
+  }
+  return body.session;
+}
+
+export async function activateBrowserTab(
+  sessionId: string,
+  tabId: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/tab", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, action: "activate", tabId }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not switch tabs.");
+  }
+  return body.session;
+}
+
+export async function closeBrowserTab(
+  sessionId: string,
+  tabId: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/tab", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, action: "close", tabId }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not close that tab.");
+  }
+  return body.session;
+}
+
+export async function openBrowserTab(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/tab", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, action: "new" }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not open a new tab.");
+  }
+  return body.session;
+}
+
+/** Muse-style omnibox — URL or Google search query on the active tab. */
+export async function navigateBrowserOmnibox(
+  sessionId: string,
+  url: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/tab", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, action: "navigate", url }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not open that page.");
+  }
+  return body.session;
+}
+
+export async function reloadBrowserTab(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/tab", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, action: "reload" }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not reload that tab.");
+  }
+  return body.session;
+}
+
+export async function fetchBrowserSession(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic | null> {
+  const res = await fetch(
+    `/api/browser-experience/session?sessionId=${encodeURIComponent(sessionId)}`,
+    { signal, cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const body = await readJson<{ session?: BrowserSessionPublic }>(res);
+  return body.session ?? null;
+}
+
+export async function takeBrowserControl(
+  sessionId: string,
+  reason?: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/control", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId,
+      action: "take",
+      ...(reason ? { reason } : {}),
+    }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not take control of the browser.");
+  }
+  return body.session;
+}
+
+export async function resumeBrowserControl(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/control", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, action: "resume" }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not resume the lesson yet.");
+  }
+  return body.session;
+}
+
+/** Remint LiveURL — no-op on server (Phase 0); kept for older clients. */
+export async function refreshBrowserLiveView(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<BrowserSessionPublic> {
+  const res = await fetch("/api/browser-experience/control", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, action: "refresh_live" }),
+    signal,
+  });
+  const body = await readJson<{ session?: BrowserSessionPublic; error?: string }>(
+    res,
+  );
+  if (!res.ok || !body.session) {
+    throw new Error(body.error || "Could not refresh the live browser view.");
+  }
+  return body.session;
+}
+
+/** Forward a click/key into the remote page while Take control is active. */
+export async function sendBrowserInput(
+  sessionId: string,
+  input: {
+    type: "click" | "dblclick" | "type" | "key";
+    xNorm?: number;
+    yNorm?: number;
+    text?: string;
+    key?: string;
+  },
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch("/api/browser-experience/input", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, ...input }),
+    signal,
+  });
+  if (!res.ok) {
+    const body = await readJson<{ error?: string }>(res);
+    throw new Error(body.error || "Could not send input to the browser.");
   }
 }
 

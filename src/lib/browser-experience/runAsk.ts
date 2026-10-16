@@ -1,23 +1,46 @@
 import {
+  detectBrowserChallenge,
+  tryDismissMinorChallenge,
+} from "@/lib/browser-experience/challenge";
+import {
   extractPageText,
-  gotoSafe,
   type PageExtraction,
   waitForStablePage,
 } from "@/lib/browser-experience/driver";
-import { openLiveBrowser } from "@/lib/browser-experience/openBrowser";
-import { searchBrowserSources } from "@/lib/browser-experience/search";
 import {
+  classifyBrowserIntent,
+  shouldSeekGroundVideo,
+} from "@/lib/browser-experience/intent";
+import { openLiveBrowser } from "@/lib/browser-experience/openBrowser";
+import {
+  searchBrowserSources,
+  searchDiagramImageSources,
+} from "@/lib/browser-experience/search";
+import {
+  activateSessionTab,
   createSessionRecord,
-  destroySession,
   gcStaleSessions,
+  openSessionTab,
+  pinTabRole,
+  pruneProbeTabs,
   requireSession,
+  resetSessionTabs,
   sessionPage,
+  switchSessionRole,
+  takeSessionControl,
   toPublicSession,
   touchSession,
   type BrowserSessionRecord,
 } from "@/lib/browser-experience/sessionStore";
-import { beatsFromPlan, planBrowserLesson } from "@/lib/browser-experience/teach";
+import {
+  beatsFromPlan,
+  limitBeats,
+  planActChecks,
+  planBrowserLesson,
+} from "@/lib/browser-experience/teach";
 import type {
+  BrowserLessonMatrix,
+  BrowserLessonRole,
   BrowserStreamEvent,
   BrowserTeachBeat,
 } from "@/lib/browser-experience/types";
@@ -37,6 +60,12 @@ import type { LessonSource } from "@/types/lesson";
 
 const MAX_CANDIDATES_TO_CHECK = 4;
 
+function clipSummary(value: string, max = 600): string {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= max) return cleaned;
+  return `${cleaned.slice(0, max - 1).trimEnd()}…`;
+}
+
 function googleSearchUrl(query: string): string {
   const url = new URL("https://www.google.com/search");
   url.searchParams.set("q", query);
@@ -51,12 +80,174 @@ async function emit(
   onEvent?.(event);
 }
 
+/**
+ * If the live page is a CAPTCHA / bot wall, pause the agent until the human
+ * finishes the check and clicks Resume (clears session.userControl).
+ */
+/** CAPTCHA + Google sign-in drills need a long human window (local Chromium). */
+const CHALLENGE_WAIT_MS = 10 * 60 * 1000;
+
+async function waitWhileUserHasControl(
+  session: BrowserSessionRecord,
+  onEvent?: (event: BrowserStreamEvent) => void,
+  timeoutMs = CHALLENGE_WAIT_MS,
+): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 1500));
+    let live: BrowserSessionRecord;
+    try {
+      live = requireSession(session.id);
+    } catch {
+      throw new Error("Session not found");
+    }
+    if (!live.userControl) {
+      await emit(onEvent, {
+        type: "status",
+        status: "teaching",
+        message: "Thanks — continuing the lesson…",
+      });
+      await emit(onEvent, {
+        type: "session",
+        session: toPublicSession(live),
+      });
+      return;
+    }
+  }
+  throw new Error(
+    "Timed out waiting for the browser check. Take control, finish it, then Resume.",
+  );
+}
+
+async function handOffToUser(
+  session: BrowserSessionRecord,
+  reason: string,
+  onEvent?: (event: BrowserStreamEvent) => void,
+  timeoutMs = CHALLENGE_WAIT_MS,
+): Promise<void> {
+  await takeSessionControl(session.id, reason);
+  const live = requireSession(session.id);
+  await emit(onEvent, {
+    type: "challenge",
+    reason,
+    session: toPublicSession(live),
+  });
+  await emit(onEvent, {
+    type: "status",
+    status: "awaiting_user",
+    message: reason,
+  });
+  await emit(onEvent, { type: "session", session: toPublicSession(live) });
+  await waitWhileUserHasControl(live, onEvent, timeoutMs);
+}
+
+async function waitForUserIfChallenge(
+  session: BrowserSessionRecord,
+  onEvent?: (event: BrowserStreamEvent) => void,
+  timeoutMs = CHALLENGE_WAIT_MS,
+): Promise<void> {
+  const challenge = await detectBrowserChallenge(sessionPage(session)).catch(
+    () => null,
+  );
+  if (!challenge && !session.userControl) return;
+
+  // Minor walls: auto-dismiss / wait — do not force a long Take-control pause.
+  if (challenge?.severity === "minor" && !session.userControl) {
+    await emit(onEvent, {
+      type: "status",
+      status: "reading",
+      message: challenge.reason,
+    });
+    await tryDismissMinorChallenge(sessionPage(session)).catch(() => false);
+    return;
+  }
+
+  const reason =
+    challenge?.reason ||
+    session.challengeReason ||
+    "Take control of the browser, finish the check, then click Resume.";
+  await handOffToUser(session, reason, onEvent, timeoutMs);
+}
+
+/**
+ * Source-page challenge handling:
+ * - minor → dismiss / soft wait, then keep the source (don't skip)
+ * - major → brief Take-control window, then soft-continue if readable
+ * Returns false only when the page is still a hard wall with no usable content path.
+ */
+async function resolveSourceChallenge(
+  session: BrowserSessionRecord,
+  publisher: string,
+  onEvent?: (event: BrowserStreamEvent) => void,
+): Promise<"cleared" | "soft_continue" | "blocked"> {
+  const page = sessionPage(session);
+  let wall = await detectBrowserChallenge(page).catch(() => null);
+  if (!wall) return "cleared";
+
+  if (wall.severity === "minor") {
+    await emit(onEvent, {
+      type: "status",
+      status: "reading",
+      message: `${publisher}: ${wall.reason}`,
+    });
+    await tryDismissMinorChallenge(page).catch(() => false);
+    wall = await detectBrowserChallenge(page).catch(() => null);
+    if (!wall || wall.severity === "minor") {
+      // Keep the source — minor banners shouldn't burn a good page.
+      return "soft_continue";
+    }
+  }
+
+  // Major: offer a short Take-control window (like Google search soft-skip),
+  // then continue trying this source instead of throwing it away immediately.
+  const reason =
+    wall.reason ||
+    `${publisher} needs a human check. Take control, or wait — we’ll try to keep this source.`;
+  await takeSessionControl(session.id, reason).catch(() => undefined);
+  await emit(onEvent, {
+    type: "challenge",
+    reason,
+    session: toPublicSession(requireSession(session.id)),
+  });
+  await emit(onEvent, {
+    type: "status",
+    status: "awaiting_user",
+    message: `${reason} (continuing in ~35s if you Resume or wait)`,
+  });
+  await emit(onEvent, {
+    type: "session",
+    session: toPublicSession(requireSession(session.id)),
+  });
+  try {
+    await waitWhileUserHasControl(session, onEvent, 35_000);
+  } catch {
+    /* timeout — soft resume */
+  }
+  const live = requireSession(session.id);
+  if (live.userControl) {
+    touchSession(live, {
+      userControl: false,
+      challengeReason: null,
+      statusBeforeControl: null,
+      status: "reading",
+    });
+  }
+
+  wall = await detectBrowserChallenge(sessionPage(live)).catch(() => null);
+  if (!wall) return "cleared";
+  if (wall.severity === "minor") {
+    await tryDismissMinorChallenge(sessionPage(live)).catch(() => false);
+    return "soft_continue";
+  }
+  // Still a major wall — caller may still try extract; only skip if unreadable.
+  return "blocked";
+}
+
 async function showGoogleSearch(
   session: BrowserSessionRecord,
   query: string,
   onEvent?: (event: BrowserStreamEvent) => void,
 ) {
-  const page = sessionPage(session);
   await emit(onEvent, {
     type: "status",
     status: "opening_search",
@@ -69,15 +260,69 @@ async function showGoogleSearch(
   await emit(onEvent, { type: "session", session: toPublicSession(session) });
 
   try {
-    await gotoSafe(page, googleSearchUrl(query), { timeoutMs: 25_000 });
-    touchSession(session, {
-      currentUrl: page.url(),
-      addressBar: page.url(),
+    await openSessionTab(session, {
+      kind: "search",
+      title: query.slice(0, 60) || "Search",
+      url: googleSearchUrl(query),
+      reuseStarter: true,
+    });
+    await emit(onEvent, {
+      type: "tabs",
+      tabs: toPublicSession(session).tabs,
+      activeTabId: session.activeTabId,
     });
     await emit(onEvent, { type: "session", session: toPublicSession(session) });
-    await new Promise((resolve) => setTimeout(resolve, 900));
+    await new Promise((resolve) => setTimeout(resolve, 700));
   } catch {
-    /* Google often challenges automation — continue to candidates. */
+    /* Google often blocks automation — continue with Tavily sources. */
+  }
+
+  const page = sessionPage(session);
+  // Soft handoff: offer Take control briefly, then ALWAYS continue to verified
+  // sources so the lesson does not die on the search CAPTCHA.
+  const wall = await detectBrowserChallenge(page).catch(() => null);
+  if (wall || session.userControl) {
+    const reason =
+      wall?.reason ||
+      "Google search needs a human check. Take control in the pane below, or wait — we’ll continue with verified sources.";
+    await takeSessionControl(session.id, reason).catch(() => undefined);
+    await emit(onEvent, {
+      type: "challenge",
+      reason,
+      session: toPublicSession(requireSession(session.id)),
+    });
+    await emit(onEvent, {
+      type: "status",
+      status: "awaiting_user",
+      message: `${reason} (continuing in ~45s if you Resume or wait)`,
+    });
+    await emit(onEvent, {
+      type: "session",
+      session: toPublicSession(requireSession(session.id)),
+    });
+    try {
+      await waitWhileUserHasControl(session, onEvent, 45_000);
+    } catch {
+      /* timeout — soft resume */
+    }
+    const live = requireSession(session.id);
+    if (live.userControl) {
+      touchSession(live, {
+        userControl: false,
+        challengeReason: null,
+        statusBeforeControl: null,
+        status: "searching",
+      });
+    }
+    await emit(onEvent, {
+      type: "status",
+      status: "searching",
+      message: "Opening verified learning sources…",
+    });
+    await emit(onEvent, {
+      type: "session",
+      session: toPublicSession(requireSession(session.id)),
+    });
   }
 }
 
@@ -88,6 +333,88 @@ type CheckedPage = {
 };
 
 /**
+ * Mandatory relatability tab: open one labeled diagram image alongside
+ * article / video sources. Soft-fail if none found.
+ */
+async function openMandatoryDiagramTab(
+  session: BrowserSessionRecord,
+  prompt: string,
+  onEvent?: (event: BrowserStreamEvent) => void,
+): Promise<{ source: LessonSource; tabId: string } | null> {
+  await emit(onEvent, {
+    type: "status",
+    status: "searching",
+    message: "Finding a true labeled diagram (not a photo)…",
+  });
+
+  let images: LessonSource[] = [];
+  try {
+    images = await searchDiagramImageSources(prompt);
+  } catch {
+    images = [];
+  }
+  if (!images.length) {
+    await emit(onEvent, {
+      type: "status",
+      status: "searching",
+      message: "No labeled diagram found — continuing with other sources.",
+    });
+    return null;
+  }
+
+  const source = images[0]!;
+  await emit(onEvent, {
+    type: "status",
+    status: "opening_source",
+    message: `Opening diagram tab: ${source.title.slice(0, 70)}…`,
+  });
+  await emit(onEvent, { type: "source", source });
+
+  try {
+    const tab = await openSessionTab(session, {
+      kind: "diagram",
+      source,
+      title: source.title,
+      url: source.url,
+    });
+    // Keep diagram tab in the strip; don't steal focus forever — caller may
+    // switch to Ground/Truth next. Still leave it open.
+    touchSession(session, {
+      sources: [
+        source,
+        ...session.sources.filter(
+          (s) =>
+            s.url.replace(/[?#].*$/, "").toLowerCase() !==
+            source.url.replace(/[?#].*$/, "").toLowerCase(),
+        ),
+      ],
+    });
+    await emit(onEvent, {
+      type: "tabs",
+      tabs: toPublicSession(session).tabs,
+      activeTabId: session.activeTabId,
+    });
+    await emit(onEvent, {
+      type: "session",
+      session: toPublicSession(session),
+    });
+    await emit(onEvent, {
+      type: "status",
+      status: "reading",
+      message: "Diagram tab ready — keeping it open for relatability.",
+    });
+    return { source, tabId: tab.id };
+  } catch {
+    await emit(onEvent, {
+      type: "status",
+      status: "searching",
+      message: "Could not open the diagram image — continuing.",
+    });
+    return null;
+  }
+}
+
+/**
  * Open each candidate, extract content, and only keep a page that
  * cross-checks against the student's question (topic + diagram needs).
  */
@@ -96,17 +423,17 @@ async function findVerifiedPage(
   prompt: string,
   sources: LessonSource[],
   onEvent?: (event: BrowserStreamEvent) => void,
-): Promise<CheckedPage> {
-  const page = sessionPage(session);
+): Promise<CheckedPage & { tabId: string }> {
   const candidates = sources.slice(0, MAX_CANDIDATES_TO_CHECK);
-  let best: CheckedPage | null = null;
+  let best: (CheckedPage & { tabId: string }) | null = null;
+  const openedTabIds: string[] = [];
 
   for (let i = 0; i < candidates.length; i += 1) {
     const source = candidates[i]!;
     await emit(onEvent, {
       type: "status",
       status: "opening_source",
-      message: `Checking source ${i + 1}/${candidates.length}: ${source.publisher}…`,
+      message: `Opening tab ${i + 1}/${candidates.length}: ${source.publisher}…`,
     });
     touchSession(session, {
       status: "opening_source",
@@ -116,9 +443,17 @@ async function findVerifiedPage(
     await emit(onEvent, { type: "session", session: toPublicSession(session) });
     await emit(onEvent, { type: "source", source });
 
+    let tabId: string;
     try {
-      await gotoSafe(page, source.url, { timeoutMs: 40_000 });
-      await waitForStablePage(page, { settleMs: 500, timeoutMs: 15_000 });
+      const tab = await openSessionTab(session, {
+        kind: "source",
+        source,
+        title: source.title,
+        url: source.url,
+      });
+      tabId = tab.id;
+      openedTabIds.push(tabId);
+      await waitForStablePage(tab.page, { settleMs: 500, timeoutMs: 15_000 });
     } catch {
       await emit(onEvent, {
         type: "status",
@@ -128,12 +463,47 @@ async function findVerifiedPage(
       continue;
     }
 
-    touchSession(session, {
-      currentUrl: page.url(),
-      addressBar: page.url(),
-      status: "reading",
+    await emit(onEvent, {
+      type: "tabs",
+      tabs: toPublicSession(session).tabs,
+      activeTabId: session.activeTabId,
     });
     await emit(onEvent, { type: "session", session: toPublicSession(session) });
+
+    const page = sessionPage(session);
+    const challengeState = await resolveSourceChallenge(
+      session,
+      source.publisher,
+      onEvent,
+    );
+    if (challengeState === "blocked") {
+      // Last chance: if we can still read real article text past the wall, keep it.
+      let peek: PageExtraction | null = null;
+      try {
+        peek = await extractPageText(page);
+      } catch {
+        peek = null;
+      }
+      if (!peek || peek.text.length < 120) {
+        await emit(onEvent, {
+          type: "status",
+          status: "reading",
+          message: `${source.publisher} still blocked. Trying next…`,
+        });
+        continue;
+      }
+      await emit(onEvent, {
+        type: "status",
+        status: "reading",
+        message: `${source.publisher}: kept despite a security check — content looks usable.`,
+      });
+    } else if (challengeState === "soft_continue") {
+      await emit(onEvent, {
+        type: "status",
+        status: "reading",
+        message: `${source.publisher}: soft check cleared — keeping this source.`,
+      });
+    }
 
     await emit(onEvent, {
       type: "status",
@@ -143,7 +513,7 @@ async function findVerifiedPage(
 
     let extraction: PageExtraction;
     try {
-      extraction = await extractPageText(page);
+      extraction = await extractPageText(sessionPage(session));
     } catch {
       await emit(onEvent, {
         type: "status",
@@ -156,17 +526,44 @@ async function findVerifiedPage(
     const verdict = verifyPageForQuestion(prompt, extraction, {
       excerpt: source.excerpt,
     });
-    const checked: CheckedPage = { source, extraction, verdict };
+    const checked: CheckedPage & { tabId: string } = {
+      source,
+      extraction,
+      verdict,
+      tabId,
+    };
 
     if (!best || verdict.score > best.verdict.score) {
       best = checked;
     }
 
     if (verdict.ok) {
+      pinTabRole(session, tabId, "truth", source);
+      await pruneProbeTabs(
+        session,
+        new Set(
+          [
+            tabId,
+            ...session.tabs
+              .filter((t) => t.role === "ground" || t.kind === "search")
+              .map((t) => t.id),
+          ].filter(Boolean),
+        ),
+      );
+      await activateSessionTab(session.id, tabId);
       await emit(onEvent, {
         type: "status",
         status: "reading",
         message: `Verified ${source.publisher} — this page has the content we need.`,
+      });
+      await emit(onEvent, {
+        type: "tabs",
+        tabs: toPublicSession(session).tabs,
+        activeTabId: session.activeTabId,
+      });
+      await emit(onEvent, {
+        type: "session",
+        session: toPublicSession(session),
       });
       return checked;
     }
@@ -178,40 +575,57 @@ async function findVerifiedPage(
     });
   }
 
-  // No candidate fully passed — use the strongest one if it's at least usable.
-  if (best && best.verdict.score >= 40 && best.extraction.text.length >= 120) {
+  // No candidate fully passed — use the strongest usable page so basic asks
+  // still get a Truth step after Google search walls.
+  if (best && best.verdict.score >= 22 && best.extraction.text.length >= 80) {
     await emit(onEvent, {
       type: "status",
       status: "reading",
       message: `Using best available match (${best.source.publisher}).`,
     });
-    // Navigate back to best if we ended on a worse page.
-    const current = sessionPage(session).url();
-    if (current !== best.extraction.url && current !== best.source.url) {
-      try {
-        await gotoSafe(sessionPage(session), best.source.url, {
-          timeoutMs: 40_000,
-        });
-        await waitForStablePage(sessionPage(session), {
-          settleMs: 500,
-          timeoutMs: 15_000,
-        });
-        best = {
-          ...best,
-          extraction: await extractPageText(sessionPage(session)),
-        };
-      } catch {
-        /* keep previous extraction */
-      }
+    pinTabRole(session, best.tabId, "truth", best.source);
+    await pruneProbeTabs(
+      session,
+      new Set(
+        [
+          best.tabId,
+          ...session.tabs
+            .filter((t) => t.role === "ground" || t.kind === "search")
+            .map((t) => t.id),
+        ].filter(Boolean),
+      ),
+    );
+    await activateSessionTab(session.id, best.tabId);
+    try {
+      best = {
+        ...best,
+        extraction: await extractPageText(sessionPage(session)),
+      };
+    } catch {
+      /* keep previous extraction */
     }
+    await emit(onEvent, {
+      type: "tabs",
+      tabs: toPublicSession(session).tabs,
+      activeTabId: session.activeTabId,
+    });
+    await emit(onEvent, { type: "session", session: toPublicSession(session) });
     return best;
   }
 
+  void openedTabIds;
   const hint = wantsDiagram(prompt)
     ? "I couldn’t find a page with a clear labeled diagram for that. Try naming the topic more specifically."
     : "I couldn’t find a page that clearly covers that topic. Try a more specific question.";
   throw new Error(hint);
 }
+
+/** Domains that often match weakly via metaphor (anatomy→travel) — penalize. */
+const YT_OFFTOPIC =
+  /\b(anatomy|human body|skeleton|musculoskeletal|digestive|circulatory|neuron|cell biology|organ system|physiology textbook)\b/i;
+
+const YT_TRAVEL_ASK =
+  /\b(travel|travelling|traveling|trip|tourism|backpack|flight|airline|passport|visa|world tour|around the world|hike|hiking|voyage)\b/i;
 
 function scoreYouTubeCandidate(
   prompt: string,
@@ -220,15 +634,43 @@ function scoreYouTubeCandidate(
 ): number {
   const hay = `${title} ${source.title} ${source.excerpt}`.toLowerCase();
   const keys = topicKeywords(prompt).filter(
-    (k) => !/^(youtube|video|watch|clip)$/i.test(k),
+    (k) => !/^(youtube|video|watch|clip|how|does|work)$/i.test(k),
   );
-  if (!keys.length) return hay.includes("youtube") ? 50 : 40;
+  if (!keys.length) return 20;
+
   let hits = 0;
+  let weighted = 0;
   for (const key of keys) {
-    if (hay.includes(key)) hits += 1;
+    if (hay.includes(key)) {
+      hits += 1;
+      weighted += key.length >= 5 ? 1.35 : 1;
+    }
   }
-  return Math.round((hits / keys.length) * 100);
+  let score = Math.round((weighted / Math.max(keys.length, 1)) * 100);
+
+  // Title must share at least one real topic token for a strong accept.
+  const titleHay = `${title} ${source.title}`.toLowerCase();
+  const titleHits = keys.filter((k) => titleHay.includes(k)).length;
+  if (titleHits === 0) score -= 35;
+  else score += Math.min(20, titleHits * 8);
+
+  // Soft educational boost only when already on-topic.
+  if (hits >= 2 && /\b(explained|how to|guide|crash course|travel)\b/i.test(hay)) {
+    score += 8;
+  }
+
+  // Travel / lifestyle asks should not land on pure anatomy primers.
+  if (YT_TRAVEL_ASK.test(prompt) && YT_OFFTOPIC.test(hay) && !YT_TRAVEL_ASK.test(hay)) {
+    score -= 55;
+  } else if (YT_OFFTOPIC.test(hay) && !YT_OFFTOPIC.test(prompt) && hits <= 1) {
+    score -= 30;
+  }
+
+  return Math.max(0, Math.min(100, score));
 }
+
+const YT_ACCEPT_SCORE = 48;
+const YT_OPEN_MIN_SCORE = 28;
 
 async function findVerifiedYouTube(
   session: BrowserSessionRecord,
@@ -241,9 +683,24 @@ async function findVerifiedYouTube(
   url: string;
   pageText: string;
   durationSec: number | null;
+  tabId: string;
 }> {
-  const page = sessionPage(session);
-  const candidates = sources.slice(0, MAX_CANDIDATES_TO_CHECK);
+  // Pre-rank by title/excerpt so we don't open an anatomy video for “travel”.
+  const ranked = [...sources]
+    .map((source) => ({
+      source,
+      preScore: scoreYouTubeCandidate(prompt, source, source.title),
+    }))
+    .sort((a, b) => b.preScore - a.preScore)
+    .filter((row) => row.preScore >= YT_OPEN_MIN_SCORE)
+    .slice(0, MAX_CANDIDATES_TO_CHECK);
+
+  if (!ranked.length) {
+    throw new Error(
+      "No on-topic YouTube videos found for that question. Continuing without Ground video…",
+    );
+  }
+
   let best: {
     source: LessonSource;
     title: string;
@@ -251,14 +708,15 @@ async function findVerifiedYouTube(
     pageText: string;
     durationSec: number | null;
     score: number;
+    tabId: string;
   } | null = null;
 
-  for (let i = 0; i < candidates.length; i += 1) {
-    const source = candidates[i]!;
+  for (let i = 0; i < ranked.length; i += 1) {
+    const source = ranked[i]!.source;
     await emit(onEvent, {
       type: "status",
       status: "opening_source",
-      message: `Checking video ${i + 1}/${candidates.length}: ${source.title.slice(0, 60)}…`,
+      message: `Opening video tab ${i + 1}/${ranked.length}: ${source.title.slice(0, 60)}…`,
     });
     touchSession(session, {
       status: "opening_source",
@@ -269,7 +727,80 @@ async function findVerifiedYouTube(
     await emit(onEvent, { type: "session", session: toPublicSession(session) });
     await emit(onEvent, { type: "source", source });
 
-    const opened = await openYouTubeLesson(page, source.url);
+    let tabId: string;
+    let opened: Awaited<ReturnType<typeof openYouTubeLesson>>;
+    try {
+      const loadHolder: {
+        result: Awaited<ReturnType<typeof openYouTubeLesson>> | null;
+      } = { result: null };
+      const tab = await openSessionTab(session, {
+        kind: "source",
+        source,
+        title: source.title,
+        load: async (page) => {
+          loadHolder.result = await openYouTubeLesson(page, source.url);
+          return {
+            url: loadHolder.result.url,
+            title: source.title,
+          };
+        },
+      });
+      tabId = tab.id;
+      opened = loadHolder.result ?? {
+        ok: false,
+        mode: "watch",
+        url: tab.url,
+        reason: "open_failed",
+      };
+    } catch {
+      await emit(onEvent, {
+        type: "status",
+        status: "reading",
+        message: "That video wouldn’t play in the lesson browser. Trying next…",
+      });
+      continue;
+    }
+
+    await emit(onEvent, {
+      type: "tabs",
+      tabs: toPublicSession(session).tabs,
+      activeTabId: session.activeTabId,
+    });
+
+    const page = sessionPage(session);
+
+    // Error 153 / bot sign-in / Google — force Take control, then retry once.
+    if (!opened.ok && opened.needsHuman) {
+      touchSession(session, {
+        currentUrl: opened.url,
+        addressBar: opened.url,
+      });
+      try {
+        await handOffToUser(
+          session,
+          opened.reason === "Error 153" ||
+            /153|configuration/i.test(opened.reason || "")
+            ? "YouTube Error 153 — Take control, use Watch on YouTube / sign-in if needed, then Resume."
+            : "YouTube needs a human check (sign-in / bot). Take control, finish it, then Resume.",
+          onEvent,
+        );
+      } catch {
+        await emit(onEvent, {
+          type: "status",
+          status: "reading",
+          message: "Still blocked on that video. Trying next…",
+        });
+        continue;
+      }
+      opened = await openYouTubeLesson(page, source.url);
+    } else if (opened.ok) {
+      try {
+        await waitForUserIfChallenge(session, onEvent);
+      } catch {
+        /* try next candidate */
+      }
+    }
+
     if (!opened.ok) {
       await emit(onEvent, {
         type: "status",
@@ -294,7 +825,11 @@ async function findVerifiedYouTube(
     const pageText = [meta.title, source.excerpt, source.title]
       .filter(Boolean)
       .join("\n");
-    const score = scoreYouTubeCandidate(prompt, source, meta.title || source.title);
+    const score = scoreYouTubeCandidate(
+      prompt,
+      source,
+      meta.title || source.title,
+    );
     const candidate = {
       source: { ...source, url: opened.url },
       title: meta.title || source.title,
@@ -302,11 +837,25 @@ async function findVerifiedYouTube(
       pageText,
       durationSec: meta.durationSec,
       score,
+      tabId,
     };
 
     if (!best || candidate.score > best.score) best = candidate;
 
-    if (score >= 35) {
+    if (score >= YT_ACCEPT_SCORE) {
+      pinTabRole(session, tabId, "ground", candidate.source);
+      await pruneProbeTabs(
+        session,
+        new Set(
+          [
+            tabId,
+            ...session.tabs
+              .filter((t) => t.kind === "search" || t.role === "truth")
+              .map((t) => t.id),
+          ].filter(Boolean),
+        ),
+      );
+      await activateSessionTab(session.id, tabId);
       await emit(onEvent, {
         type: "status",
         status: "reading",
@@ -314,6 +863,11 @@ async function findVerifiedYouTube(
           opened.mode === "embed"
             ? `Playing via YouTube player: ${candidate.title.slice(0, 60)}`
             : `Found a matching video: ${candidate.title.slice(0, 70)}`,
+      });
+      await emit(onEvent, {
+        type: "tabs",
+        tabs: toPublicSession(session).tabs,
+        activeTabId: session.activeTabId,
       });
       return candidate;
     }
@@ -325,22 +879,43 @@ async function findVerifiedYouTube(
     });
   }
 
-  if (best) {
-    // Re-open the best playable candidate if we navigated away while scoring.
+  if (best && best.score >= YT_OPEN_MIN_SCORE + 10) {
+    pinTabRole(session, best.tabId, "ground", best.source);
+    await pruneProbeTabs(
+      session,
+      new Set(
+        [
+          best.tabId,
+          ...session.tabs
+            .filter((t) => t.kind === "search" || t.role === "truth")
+            .map((t) => t.id),
+        ].filter(Boolean),
+      ),
+    );
+    await activateSessionTab(session.id, best.tabId);
     if (sessionPage(session).url() !== best.url) {
       const reopened = await openYouTubeLesson(
         sessionPage(session),
         best.source.url,
       );
       if (reopened.ok) {
-        best = { ...best, url: reopened.url, source: { ...best.source, url: reopened.url } };
+        best = {
+          ...best,
+          url: reopened.url,
+          source: { ...best.source, url: reopened.url },
+        };
       }
     }
+    await emit(onEvent, {
+      type: "tabs",
+      tabs: toPublicSession(session).tabs,
+      activeTabId: session.activeTabId,
+    });
     return best;
   }
 
   throw new Error(
-    "YouTube blocked playback in the lesson browser for every candidate. Try again in a moment, or ask without “YouTube” to use a webpage instead.",
+    "No YouTube video was close enough to the question. Continuing with a webpage instead.",
   );
 }
 
@@ -397,6 +972,7 @@ export async function runBrowserAsk(input: {
       const handle = await openLiveBrowser();
       session = createSessionRecord(handle, prompt);
     } else {
+      await resetSessionTabs(session);
       touchSession(session, {
         question: prompt,
         title: null,
@@ -405,6 +981,10 @@ export async function runBrowserAsk(input: {
         selectedSource: null,
         sources,
         isYouTube: youtubeMode,
+        matrix: null,
+        userControl: false,
+        challengeReason: null,
+        statusBeforeControl: null,
         history: [{ role: "user", content: prompt }],
       });
     }
@@ -413,17 +993,30 @@ export async function runBrowserAsk(input: {
       sources,
       status: "searching",
       isYouTube: youtubeMode,
+      matrix: null,
+      userControl: false,
+      challengeReason: null,
+      statusBeforeControl: null,
     });
     await emit(input.onEvent, {
       type: "session",
       session: toPublicSession(session),
     });
 
+    const intent = classifyBrowserIntent(prompt);
     const searchQuery = youtubeMode
       ? `${prompt.replace(/\b(youtube|yt|video|watch)\b/gi, " ").trim()} site:youtube.com`
       : prompt;
     await showGoogleSearch(session, searchQuery, input.onEvent);
 
+    // Always open one labeled diagram image tab for relatability (soft-fail).
+    const diagramTab = await openMandatoryDiagramTab(
+      session,
+      prompt,
+      input.onEvent,
+    );
+
+    // Explicit YouTube ask → Ground video + Act (no separate Truth page).
     if (youtubeMode) {
       const video = await findVerifiedYouTube(
         session,
@@ -450,7 +1043,7 @@ export async function runBrowserAsk(input: {
       await emit(input.onEvent, {
         type: "status",
         status: "teaching",
-        message: "Video ready. Planning play → seek → pause walkthrough…",
+        message: "Ground ready. Planning video walkthrough + Act checks…",
       });
 
       const plan = await planBrowserLesson({
@@ -464,13 +1057,36 @@ export async function runBrowserAsk(input: {
         history: session.history,
         followUp: false,
       });
-      const beats = beatsFromPlan(plan);
+      const beats = beatsFromPlan(plan, "ground", video.tabId);
+      const actQuestions = await planActChecks({
+        question: prompt,
+        pageTitle: video.title,
+        pageText: video.pageText,
+        source: video.source,
+      });
+      const roles: BrowserLessonRole[] = ["ground", "act"];
+      const matrix: BrowserLessonMatrix = {
+        intent,
+        roles,
+        ground: {
+          role: "ground",
+          url: video.url,
+          title: video.title,
+          source: video.source,
+          isYouTube: true,
+          tabId: video.tabId,
+        },
+        truth: null,
+        act: { questions: actQuestions },
+        activeRole: "ground",
+      };
 
       touchSession(session, {
         beats,
         title: plan.title,
         status: "ready",
         isYouTube: true,
+        matrix,
         history: [
           ...session.history,
           { role: "assistant", content: plan.summary },
@@ -481,6 +1097,7 @@ export async function runBrowserAsk(input: {
         type: "session",
         session: toPublicSession(session),
       });
+      await emit(input.onEvent, { type: "matrix", matrix });
       await emit(input.onEvent, {
         type: "beats",
         beats,
@@ -491,6 +1108,65 @@ export async function runBrowserAsk(input: {
       return { session, beats, summary: plan.summary };
     }
 
+    // Webpage path: optional Ground (YouTube) → Truth page → Act checks.
+    let groundBeats: BrowserTeachBeat[] = [];
+    let groundMeta: BrowserLessonMatrix["ground"] = null;
+
+    if (shouldSeekGroundVideo(intent, false)) {
+      await emit(input.onEvent, {
+        type: "status",
+        status: "searching",
+        message: "Looking for a short Ground video…",
+      });
+      try {
+        const ytSources = await searchYouTubeSources(prompt);
+        if (ytSources.length) {
+          const video = await findVerifiedYouTube(
+            session,
+            prompt,
+            ytSources,
+            input.onEvent,
+          );
+          await emit(input.onEvent, {
+            type: "status",
+            status: "teaching",
+            message: "Planning a short Ground intro on the video…",
+          });
+          const groundPlan = await planBrowserLesson({
+            question: prompt,
+            source: video.source,
+            pageTitle: video.title,
+            pageUrl: video.url,
+            pageText: video.pageText,
+            isYouTube: true,
+            durationSec: video.durationSec,
+            history: session.history,
+            followUp: false,
+          });
+          groundBeats = limitBeats(
+            beatsFromPlan(groundPlan, "ground", video.tabId),
+            4,
+          );
+          groundMeta = {
+            role: "ground",
+            url: video.url,
+            title: video.title,
+            source: video.source,
+            isYouTube: true,
+            tabId: video.tabId,
+          };
+        }
+      } catch {
+        groundBeats = [];
+        groundMeta = null;
+        await emit(input.onEvent, {
+          type: "status",
+          status: "searching",
+          message: "No Ground video — continuing with the Truth page…",
+        });
+      }
+    }
+
     const verified = await findVerifiedPage(
       session,
       prompt,
@@ -498,9 +1174,10 @@ export async function runBrowserAsk(input: {
       input.onEvent,
     );
 
+    const truthTitle = verified.extraction.title || verified.source.title;
     touchSession(session, {
       selectedSource: verified.source,
-      title: verified.extraction.title || verified.source.title,
+      title: truthTitle,
       pageText: verified.extraction.text,
       currentUrl: verified.extraction.url,
       addressBar: verified.extraction.url,
@@ -516,13 +1193,15 @@ export async function runBrowserAsk(input: {
     await emit(input.onEvent, {
       type: "status",
       status: "teaching",
-      message: "Page verified. Preparing the walkthrough…",
+      message: groundMeta
+        ? "Truth page verified. Planning Truth walkthrough + Act…"
+        : "Page verified. Preparing Truth walkthrough + Act…",
     });
 
-    const plan = await planBrowserLesson({
+    const truthPlan = await planBrowserLesson({
       question: prompt,
       source: verified.source,
-      pageTitle: verified.extraction.title || verified.source.title,
+      pageTitle: truthTitle,
       pageUrl: verified.extraction.url,
       pageText: verified.extraction.text,
       anchors: verified.extraction.anchors,
@@ -531,15 +1210,83 @@ export async function runBrowserAsk(input: {
       history: session.history,
       followUp: false,
     });
-    const beats = beatsFromPlan(plan);
+    const truthBeats = beatsFromPlan(truthPlan, "truth", verified.tabId);
+    const actQuestions = await planActChecks({
+      question: prompt,
+      pageTitle: truthTitle,
+      pageText: verified.extraction.text,
+      source: verified.source,
+    });
 
+    const roles: BrowserLessonRole[] = [
+      ...(groundMeta ? (["ground"] as const) : []),
+      "truth",
+      "act",
+    ];
+    const matrix: BrowserLessonMatrix = {
+      intent,
+      roles,
+      ground: groundMeta,
+      truth: {
+        role: "truth",
+        url: verified.extraction.url,
+        title: truthTitle,
+        source: verified.source,
+        isYouTube: false,
+        tabId: verified.tabId,
+      },
+      act: { questions: actQuestions },
+      activeRole: groundMeta ? "ground" : "truth",
+    };
+
+    const summary = groundMeta
+      ? clipSummary(`${groundMeta.title} → ${truthPlan.summary}`)
+      : truthPlan.summary;
+
+    let finalGroundBeats = groundBeats;
+    let liveMatrix = matrix;
+
+    // Start the live view on Ground when present so the client can play in order.
+    if (groundMeta) {
+      touchSession(session, { matrix });
+      try {
+        await switchSessionRole(session.id, "ground");
+        liveMatrix = session.matrix ?? matrix;
+      } catch {
+        finalGroundBeats = [];
+        liveMatrix = {
+          ...matrix,
+          ground: null,
+          activeRole: "truth",
+          roles: roles.filter((r) => r !== "ground"),
+        };
+        touchSession(session, { matrix: liveMatrix });
+      }
+    }
+
+    const finalBeats = [...finalGroundBeats, ...truthBeats];
+    const citedSources = [
+      liveMatrix.ground?.source,
+      liveMatrix.truth?.source,
+      ...session.sources,
+    ].filter((s): s is LessonSource => Boolean(s?.url));
+    const uniqueSources: LessonSource[] = [];
+    const seenUrl = new Set<string>();
+    for (const source of citedSources) {
+      const key = source.url.replace(/[?#].*$/, "").toLowerCase();
+      if (seenUrl.has(key)) continue;
+      seenUrl.add(key);
+      uniqueSources.push(source);
+    }
     touchSession(session, {
-      beats,
-      title: plan.title,
+      beats: finalBeats,
+      title: truthPlan.title,
       status: "ready",
+      matrix: liveMatrix,
+      sources: uniqueSources,
       history: [
         ...session.history,
-        { role: "assistant", content: plan.summary },
+        { role: "assistant", content: summary },
       ],
     });
 
@@ -547,14 +1294,15 @@ export async function runBrowserAsk(input: {
       type: "session",
       session: toPublicSession(session),
     });
+    await emit(input.onEvent, { type: "matrix", matrix: liveMatrix });
     await emit(input.onEvent, {
       type: "beats",
-      beats,
-      summary: plan.summary,
+      beats: finalBeats,
+      summary,
     });
     await emit(input.onEvent, { type: "done" });
 
-    return { session, beats, summary: plan.summary };
+    return { session, beats: finalBeats, summary };
   } catch (error) {
     const message =
       error instanceof Error
@@ -568,9 +1316,7 @@ export async function runBrowserAsk(input: {
       });
     }
     await emit(input.onEvent, { type: "error", error: message });
-    if (session && session.status === "error" && !session.pageText) {
-      await destroySession(session.id).catch(() => undefined);
-    }
+    // Keep the browser session alive so Take control / retry still works.
     throw error instanceof Error ? error : new Error(message);
   }
 }

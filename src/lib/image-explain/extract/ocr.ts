@@ -6,20 +6,22 @@ import type {
 } from "@/lib/image-explain/extract/types";
 import type { ImageExtraction } from "@/lib/image-explain/types";
 
-const requireFromCwd = createRequire(path.join(process.cwd(), "package.json"));
+// Resolve from this module so webpack/Turbopack can parse createRequire statically.
+const requireFromHere = createRequire(import.meta.url);
 
 function tesseractNodeOptions() {
-  const pkgRoot = path.dirname(requireFromCwd.resolve("tesseract.js/package.json"));
+  const pkgRoot = path.dirname(requireFromHere.resolve("tesseract.js/package.json"));
   const coreRoot = path.dirname(
-    requireFromCwd.resolve("tesseract.js-core/package.json"),
+    requireFromHere.resolve("tesseract.js-core/package.json"),
   );
+  const root = /* turbopackIgnore: true */ process.cwd();
   return {
     // Absolute disk paths — Turbopack's /ROOT remap breaks default resolution.
     workerPath: path.join(pkgRoot, "src/worker-script/node/index.js"),
     corePath: coreRoot,
     // Node workers should not use blob URLs.
     workerBlobURL: false as const,
-    cachePath: path.join(process.cwd(), ".cache/tesseract"),
+    cachePath: path.join(root, ".cache/tesseract"),
     errorHandler: (err: unknown) => {
       console.error("[tesseract-ocr]", err);
     },
@@ -34,7 +36,7 @@ export const ocrExtractAdapter: ImageExtractAdapter = {
   id: "ocr",
   label: "Tesseract OCR",
   async extract(input: ImageExtractInput): Promise<ImageExtraction> {
-    const { createWorker } = requireFromCwd("tesseract.js") as typeof import("tesseract.js");
+    const { createWorker } = requireFromHere("tesseract.js") as typeof import("tesseract.js");
     const worker = await createWorker("eng", 1, tesseractNodeOptions());
     try {
       const result = await worker.recognize(input.bytes);

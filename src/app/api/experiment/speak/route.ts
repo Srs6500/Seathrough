@@ -11,9 +11,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Voice is not configured." }, { status: 503 });
   }
 
-  let json: { text?: unknown } = {};
+  let json: { text?: unknown; mode?: unknown } = {};
   try {
-    json = (await request.json()) as { text?: unknown };
+    json = (await request.json()) as { text?: unknown; mode?: unknown };
   } catch {
     return Response.json({ error: "Nothing to speak." }, { status: 400 });
   }
@@ -24,9 +24,10 @@ export async function POST(request: Request) {
   if (text.length > 900) {
     return Response.json({ error: "Nothing to speak." }, { status: 400 });
   }
+  const mode = json.mode === "physics" ? "physics" : "tutor";
 
   try {
-    const spoken = await synthesizeSpeech(text);
+    const spoken = await synthesizeSpeech(text, { mode });
     return Response.json(spoken);
   } catch (error) {
     return Response.json(

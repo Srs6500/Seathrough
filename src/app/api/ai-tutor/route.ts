@@ -32,9 +32,12 @@ function extractJsonObject(text: string): unknown {
 }
 
 function runSession(payload: Record<string, unknown>): Promise<TutorView> {
-  const script = path.join(process.cwd(), "backend", "web_session.py");
-  const child = spawn(pythonBin(), ["-u", script], {
-    cwd: process.cwd(),
+  // Keep cwd/script/bin opaque to Turbopack NFT so it does not trace the whole repo.
+  const root = /* turbopackIgnore: true */ process.cwd();
+  const script = path.join(/* turbopackIgnore: true */ root, "backend", "web_session.py");
+  const bin = /* turbopackIgnore: true */ pythonBin();
+  const child = spawn(/* turbopackIgnore: true */ bin, ["-u", script], {
+    cwd: root,
     env: { ...process.env, PYTHONUNBUFFERED: "1" },
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],

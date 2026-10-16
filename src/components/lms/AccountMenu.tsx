@@ -58,11 +58,13 @@ export function AccountMenu({
     return (
       <div className="flex items-center gap-1.5">
         {onSignup ? (
-          <Button variant="ghost" onClick={onSignup}>
+          <Button variant="ghost" size="sm" onClick={onSignup}>
             Sign up
           </Button>
         ) : null}
-        <Button onClick={onLogin}>Log in</Button>
+        <Button size="sm" onClick={onLogin}>
+          Log in
+        </Button>
       </div>
     );
   }

@@ -34,6 +34,11 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     hint: "Ask a question. The tutor draws, talks, and checks you understood.",
     tone: "blue",
   },
+  "physics-tutor": {
+    icon: Atom,
+    hint: "Ask physics. Field diagrams, short steps, then a check you understood.",
+    tone: "teal",
+  },
   "browser-experience": {
     icon: Compass,
     hint: "Ask a question. We open a live browser, find a credible page, and highlight while explaining.",
@@ -69,15 +74,10 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     hint: "Watch a full design stay on the board, diagram under diagram.",
     tone: "copper",
   },
-  "data-flow": {
-    icon: GitBranch,
-    hint: "Connect GitHub, then see where a request field goes.",
-    tone: "copper",
-  },
-  "bug-analyzer": {
-    icon: Bug,
-    hint: "Connect a repository, then hunt bugs in the code.",
-    tone: "copper",
+  developer: {
+    icon: Monitor,
+    hint: "Two agents take work from a project manager and code at their desks.",
+    tone: "ink",
   },
   "scene-explain": {
     icon: Atom,

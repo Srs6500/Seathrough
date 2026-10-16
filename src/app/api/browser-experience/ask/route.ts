@@ -1,5 +1,6 @@
 import { envPresence } from "@/lib/env";
 import { toUserFacingError } from "@/lib/errors/userFacing";
+import { preferredBrowserProvider } from "@/lib/browser-experience/openBrowser";
 import { askBodySchema } from "@/lib/browser-experience/schemas";
 import { runBrowserAsk } from "@/lib/browser-experience/runAsk";
 import { browserExperienceSseResponse } from "@/lib/browser-experience/sse";
@@ -19,6 +20,15 @@ export async function POST(request: Request) {
   if (!presence.TAVILY_API_KEY) {
     return Response.json(
       { error: "Add TAVILY_API_KEY to search for credible sources." },
+      { status: 503 },
+    );
+  }
+  if (preferredBrowserProvider() === "none") {
+    return Response.json(
+      {
+        error:
+          "Add BROWSERLESS_API_KEY or BROWSERBASE_API_KEY to Vercel env to run Browser Experience in production. Local Chromium cannot start on this host.",
+      },
       { status: 503 },
     );
   }

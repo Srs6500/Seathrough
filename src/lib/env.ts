@@ -140,80 +140,15 @@ export function getBrowserbaseConfig() {
 }
 
 /**
- * GitHub App credentials for /data-flow “Connect GitHub”.
- * Private key may be PEM body (with `\n` escapes), base64 PEM, or a path to a `.pem` file.
+ * Cloud browser alternative (Browserless).
+ * When BROWSERLESS_API_KEY is set it is preferred over Browserbase.
  */
-export function getGithubAppConfig(): {
-  appId: string;
-  privateKey: string;
-  clientId?: string;
-  clientSecret?: string;
-  slug: string;
-  webhookSecret?: string;
-  configured: boolean;
-  privateKeyError?: string;
-} {
-  const appId = optional("GITHUB_APP_ID");
-  const slug =
-    optional("GITHUB_APP_SLUG") ||
-    optional("GITHUB_APP_SLUG ") ||
-    process.env["GITHUB_APP_SLUG "]?.trim() ||
-    undefined;
-  const rawKey = optional("GITHUB_APP_PRIVATE_KEY");
-  const normalized = rawKey ? normalizePem(rawKey) : undefined;
-  const privateKeyOk = Boolean(
-    normalized && /BEGIN [A-Z ]*PRIVATE KEY/.test(normalized),
-  );
-  let privateKeyError: string | undefined;
-  if (appId && slug && !privateKeyOk) {
-    privateKeyError = rawKey
-      ? "GITHUB_APP_PRIVATE_KEY is not a valid PEM. Paste the full contents of the downloaded .pem file (starts with -----BEGIN), or set a path to that file."
-      : "GITHUB_APP_PRIVATE_KEY is missing.";
-  }
-  const configured = Boolean(appId && slug && privateKeyOk);
+export function getBrowserlessConfig() {
   return {
-    appId: appId ?? "",
-    privateKey: privateKeyOk ? normalized! : "",
-    clientId: optional("GITHUB_APP_CLIENT_ID"),
-    clientSecret: optional("GITHUB_APP_CLIENT_SECRET"),
-    slug: slug ?? "",
-    webhookSecret: optional("GITHUB_APP_WEBHOOK_SECRET"),
-    configured,
-    privateKeyError,
+    apiKey: optional("BROWSERLESS_API_KEY"),
+    /** e.g. wss://production-sfo.browserless.io or wss://production-lon.browserless.io */
+    wsEndpoint: optional("BROWSERLESS_WS_ENDPOINT"),
   };
-}
-
-function normalizePem(raw: string): string {
-  let value = raw.trim().replace(/^["']|["']$/g, "");
-
-  if (
-    value.endsWith(".pem") ||
-    (!value.includes("BEGIN") && (value.includes("/") || value.startsWith(".")))
-  ) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const fs = require("fs") as typeof import("fs");
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const path = require("path") as typeof import("path");
-      const abs = path.isAbsolute(value)
-        ? value
-        : path.resolve(process.cwd(), value);
-      if (fs.existsSync(abs)) {
-        value = fs.readFileSync(abs, "utf8");
-      }
-    } catch {
-      // keep as-is
-    }
-  }
-
-  if (!value.includes("BEGIN") && /^[A-Za-z0-9+/=\s]+$/.test(value)) {
-    try {
-      value = Buffer.from(value.replace(/\s+/g, ""), "base64").toString("utf8");
-    } catch {
-      // keep as-is
-    }
-  }
-  return value.replace(/\\n/g, "\n").trim();
 }
 
 export function getSupabaseConfig() {
@@ -225,6 +160,12 @@ export function getSupabaseConfig() {
 }
 
 export function envPresence() {
+  const imageRefRaw = optional("IMAGE_REFERENCE_ENABLED")?.toLowerCase();
+  const imageReferenceExplicitOff =
+    imageRefRaw === "0" ||
+    imageRefRaw === "false" ||
+    imageRefRaw === "off" ||
+    imageRefRaw === "no";
   return {
     LLM_PROVIDER: optional("LLM_PROVIDER") ?? "groq",
     GROQ_API_KEY: Boolean(optional("GROQ_API_KEY")),
@@ -233,7 +174,8 @@ export function envPresence() {
     TAVILY_API_KEY: Boolean(optional("TAVILY_API_KEY")),
     BROWSERBASE_API_KEY: Boolean(optional("BROWSERBASE_API_KEY")),
     BROWSERBASE_PROJECT_ID: Boolean(optional("BROWSERBASE_PROJECT_ID")),
-    GITHUB_APP: getGithubAppConfig().configured,
+    BROWSERLESS_API_KEY: Boolean(optional("BROWSERLESS_API_KEY")),
+    IMAGE_REFERENCE_ENABLED: !imageReferenceExplicitOff,
     DEEPGRAM_API_KEY: Boolean(optional("DEEPGRAM_API_KEY")),
     NEXT_PUBLIC_SUPABASE_URL: Boolean(optional("NEXT_PUBLIC_SUPABASE_URL")),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Boolean(optional("NEXT_PUBLIC_SUPABASE_ANON_KEY")),

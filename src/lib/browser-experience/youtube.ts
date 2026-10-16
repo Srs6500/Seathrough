@@ -1,4 +1,5 @@
 import type { Page } from "playwright-core";
+import { isGoogleAuthUrl } from "@/lib/browser-experience/challenge";
 import { getTavilyConfig } from "@/lib/env";
 import type { LessonSource } from "@/types/lesson";
 
@@ -87,7 +88,8 @@ export function watchUrlForId(id: string, seconds = 0): string {
 
 export function embedUrlForId(id: string, seconds = 0): string {
   const t = Math.max(0, Math.floor(seconds));
-  const url = new URL(`https://www.youtube-nocookie.com/embed/${id}`);
+  // youtube.com embed (not nocookie) — fewer Error 153 config failures in automation.
+  const url = new URL(`https://www.youtube.com/embed/${id}`);
   url.searchParams.set("enablejsapi", "1");
   url.searchParams.set("rel", "0");
   url.searchParams.set("modestbranding", "1");
@@ -220,15 +222,66 @@ export async function youtubePlayerError(
       ".ytp-error, .ytp-error-content, #player-error-message-container, .player-unavailable",
     );
     const text = (errorRoot?.textContent || "").replace(/\s+/g, " ").trim();
-    if (/something went wrong|error|unavailable|not available|copyright|sign in to confirm/i.test(text)) {
+    if (/error\s*153|video player configuration error/i.test(text)) {
+      return "Error 153";
+    }
+    if (
+      /something went wrong|error|unavailable|not available|copyright|sign in to confirm/i.test(
+        text,
+      )
+    ) {
       return text.slice(0, 200) || "player_error";
     }
-    const body = (document.body?.innerText || "").slice(0, 1200);
+    const body = (document.body?.innerText || "").slice(0, 1600);
+    if (/error\s*153|video player configuration error/i.test(body)) {
+      return "Error 153";
+    }
     if (/something went wrong\.?\s*refresh or try again/i.test(body)) {
       return "Something went wrong";
     }
+    if (/sign in to confirm you.?re not a bot/i.test(body)) {
+      return "sign_in_bot";
+    }
     return null;
   });
+}
+
+/** Click YouTube’s “Watch on YouTube” escape hatch (Error 153 / embed walls). */
+export async function clickWatchOnYouTube(page: Page): Promise<boolean> {
+  const selectors = [
+    'a:has-text("Watch on YouTube")',
+    'button:has-text("Watch on YouTube")',
+    'a:has-text("Watch video on YouTube")',
+    'button:has-text("Watch video on YouTube")',
+    'a[href*="youtube.com/watch"]',
+    'yt-button-shape a:has-text("Watch")',
+  ];
+  for (const selector of selectors) {
+    const el = page.locator(selector).first();
+    if (await el.isVisible({ timeout: 900 }).catch(() => false)) {
+      await el.click({ timeout: 4000 }).catch(() => undefined);
+      await delay(1600);
+      return true;
+    }
+  }
+  // Text fallback via evaluate + click
+  const clicked = await page
+    .evaluate(() => {
+      const nodes = Array.from(
+        document.querySelectorAll("a, button, yt-button-shape"),
+      );
+      for (const node of nodes) {
+        const label = (node.textContent || "").replace(/\s+/g, " ").trim();
+        if (/watch (video )?on youtube/i.test(label)) {
+          (node as HTMLElement).click();
+          return true;
+        }
+      }
+      return false;
+    })
+    .catch(() => false);
+  if (clicked) await delay(1600);
+  return clicked;
 }
 
 export async function youtubeHasPlayableMedia(page: Page): Promise<boolean> {
@@ -241,9 +294,29 @@ export async function youtubeHasPlayableMedia(page: Page): Promise<boolean> {
   });
 }
 
+async function tryPlayable(
+  page: Page,
+): Promise<{ ok: boolean; err: string | null }> {
+  await dismissYouTubeOverlays(page);
+  const err = await youtubePlayerError(page);
+  if (err === "sign_in_bot" || isGoogleAuthUrl(page.url())) {
+    return { ok: false, err: err || "google_auth" };
+  }
+  if (err) return { ok: false, err };
+  await youtubePlay(page);
+  await delay(900);
+  if (await youtubeHasPlayableMedia(page)) return { ok: true, err: null };
+  await youtubePlay(page);
+  await delay(700);
+  if (await youtubeHasPlayableMedia(page)) return { ok: true, err: null };
+  const again = await youtubePlayerError(page);
+  return { ok: false, err: again || "no_playable_media" };
+}
+
 /**
- * Open a watch page, recover from common player failures, then fall back to
- * the privacy-enhanced embed which is more reliable under automation.
+ * Open a YouTube lesson for Ground.
+ * Prefer the watch page (real feed + Take-control path for Error 153 / bot sign-in).
+ * On Error 153, click “Watch on YouTube” once, then fall back to embed.
  */
 export async function openYouTubeLesson(
   page: Page,
@@ -253,73 +326,130 @@ export async function openYouTubeLesson(
   mode: "watch" | "embed";
   url: string;
   reason?: string;
+  needsHuman?: boolean;
 }> {
   const id = extractYouTubeId(watchUrl);
   if (!id) return { ok: false, mode: "watch", url: watchUrl, reason: "bad_id" };
 
-  // 1) Prefer the normal watch page (looks like a real browser lesson).
-  try {
-    await page.goto(watchUrlForId(id), {
-      waitUntil: "domcontentloaded",
-      timeout: 45_000,
-    });
-    await delay(1200);
-    await dismissYouTubeOverlays(page);
+  const watch = watchUrlForId(id);
+  const embed = embedUrlForId(id);
 
-    let err = await youtubePlayerError(page);
-    if (err) {
-      await page.reload({ waitUntil: "domcontentloaded", timeout: 45_000 }).catch(
-        () => undefined,
-      );
-      await delay(1500);
-      await dismissYouTubeOverlays(page);
-      err = await youtubePlayerError(page);
+  // 1) Watch page first — matches the product path users already fight through.
+  try {
+    await page.setExtraHTTPHeaders({
+      Referer: "https://www.youtube.com/",
+      "Accept-Language": "en-US,en;q=0.9",
+    });
+    await page.goto(watch, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await delay(1200);
+
+    if (isGoogleAuthUrl(page.url())) {
+      return {
+        ok: false,
+        mode: "watch",
+        url: page.url(),
+        reason: "google_auth",
+        needsHuman: true,
+      };
     }
 
-    if (!err) {
-      await youtubePlay(page);
-      await delay(900);
-      if (!(await youtubePlayerError(page)) && (await youtubeHasPlayableMedia(page))) {
-        return { ok: true, mode: "watch", url: page.url() };
+    let attempt = await tryPlayable(page);
+    if (attempt.ok) {
+      return { ok: true, mode: "watch", url: page.url() };
+    }
+
+    // Error 153 / config error → click Watch on YouTube once, else hand to human.
+    if (
+      attempt.err === "Error 153" ||
+      /configuration error/i.test(attempt.err || "")
+    ) {
+      const clicked = await clickWatchOnYouTube(page);
+      if (clicked) {
+        await delay(1200);
+        if (isGoogleAuthUrl(page.url())) {
+          return {
+            ok: false,
+            mode: "watch",
+            url: page.url(),
+            reason: "google_auth",
+            needsHuman: true,
+          };
+        }
+        attempt = await tryPlayable(page);
+        if (attempt.ok) {
+          return { ok: true, mode: "watch", url: page.url() };
+        }
       }
+      return {
+        ok: false,
+        mode: "watch",
+        url: page.url(),
+        reason: "Error 153",
+        needsHuman: true,
+      };
+    }
+
+    if (
+      attempt.err === "sign_in_bot" ||
+      attempt.err === "google_auth" ||
+      isGoogleAuthUrl(page.url())
+    ) {
+      return {
+        ok: false,
+        mode: "watch",
+        url: page.url(),
+        reason: attempt.err || "sign_in_bot",
+        needsHuman: true,
+      };
     }
   } catch {
-    /* fall through to embed */
+    /* try embed */
   }
 
-  // 2) Embed fallback — often works when the watch player is blocked.
-  const embed = embedUrlForId(id);
+  // 2) Embed fallback
   try {
-    await page.goto(embed, {
-      waitUntil: "domcontentloaded",
-      timeout: 45_000,
-    });
-    await delay(1400);
-    await dismissYouTubeOverlays(page);
-    await youtubePlay(page);
-    await delay(1000);
-
-    if (await youtubePlayerError(page)) {
+    await page.goto(embed, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await delay(1200);
+    if (isGoogleAuthUrl(page.url())) {
       return {
         ok: false,
         mode: "embed",
-        url: embed,
-        reason: "embed_player_error",
+        url: page.url(),
+        reason: "google_auth",
+        needsHuman: true,
       };
     }
-    if (!(await youtubeHasPlayableMedia(page))) {
-      // One more play nudge — embeds sometimes need a second click.
-      await youtubePlay(page);
-      await delay(900);
-    }
-    if (await youtubeHasPlayableMedia(page)) {
+    const attempt = await tryPlayable(page);
+    if (attempt.ok) {
       return { ok: true, mode: "embed", url: page.url() };
+    }
+    if (
+      attempt.err === "Error 153" ||
+      /configuration error/i.test(attempt.err || "")
+    ) {
+      await clickWatchOnYouTube(page);
+      await delay(1200);
+      const again = await tryPlayable(page);
+      if (again.ok) {
+        return { ok: true, mode: "watch", url: page.url() };
+      }
+      if (again.err === "sign_in_bot" || isGoogleAuthUrl(page.url())) {
+        return {
+          ok: false,
+          mode: "watch",
+          url: page.url(),
+          reason: again.err || "sign_in_bot",
+          needsHuman: true,
+        };
+      }
     }
     return {
       ok: false,
       mode: "embed",
-      url: embed,
-      reason: "no_playable_media",
+      url: page.url(),
+      reason: attempt.err || "no_playable_media",
+      needsHuman:
+        attempt.err === "sign_in_bot" || attempt.err === "google_auth",
     };
   } catch (error) {
     return {

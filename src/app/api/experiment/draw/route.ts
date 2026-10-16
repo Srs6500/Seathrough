@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     }
 
     const systemPage = body.mode === "system";
+    const physicsPage = body.mode === "physics";
     const branch = systemPage
       ? body.answers != null
         ? "design"
@@ -41,7 +42,12 @@ export async function POST(request: Request) {
     }
 
     const simple = simpleShapeLesson(prompt);
-    if (branch === "lesson" && simple && !mentionsSecantAndTangent(prompt)) {
+    if (
+      branch === "lesson" &&
+      !physicsPage &&
+      simple &&
+      !mentionsSecantAndTangent(prompt)
+    ) {
       return Response.json({ lesson: simple });
     }
 
@@ -65,7 +71,10 @@ export async function POST(request: Request) {
       return Response.json({ lesson, design: { spec } });
     }
 
-    const lesson = await generateExperimentLesson(prompt);
+    const lesson = await generateExperimentLesson(
+      prompt,
+      physicsPage ? { mode: "physics" } : { mode: "tutor" },
+    );
     return Response.json({ lesson });
   } catch (error) {
     console.error("[experiment-draw]", error);

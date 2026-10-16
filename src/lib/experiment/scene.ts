@@ -120,6 +120,17 @@ export type ExperimentShape =
       points: { x: number; y: number }[];
       label?: { text: string; x: number; y: number; w: number; h: number };
       color?: ExperimentColor;
+    }
+  | {
+      /** Raster/SVG reference (e.g. VFPt field diagram) shown on the board. */
+      id: string;
+      type: "image";
+      src: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      label?: string;
     };
 
 export function isDrawableNode(
@@ -129,12 +140,26 @@ export function isDrawableNode(
 }
 
 export function nodeCluster(shape: ExperimentShape): string | undefined {
-  if (shape.type === "arrow" || shape.type === "callout" || shape.type === "route") return undefined;
+  if (
+    shape.type === "arrow" ||
+    shape.type === "callout" ||
+    shape.type === "route" ||
+    shape.type === "image"
+  ) {
+    return undefined;
+  }
   return shape.cluster;
 }
 
 export function nodeRole(shape: ExperimentShape): ExperimentRole | undefined {
-  if (shape.type === "arrow" || shape.type === "callout" || shape.type === "route") return undefined;
+  if (
+    shape.type === "arrow" ||
+    shape.type === "callout" ||
+    shape.type === "route" ||
+    shape.type === "image"
+  ) {
+    return undefined;
+  }
   return shape.role;
 }
 
@@ -177,6 +202,19 @@ export type ExperimentLesson = {
   title: string;
   question?: string;
   beats: ExperimentBeat[];
+  /** Physics RAG hits shown in the script panel (debug + trust). */
+  rag?: {
+    corpusTotal: number;
+    chunks: Array<{
+      id: string;
+      source: string;
+      title: string;
+      topic: string;
+      score: number;
+      preview: string;
+    }>;
+    diagrams: Array<{ filename: string; label: string; url: string }>;
+  };
 };
 
 export type ExperimentFollowup = {
@@ -382,6 +420,25 @@ function coerceShape(raw: unknown, index: number): ExperimentShape | null {
       text,
       color: asColor(item.color),
       ...meta,
+    };
+  }
+
+  if (typeRaw === "image" || typeRaw === "svg" || typeRaw === "diagram") {
+    const src = String(item.src ?? item.url ?? item.href ?? "").trim();
+    if (!src.startsWith("/physics/") && !src.startsWith("https://")) {
+      return null;
+    }
+    return {
+      id,
+      type: "image",
+      src: src.slice(0, 500),
+      x: num(item.x, 480, -200, 1400),
+      y: num(item.y, 60, -200, 900),
+      w: num(item.w ?? item.width, 400, 120, 900),
+      h: num(item.h ?? item.height, 300, 90, 700),
+      ...(formatBoardText(item.label ?? item.alt ?? item.title, 80)
+        ? { label: formatBoardText(item.label ?? item.alt ?? item.title, 80) }
+        : {}),
     };
   }
 
