@@ -80,7 +80,7 @@ function FeatureRow({
 }
 
 export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
-  const { openStudio, openAuth } = useStudioAccess();
+  const { openStudio, openAuth, openGetStarted } = useStudioAccess();
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const studios = listModesByGroup("studio");
   const more = listModesByGroup("more");
@@ -352,7 +352,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                     <SheetClose asChild>
                       <button
                         type="button"
-                        onClick={() => openStudio("/bug-analyzer")}
+                        onClick={openGetStarted}
                         className={cn(
                           "mt-2 rounded-lg px-3 py-2.5 text-center text-[14px] font-bold",
                           dark
@@ -468,7 +468,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
               />
               <button
                 type="button"
-                onClick={() => openStudio("/bug-analyzer")}
+                onClick={openGetStarted}
                 className={cn(
                   "hidden h-9 items-center rounded-lg px-4 font-[family-name:var(--font-inter)] text-[13px] font-bold outline-none transition sm:inline-flex",
                   dark

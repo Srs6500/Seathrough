@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
 import { useStudioAccess } from "@/components/site/StudioAccess";
 import { useTheme } from "@/components/site/ThemeProvider";
 import { cn } from "@/lib/utils";
@@ -24,9 +24,20 @@ const HERO_VIDEOS = [
   },
 ] as const;
 
-function WaveFrame({ children }: { children: React.ReactNode }) {
+function WaveFrame({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="relative overflow-hidden rounded-[1.75rem] bg-[#e8e8ea] p-3 shadow-[0_40px_100px_-24px_rgba(0,0,0,0.75)] sm:rounded-[2rem] sm:p-4 md:rounded-[2.25rem] md:p-5">
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-[1.75rem] bg-[#e8e8ea] p-3 shadow-[0_40px_100px_-24px_rgba(0,0,0,0.75)] sm:rounded-[2rem] sm:p-4 md:rounded-[2.25rem] md:p-5",
+        className,
+      )}
+    >
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full"
         viewBox="0 0 800 500"
@@ -62,14 +73,17 @@ function DemoCard({
   label,
   caption,
   active,
+  variant = "framed",
 }: {
   src: string;
   label: string;
   caption: string;
   active: boolean;
+  variant?: "framed" | "cinema";
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(!active);
+  const cinema = variant === "cinema";
 
   useEffect(() => {
     const video = videoRef.current;
@@ -100,29 +114,51 @@ function DemoCard({
     setPaused(true);
   }
 
-  return (
-    <WaveFrame>
+  const media = (
+    <>
       <video
         ref={videoRef}
         src={src}
-        className="aspect-video w-full bg-[#f4f4f5] object-contain"
+        className={cn(
+          "w-full bg-black object-contain",
+          cinema
+            ? "aspect-video max-h-[min(72vh,760px)]"
+            : "aspect-video bg-[#f4f4f5]",
+        )}
         muted
         loop
         playsInline
         preload={active ? "auto" : "metadata"}
         aria-label={label}
       />
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/55 to-transparent px-4 pt-10 pb-3">
+      <div
+        className={cn(
+          "absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/70 via-black/25 to-transparent",
+          cinema ? "px-5 pt-16 pb-4" : "px-4 pt-10 pb-3",
+        )}
+      >
         <div className="min-w-0 text-left">
-          <p className="truncate text-[13px] font-semibold text-white">
+          <p
+            className={cn(
+              "truncate font-semibold text-white",
+              cinema ? "text-[15px]" : "text-[13px]",
+            )}
+          >
             {label}
           </p>
-          <p className="truncate text-[11px] text-white/75">{caption}</p>
+          <p
+            className={cn(
+              "truncate text-white/70",
+              cinema ? "text-[12px]" : "text-[11px]",
+            )}
+          >
+            {caption}
+          </p>
         </div>
         <button
           type="button"
           onClick={togglePlayback}
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-black/75 text-white outline-none hover:bg-black/85 focus-visible:ring-2 focus-visible:ring-white/50"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white outline-none backdrop-blur-md transition hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white/50"
           aria-label={paused ? `Play ${label}` : `Pause ${label}`}
         >
           {paused ? (
@@ -132,11 +168,21 @@ function DemoCard({
           )}
         </button>
       </div>
-    </WaveFrame>
+    </>
   );
+
+  if (cinema) {
+    return (
+      <div className="relative overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
+        {media}
+      </div>
+    );
+  }
+
+  return <WaveFrame>{media}</WaveFrame>;
 }
 
-function HeroDemoSlideshow({ dark }: { dark: boolean }) {
+function useDemoSlideshow() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
 
@@ -180,6 +226,83 @@ function HeroDemoSlideshow({ dark }: { dark: boolean }) {
     });
   }
 
+  return { scrollerRef, index, scrollToIndex };
+}
+
+function SlideshowControls({
+  index,
+  onPrev,
+  onNext,
+  onJump,
+  dark,
+}: {
+  index: number;
+  onPrev: () => void;
+  onNext: () => void;
+  onJump: (i: number) => void;
+  dark: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-3">
+      <button
+        type="button"
+        onClick={onPrev}
+        disabled={index === 0}
+        className={cn(
+          "inline-flex size-9 items-center justify-center rounded-lg border outline-none transition disabled:opacity-30",
+          dark
+            ? "border-white/15 bg-white/5 text-white hover:bg-white/10"
+            : "border-[#d5e0ea] bg-white text-[#1a2b3c] hover:bg-[#f4f7fb]",
+        )}
+        aria-label="Previous demo"
+      >
+        <ChevronLeft className="size-4" />
+      </button>
+      <div className="flex items-center gap-2">
+        {HERO_VIDEOS.map((video, i) => (
+          <button
+            key={video.src}
+            type="button"
+            onClick={() => onJump(i)}
+            className={
+              i === index
+                ? cn(
+                    "h-1.5 w-6 rounded-full",
+                    dark ? "bg-white" : "bg-[#1a2b3c]",
+                  )
+                : cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    dark
+                      ? "bg-white/35 hover:bg-white/55"
+                      : "bg-[#1a2b3c]/25 hover:bg-[#1a2b3c]/45",
+                  )
+            }
+            aria-label={`Show ${video.label}`}
+            aria-current={i === index ? "true" : undefined}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={index === HERO_VIDEOS.length - 1}
+        className={cn(
+          "inline-flex size-9 items-center justify-center rounded-lg border outline-none transition disabled:opacity-30",
+          dark
+            ? "border-white/15 bg-white/5 text-white hover:bg-white/10"
+            : "border-[#d5e0ea] bg-white text-[#1a2b3c] hover:bg-[#f4f7fb]",
+        )}
+        aria-label="Next demo"
+      >
+        <ChevronRight className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function HeroDemoSlideshow({ dark }: { dark: boolean }) {
+  const { scrollerRef, index, scrollToIndex } = useDemoSlideshow();
+
   return (
     <div className="relative w-full">
       <div
@@ -212,70 +335,157 @@ function HeroDemoSlideshow({ dark }: { dark: boolean }) {
         ))}
       </div>
 
-      <div className="mt-5 flex items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={() => scrollToIndex(Math.max(0, index - 1))}
-          disabled={index === 0}
-          className={cn(
-            "inline-flex size-9 items-center justify-center rounded-lg border outline-none transition disabled:opacity-30",
-            dark
-              ? "border-white/15 bg-white/5 text-white hover:bg-white/10"
-              : "border-[#d5e0ea] bg-white text-[#1a2b3c] hover:bg-[#f4f7fb]",
-          )}
-          aria-label="Previous demo"
-        >
-          <ChevronLeft className="size-4" />
-        </button>
-        <div className="flex items-center gap-2">
-          {HERO_VIDEOS.map((video, i) => (
-            <button
-              key={video.src}
-              type="button"
-              onClick={() => scrollToIndex(i)}
-              className={
-                i === index
-                  ? cn(
-                      "h-1.5 w-6 rounded-full",
-                      dark ? "bg-white" : "bg-[#1a2b3c]",
-                    )
-                  : cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      dark
-                        ? "bg-white/35 hover:bg-white/55"
-                        : "bg-[#1a2b3c]/25 hover:bg-[#1a2b3c]/45",
-                    )
-              }
-              aria-label={`Show ${video.label}`}
-              aria-current={i === index ? "true" : undefined}
-            />
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() =>
+      <div className="mt-5">
+        <SlideshowControls
+          index={index}
+          dark={dark}
+          onPrev={() => scrollToIndex(Math.max(0, index - 1))}
+          onNext={() =>
             scrollToIndex(Math.min(HERO_VIDEOS.length - 1, index + 1))
           }
-          disabled={index === HERO_VIDEOS.length - 1}
-          className={cn(
-            "inline-flex size-9 items-center justify-center rounded-lg border outline-none transition disabled:opacity-30",
-            dark
-              ? "border-white/15 bg-white/5 text-white hover:bg-white/10"
-              : "border-[#d5e0ea] bg-white text-[#1a2b3c] hover:bg-[#f4f7fb]",
-          )}
-          aria-label="Next demo"
+          onJump={scrollToIndex}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DemoFullscreen({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { scrollerRef, index, scrollToIndex } = useDemoSlideshow();
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const indexRef = useRef(index);
+  const scrollRef = useRef(scrollToIndex);
+  const [visible, setVisible] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  indexRef.current = index;
+  scrollRef.current = scrollToIndex;
+
+  useEffect(() => {
+    if (open) {
+      setVisible(true);
+      setExiting(false);
+      return;
+    }
+    if (!visible) return;
+    setExiting(true);
+    const id = window.setTimeout(() => {
+      setVisible(false);
+      setExiting(false);
+    }, 220);
+    return () => window.clearTimeout(id);
+  }, [open, visible]);
+
+  useEffect(() => {
+    if (!visible || exiting) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        scrollRef.current(Math.max(0, indexRef.current - 1));
+      }
+      if (event.key === "ArrowRight") {
+        scrollRef.current(
+          Math.min(HERO_VIDEOS.length - 1, indexRef.current + 1),
+        );
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [visible, exiting, onClose]);
+
+  if (!visible) return null;
+
+  const motionClass = exiting ? "demo-overlay-exit" : "demo-overlay-enter";
+  const stageClass = exiting ? "demo-stage-exit" : "demo-stage-enter";
+
+  return (
+    <div
+      className={cn(
+        "fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md",
+        motionClass,
+      )}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Product demos"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={cn(
+          "relative flex w-full max-w-5xl flex-col px-4 sm:px-6",
+          stageClass,
+        )}
+      >
+        <button
+          ref={closeRef}
+          type="button"
+          onClick={onClose}
+          className="absolute -top-1 right-4 z-20 inline-flex size-10 items-center justify-center rounded-full bg-white/10 text-white outline-none backdrop-blur-md transition hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/40 sm:right-6"
+          aria-label="Close demo"
         >
-          <ChevronRight className="size-4" />
+          <X className="size-5" />
         </button>
+
+        <div
+          ref={scrollerRef}
+          className="mt-10 flex snap-x snap-mandatory gap-0 overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="Product demos fullscreen"
+        >
+          {HERO_VIDEOS.map((video, i) => (
+            <div
+              key={video.src}
+              className="w-full min-w-full shrink-0 snap-start snap-always"
+            >
+              <DemoCard
+                src={video.src}
+                label={video.label}
+                caption={video.caption}
+                active={i === index && !exiting}
+                variant="cinema"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex justify-center">
+          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2 backdrop-blur-md">
+            <SlideshowControls
+              index={index}
+              dark
+              onPrev={() => scrollToIndex(Math.max(0, index - 1))}
+              onNext={() =>
+                scrollToIndex(Math.min(HERO_VIDEOS.length - 1, index + 1))
+              }
+              onJump={scrollToIndex}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 export function MarketingHero() {
-  const { openStudio } = useStudioAccess();
+  const { openGetStarted } = useStudioAccess();
   const { theme } = useTheme();
   const dark = theme === "dark";
+  const [demoOpen, setDemoOpen] = useState(false);
 
   return (
     <section className="relative flex flex-1 flex-col overflow-hidden">
@@ -329,7 +539,7 @@ export function MarketingHero() {
           <div className="marketing-rise marketing-rise-2 mt-8 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() => openStudio("/bug-analyzer")}
+              onClick={openGetStarted}
               className={cn(
                 "inline-flex h-10 items-center rounded-lg px-5 font-[family-name:var(--font-inter)] text-[13px] font-bold outline-none transition",
                 dark
@@ -341,7 +551,7 @@ export function MarketingHero() {
             </button>
             <button
               type="button"
-              onClick={() => openStudio("/video")}
+              onClick={() => setDemoOpen(true)}
               className={cn(
                 "inline-flex h-10 items-center rounded-lg px-5 font-[family-name:var(--font-inter)] text-[13px] font-bold outline-none transition",
                 dark
@@ -358,6 +568,8 @@ export function MarketingHero() {
           <HeroDemoSlideshow dark={dark} />
         </div>
       </div>
+
+      <DemoFullscreen open={demoOpen} onClose={() => setDemoOpen(false)} />
     </section>
   );
 }

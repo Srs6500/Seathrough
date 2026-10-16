@@ -848,6 +848,84 @@ html.marketing-page .font-display {
   font-optical-sizing: auto;
 }
 
+@keyframes bug-analyzer-scan-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+
+.bug-analyzer-scan-bar {
+  animation: bug-analyzer-scan-slide 1.3s ease-in-out infinite;
+}
+
+@keyframes demo-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes demo-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes demo-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes demo-stage-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+.demo-overlay-enter {
+  animation: demo-overlay-in 0.28s ease-out both;
+}
+
+.demo-overlay-exit {
+  animation: demo-overlay-out 0.22s ease-in both;
+}
+
+.demo-stage-enter {
+  animation: demo-stage-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.demo-stage-exit {
+  animation: demo-stage-out 0.2s ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-overlay-enter,
+  .demo-overlay-exit,
+  .demo-stage-enter,
+  .demo-stage-exit {
+    animation-duration: 0.01ms !important;
+  }
+}
+
 .lesson-topbar {
   background: rgba(255, 255, 255, 0.96);
 }

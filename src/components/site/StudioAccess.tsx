@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import { GetStartedDialog } from "@/components/site/GetStartedDialog";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import { useSmoothNavigate } from "@/lib/navigation/smoothNavigate";
 
@@ -9,14 +16,20 @@ type AuthMode = "login" | "signup";
 type StudioAccessValue = {
   openStudio: (href: string) => void;
   openAuth: (mode?: AuthMode) => void;
+  openGetStarted: () => void;
 };
 
 const StudioAccessContext = createContext<StudioAccessValue | null>(null);
 
 /** Marketing helper: navigate into a workspace without forcing login. */
-export function StudioAccessProvider({ children }: { children: React.ReactNode }) {
+export function StudioAccessProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const navigate = useSmoothNavigate();
   const { openAuth } = useQuestionAccess();
+  const [getStartedOpen, setGetStartedOpen] = useState(false);
 
   const openStudio = useCallback(
     (href: string) => {
@@ -25,14 +38,23 @@ export function StudioAccessProvider({ children }: { children: React.ReactNode }
     [navigate],
   );
 
+  const openGetStarted = useCallback(() => {
+    setGetStartedOpen(true);
+  }, []);
+
   const value = useMemo(
-    () => ({ openStudio, openAuth }),
-    [openStudio, openAuth],
+    () => ({ openStudio, openAuth, openGetStarted }),
+    [openStudio, openAuth, openGetStarted],
   );
 
   return (
     <StudioAccessContext.Provider value={value}>
       {children}
+      <GetStartedDialog
+        open={getStartedOpen}
+        onOpenChange={setGetStartedOpen}
+        onPick={openStudio}
+      />
     </StudioAccessContext.Provider>
   );
 }
