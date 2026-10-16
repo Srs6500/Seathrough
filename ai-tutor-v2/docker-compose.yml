@@ -1,0 +1,21 @@
+name: ai-tutor-v2
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5435:5432"
+    environment:
+      POSTGRES_USER: ai_tutor_v2
+      POSTGRES_PASSWORD: ai_tutor_v2
+      POSTGRES_DB: ai_tutor_v2
+    volumes:
+      - ai_tutor_v2_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_tutor_v2 -d ai_tutor_v2"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  ai_tutor_v2_pg:

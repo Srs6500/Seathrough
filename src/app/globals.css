@@ -594,7 +594,7 @@ body {
   font-family: var(--font-fraunces), ui-serif, Georgia, serif;
 }
 
-/* Marketing page — continuous canvas + subtle aurora */
+/* Marketing page — dark Asset-style canvas */
 .marketing-shell {
   position: relative;
   isolation: isolate;
@@ -602,8 +602,39 @@ body {
   font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
+.marketing-shell--dark {
+  background-color: #000000;
+  color: #ffffff;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 255, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(255, 255, 255, 0.04), transparent 50%);
+}
+
 .marketing-shell :is(h1, h2, h3) {
   font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Soft centered dot grid for the dark hero */
+.marketing-hero-dots {
+  background-image: radial-gradient(
+    rgba(180, 180, 180, 0.35) 1.15px,
+    transparent 1.15px
+  );
+  background-size: 18px 18px;
+  background-position: center center;
+  mask-image: radial-gradient(
+    ellipse 55% 50% at 50% 38%,
+    #000 0%,
+    #000 35%,
+    transparent 75%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 55% 50% at 50% 38%,
+    #000 0%,
+    #000 35%,
+    transparent 75%
+  );
+  opacity: 0.7;
 }
 
 .marketing-rise {
@@ -780,13 +811,12 @@ body {
 
 html.marketing-page,
 html.marketing-page body {
-  background: #ffffff !important;
+  background: #000000 !important;
   background-image: none !important;
+  color: #ffffff;
   --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-newsreader), Newsreader, Georgia, "Times New Roman",
-    serif;
-  --font-heading: var(--font-newsreader), Newsreader, Georgia, "Times New Roman",
-    serif;
+  --font-display: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
 html.marketing-page .font-display {

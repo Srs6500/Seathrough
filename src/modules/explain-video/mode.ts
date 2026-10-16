@@ -9,7 +9,7 @@ export const explainVideoMode: ModeDefinition = {
   description: "Type a topic. A short film explains it.",
   kind: "learning",
   group: "studio",
-  order: 5,
+  order: 7,
   enabled: true,
   badge: "new",
   usesWhiteboard: false,

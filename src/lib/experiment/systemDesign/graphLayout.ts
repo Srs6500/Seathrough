@@ -261,12 +261,14 @@ export async function layoutGraph(
   boxes: LayoutBox[],
   links: LayoutLink[],
   direction: "RIGHT" | "DOWN",
+  options?: { spreads?: number[] },
 ): Promise<GraphLayout> {
   const ids = new Set(boxes.map((box) => box.id));
   const usable = links.filter((link) => ids.has(link.from) && ids.has(link.to) && link.from !== link.to);
   let best: GraphLayout | null = null;
   let bestProblems = Infinity;
-  for (const spread of [1, 1.4, 1.9]) {
+  const spreads = options?.spreads ?? [1, 1.4, 1.9];
+  for (const spread of spreads) {
     const layout = await runElk(boxes, usable, direction, spread);
     const problems = layoutProblems(layout).length;
     if (problems < bestProblems) {

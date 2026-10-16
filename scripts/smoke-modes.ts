@@ -18,14 +18,23 @@ assert.equal(getMode("smart-tutor")?.href, "/smart-tutor");
 assert.equal(getMode("physics-tutor")?.href, "/smart-tutor/physics-tutor");
 assert.equal(getMode("browser-experience")?.href, "/browser");
 assert.equal(getMode("dashboard")?.href, "/dashboard");
+assert.equal(getMode("data-flow")?.href, "/data-flow");
+assert.equal(getMode("bug-analyzer")?.href, "/bug-analyzer");
+assert.equal(getMode("ai-tutor-v2")?.href, "/ai-tutor-v2");
 assert.equal(getMode("smart-tutor")?.enabled, true);
 assert.equal(getMode("physics-tutor")?.enabled, true);
 assert.equal(getMode("browser-experience")?.enabled, true);
 assert.equal(getMode("dashboard")?.enabled, true);
+assert.equal(getMode("data-flow")?.enabled, true);
+assert.equal(getMode("bug-analyzer")?.enabled, true);
+assert.equal(getMode("ai-tutor-v2")?.enabled, true);
 assert.equal(getMode("smart-tutor")?.navLabel, "Smart tutor");
 assert.equal(getMode("physics-tutor")?.navLabel, "Physics");
 assert.equal(getMode("browser-experience")?.navLabel, "Browser");
 assert.equal(getMode("dashboard")?.navLabel, "Dashboard");
+assert.equal(getMode("data-flow")?.navLabel, "Data flow");
+assert.equal(getMode("bug-analyzer")?.navLabel, "Bug analyzer");
+assert.equal(getMode("ai-tutor-v2")?.navLabel, "Tutor v2");
 
 assert.equal(getMode("lessons")?.href, "/lessons");
 assert.equal(getMode("lessons")?.enabled, false);
@@ -64,6 +73,12 @@ assert.equal(siblings[3]?.id, "system-design");
 assert.equal(siblings[4]?.id, "explain-video");
 assert.ok(!listEnabledModes().some((m) => m.id === "lessons"));
 assert.ok(!listEnabledModes().some((m) => m.id === "ai-tutor"));
+assert.ok(listEnabledModes().some((m) => m.id === "ai-tutor-v2"));
+assert.ok(listEnabledModes().some((m) => m.id === "data-flow"));
+assert.ok(listEnabledModes().some((m) => m.id === "bug-analyzer"));
 assert.ok(!listEnabledModes().some((m) => m.id === "figures-3d"));
+
+const labs = listModesByGroup("lab");
+assert.ok(labs.some((m) => m.id === "ai-tutor-v2"));
 
 console.log("modes registry smoke checks passed");

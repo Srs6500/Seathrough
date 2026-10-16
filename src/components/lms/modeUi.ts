@@ -10,6 +10,8 @@ import {
   LayoutDashboard,
   Lightbulb,
   Monitor,
+  Bug,
+  GitBranch,
   Network,
   PenLine,
   Sparkles,
@@ -56,6 +58,16 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     icon: Lightbulb,
     hint: "Answer in your own words. A picture appears when a mix-up shows up.",
     tone: "blue",
+  },
+  "ai-tutor-v2": {
+    icon: Sparkles,
+    hint: "Ask a question. Watch a streamed whiteboard lesson with follow-ups.",
+    tone: "blue",
+  },
+  developer: {
+    icon: Monitor,
+    hint: "Two agents take work from a project manager and code at their desks.",
+    tone: "ink",
   },
   "system-design": {
     icon: Network,

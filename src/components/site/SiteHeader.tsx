@@ -91,12 +91,21 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
     openStudio(href);
   }
 
+  const marketingLinks = [
+    { label: "Overview", href: "/" },
+    { label: "Features", href: "/bug-analyzer" },
+    { label: "Analyzer", href: "/bug-analyzer" },
+    { label: "Video", href: "/video" },
+    { label: "Tutor", href: "/smart-tutor" },
+    { label: "Systems", href: "/system-design" },
+  ];
+
   return (
     <header
       className={cn(
         "sticky top-0 z-50 border-b",
         marketing
-          ? "border-transparent bg-white"
+          ? "border-white/10 bg-black/80 backdrop-blur-md"
           : "border-border/80 bg-glass backdrop-blur-md",
       )}
     >
@@ -108,34 +117,39 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
             : "min-h-16 max-w-7xl gap-6 px-5 py-2.5 lg:px-10",
         )}
       >
-        <BrandMark compact={!marketing} size={marketing ? "sm" : "lg"} />
+        <BrandMark
+          compact={!marketing}
+          size={marketing ? "sm" : "lg"}
+          onDark={marketing}
+        />
 
         <nav
           className={cn(
             "hidden items-center md:flex",
             marketing
-              ? "ml-auto gap-7"
+              ? "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 gap-6 lg:gap-7"
               : "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 gap-8",
           )}
           aria-label="Primary"
         >
           {marketing
-            ? studios.map((mode) => (
+            ? marketingLinks.map((link) => (
                 <button
-                  key={mode.id}
+                  key={`${link.label}:${link.href}`}
                   type="button"
-                  onClick={() => openStudio(mode.href)}
+                  onClick={() => {
+                    if (link.href === "/") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      return;
+                    }
+                    openStudio(link.href);
+                  }}
                   className={cn(
-                    "inline-flex items-center gap-1.5 text-[14px] font-medium outline-none transition-colors hover:text-[#111111] focus-visible:text-[#111111]",
-                    pathname === mode.href ? "text-[#111111]" : "text-[#3a3a3a]",
+                    "text-[13px] font-medium outline-none transition-colors hover:text-white focus-visible:text-white",
+                    pathname === link.href ? "text-white" : "text-white/70",
                   )}
                 >
-                  {mode.navLabel}
-                  {mode.id === "system-design" && mode.badge === "new" ? (
-                    <span className="rounded-full bg-[#085080] px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.06em] text-white uppercase">
-                      New
-                    </span>
-                  ) : null}
+                  {link.label}
                 </button>
               ))
             : null}
@@ -233,7 +247,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
         <div
           className={cn(
             "flex items-center",
-            marketing ? "ml-auto gap-7 md:ml-7" : "ml-auto gap-2",
+            marketing ? "ml-auto gap-3" : "ml-auto gap-2",
           )}
         >
           <Sheet>
@@ -244,7 +258,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                 className={cn(
                   "md:hidden",
                   marketing
-                    ? "text-[#1a2b3c] hover:bg-[#f4f7fb]"
+                    ? "text-white hover:bg-white/10"
                     : "text-[#1a2b3c] hover:bg-[#f2f4f7]",
                 )}
                 aria-label="Open menu"
@@ -252,106 +266,171 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                 <Menu className="size-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[min(100%,20rem)] p-0">
-              <SheetHeader className="border-b border-[#e6ebf0] px-5 py-4">
-                <SheetTitle className="text-[15px] font-medium">Menu</SheetTitle>
+            <SheetContent
+              side="right"
+              className={cn(
+                "w-[min(100%,20rem)] p-0",
+                marketing && "border-white/10 bg-[#0a0a0a] text-white",
+              )}
+            >
+              <SheetHeader
+                className={cn(
+                  "border-b px-5 py-4",
+                  marketing ? "border-white/10" : "border-[#e6ebf0]",
+                )}
+              >
+                <SheetTitle
+                  className={cn(
+                    "text-[15px] font-medium",
+                    marketing && "text-white",
+                  )}
+                >
+                  Menu
+                </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col p-2" aria-label="Mobile">
-                <p className="px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.06em] text-[#8a9aab] uppercase">
-                  Start learning
-                </p>
-                {studios.map((mode) => {
-                  const Icon = MODE_UI[mode.id].icon;
-                  return (
-                    <SheetClose asChild key={mode.id}>
+                {marketing ? (
+                  <>
+                    {marketingLinks.map((link) => (
+                      <SheetClose asChild key={`m:${link.label}`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (link.href === "/") return;
+                            openStudio(link.href);
+                          }}
+                          className="rounded-lg px-3 py-2.5 text-left text-[14px] text-white/80 hover:bg-white/8 hover:text-white"
+                        >
+                          {link.label}
+                        </button>
+                      </SheetClose>
+                    ))}
+                    <SheetClose asChild>
                       <button
                         type="button"
-                        onClick={() => openStudio(mode.href)}
-                        className="flex items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#f2f4f7]"
+                        onClick={() => openStudio("/bug-analyzer")}
+                        className="mt-2 rounded-lg bg-white px-3 py-2.5 text-center text-[14px] font-bold text-black"
                       >
-                        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#eef4f9] text-[#1b6ca8]">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a2b3c]">
-                            <span>{mode.navLabel}</span>
-                            {mode.badge ? (
-                              <span className="rounded-full bg-[#e4f5ee] px-1.5 py-0.5 text-[9px] font-bold tracking-[0.08em] text-[#2a7a5c] uppercase">
-                                {mode.badge}
-                              </span>
-                            ) : null}
-                          </span>
-                          <span className="mt-0.5 block text-[12px] font-normal text-[#6a7d90]">
-                            {MODE_UI[mode.id].hint}
-                          </span>
-                        </span>
+                        Get started
                       </button>
                     </SheetClose>
-                  );
-                })}
-                {more.length > 0 ? (
+                  </>
+                ) : (
                   <>
-                    <Separator className="my-2 bg-[#e6ebf0]" />
-                    <p className="px-3 pt-1 pb-1 text-[11px] font-medium tracking-[0.06em] text-[#8a9aab] uppercase">
-                      More
+                    <p className="px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.06em] text-[#8a9aab] uppercase">
+                      Start learning
                     </p>
-                    {more.map((mode) => {
+                    {studios.map((mode) => {
                       const Icon = MODE_UI[mode.id].icon;
                       return (
                         <SheetClose asChild key={mode.id}>
                           <button
                             type="button"
                             onClick={() => openStudio(mode.href)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#f2f4f7]"
+                            className="flex items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#f2f4f7]"
                           >
-                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#eef4f9] text-[#1b6ca8]">
+                            <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#eef4f9] text-[#1b6ca8]">
                               <Icon className="size-4" />
                             </span>
-                            <span className="text-[14px] text-[#1a2b3c]">
-                              {mode.title}
+                            <span className="min-w-0">
+                              <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a2b3c]">
+                                <span>{mode.navLabel}</span>
+                                {mode.badge ? (
+                                  <span className="rounded-full bg-[#e4f5ee] px-1.5 py-0.5 text-[9px] font-bold tracking-[0.08em] text-[#2a7a5c] uppercase">
+                                    {mode.badge}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="mt-0.5 block text-[12px] font-normal text-[#6a7d90]">
+                                {MODE_UI[mode.id].hint}
+                              </span>
                             </span>
                           </button>
                         </SheetClose>
                       );
                     })}
+                    {more.length > 0 ? (
+                      <>
+                        <Separator className="my-2 bg-[#e6ebf0]" />
+                        <p className="px-3 pt-1 pb-1 text-[11px] font-medium tracking-[0.06em] text-[#8a9aab] uppercase">
+                          More
+                        </p>
+                        {more.map((mode) => {
+                          const Icon = MODE_UI[mode.id].icon;
+                          return (
+                            <SheetClose asChild key={mode.id}>
+                              <button
+                                type="button"
+                                onClick={() => openStudio(mode.href)}
+                                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#f2f4f7]"
+                              >
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#eef4f9] text-[#1b6ca8]">
+                                  <Icon className="size-4" />
+                                </span>
+                                <span className="text-[14px] text-[#1a2b3c]">
+                                  {mode.title}
+                                </span>
+                              </button>
+                            </SheetClose>
+                          );
+                        })}
+                      </>
+                    ) : null}
+                    {labs.length > 0 ? (
+                      <>
+                        <Separator className="my-2 bg-[#e6ebf0]" />
+                        <p className="px-3 pt-1 pb-1 text-[11px] font-medium tracking-[0.06em] text-[#8a9aab] uppercase">
+                          Labs
+                        </p>
+                        {labs.map((mode) => {
+                          const Icon = MODE_UI[mode.id].icon;
+                          return (
+                            <SheetClose asChild key={mode.id}>
+                              <button
+                                type="button"
+                                onClick={() => openStudio(mode.href)}
+                                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#f2f4f7]"
+                              >
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#eef4f9] text-[#1b6ca8]">
+                                  <Icon className="size-4" />
+                                </span>
+                                <span className="text-[14px] text-[#1a2b3c]">
+                                  {mode.title}
+                                </span>
+                              </button>
+                            </SheetClose>
+                          );
+                        })}
+                      </>
+                    ) : null}
                   </>
-                ) : null}
-                {labs.length > 0 ? (
-                  <>
-                    <Separator className="my-2 bg-[#e6ebf0]" />
-                    <p className="px-3 pt-1 pb-1 text-[11px] font-medium tracking-[0.06em] text-[#8a9aab] uppercase">
-                      Labs
-                    </p>
-                    {labs.map((mode) => {
-                      const Icon = MODE_UI[mode.id].icon;
-                      return (
-                        <SheetClose asChild key={mode.id}>
-                          <button
-                            type="button"
-                            onClick={() => openStudio(mode.href)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[#f2f4f7]"
-                          >
-                            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#eef4f9] text-[#1b6ca8]">
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="text-[14px] text-[#1a2b3c]">
-                              {mode.title}
-                            </span>
-                          </button>
-                        </SheetClose>
-                      );
-                    })}
-                  </>
-                ) : null}
+                )}
               </nav>
             </SheetContent>
           </Sheet>
 
-          <AccountMenu
-            variant={marketing ? "marketing" : "default"}
-            onLogin={() => openAuth("login")}
-            onSignup={() => openAuth("signup")}
-          />
+          {marketing ? (
+            <>
+              <AccountMenu
+                variant="marketing"
+                onLogin={() => openAuth("login")}
+                onSignup={() => openAuth("signup")}
+              />
+              <button
+                type="button"
+                onClick={() => openStudio("/bug-analyzer")}
+                className="hidden h-9 items-center rounded-lg bg-white px-4 font-[family-name:var(--font-inter)] text-[13px] font-bold text-black outline-none transition hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40 sm:inline-flex"
+              >
+                Get started
+              </button>
+            </>
+          ) : (
+            <AccountMenu
+              variant="default"
+              onLogin={() => openAuth("login")}
+              onSignup={() => openAuth("signup")}
+            />
+          )}
         </div>
       </div>
     </header>
