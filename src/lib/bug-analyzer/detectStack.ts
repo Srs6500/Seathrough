@@ -149,7 +149,7 @@ async function mapPool<T, R>(
 export async function listReposWithStackForUser(
   userId: string,
   query: string,
-  limit = 30,
+  limit = 100,
 ): Promise<RepoWithStack[]> {
   const installs = await listInstallationsForUser(userId);
   const byId = new Map<number, GithubRepoOption & { installationId: number }>();

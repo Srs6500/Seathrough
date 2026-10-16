@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { BrandMark } from "@/components/lms/BrandMark";
+import { useOptionalTheme } from "@/components/site/ThemeProvider";
+import { cn } from "@/lib/utils";
 
 type SiteFooterProps = {
   variant?: "default" | "marketing";
@@ -30,6 +34,8 @@ function SocialIcon({
 /** Quiet footer for product; multi-column marketing footer on the landing page. */
 export function SiteFooter({ variant = "default" }: SiteFooterProps) {
   const marketing = variant === "marketing";
+  const { theme } = useOptionalTheme();
+  const dark = marketing && theme === "dark";
 
   if (!marketing) {
     return (
@@ -52,30 +58,76 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
   }
 
   return (
-    <footer className="border-t border-white/10 bg-black">
+    <footer
+      className={cn(
+        "border-t",
+        dark
+          ? "border-white/10 bg-black"
+          : "border-[#d5e0ea] bg-[#f8fafc]",
+      )}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10 md:flex-row md:items-end md:justify-between md:px-8 md:py-12">
         <div className="max-w-sm">
-          <BrandMark onDark size="sm" />
-          <p className="mt-3 text-[14px] leading-6 text-white/45">
+          <BrandMark onDark={dark} size="sm" />
+          <p
+            className={cn(
+              "mt-3 text-[14px] leading-6",
+              dark ? "text-white/45" : "text-[#6a7d90]",
+            )}
+          >
             Infer intent from code. See the gaps. Learn by watching.
           </p>
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-white/45">
-          <Link href="/bug-analyzer" className="hover:text-white">
-            Analyzer
+        <div
+          className={cn(
+            "flex flex-wrap gap-x-6 gap-y-2 text-[13px]",
+            dark ? "text-white/45" : "text-[#6a7d90]",
+          )}
+        >
+          <Link
+            href="/bug-analyzer"
+            className={dark ? "hover:text-white" : "hover:text-[#1a2b3c]"}
+          >
+            Debugger
           </Link>
-          <Link href="/smart-tutor" className="hover:text-white">
+          <Link
+            href="/smart-tutor"
+            className={dark ? "hover:text-white" : "hover:text-[#1a2b3c]"}
+          >
             Tutor
           </Link>
-          <Link href="/video" className="hover:text-white">
+          <Link
+            href="/smart-tutor/physics-tutor"
+            className={dark ? "hover:text-white" : "hover:text-[#1a2b3c]"}
+          >
+            Physics
+          </Link>
+          <Link
+            href="/browser"
+            className={dark ? "hover:text-white" : "hover:text-[#1a2b3c]"}
+          >
+            Browser
+          </Link>
+          <Link
+            href="/video"
+            className={dark ? "hover:text-white" : "hover:text-[#1a2b3c]"}
+          >
             Video
           </Link>
-          <Link href="/system-design" className="hover:text-white">
+          <Link
+            href="/system-design"
+            className={dark ? "hover:text-white" : "hover:text-[#1a2b3c]"}
+          >
             Systems
           </Link>
         </div>
         <div className="flex flex-col gap-3 md:items-end">
-          <div className="flex items-center gap-3.5 text-white/70">
+          <div
+            className={cn(
+              "flex items-center gap-3.5",
+              dark ? "text-white/70" : "text-[#3d5166]",
+            )}
+          >
             <SocialIcon label="YouTube" href="https://www.youtube.com/@SeeThrough-g8k">
               <svg
                 viewBox="0 0 24 24"
@@ -110,7 +162,12 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
               </svg>
             </SocialIcon>
           </div>
-          <p className="text-[13px] text-white/35">
+          <p
+            className={cn(
+              "text-[13px]",
+              dark ? "text-white/35" : "text-[#8a9aab]",
+            )}
+          >
             © {new Date().getFullYear()} SeeThrough
           </p>
         </div>

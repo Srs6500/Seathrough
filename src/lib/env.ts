@@ -159,34 +159,73 @@ export function getSupabaseConfig() {
   };
 }
 
-/**
- * GitHub App for Bug Analyzer / data-flow repo connect.
- * Private key may be stored with literal \n in env dashboards.
- */
-export function getGithubAppConfig() {
+function normalizePem(raw: string): string {
+  let value = raw.trim().replace(/^["']|["']$/g, "");
+
+  if (
+    value.endsWith(".pem") ||
+    (!value.includes("BEGIN") && (value.includes("/") || value.startsWith(".")))
+  ) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require("fs") as typeof import("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require("path") as typeof import("path");
+      const abs = path.isAbsolute(value)
+        ? value
+        : path.resolve(process.cwd(), value);
+      if (fs.existsSync(abs)) {
+        value = fs.readFileSync(abs, "utf8");
+      }
+    } catch {
+      // keep as-is
+    }
+  }
+
+  if (!value.includes("BEGIN") && /^[A-Za-z0-9+/=\s]+$/.test(value)) {
+    try {
+      value = Buffer.from(value.replace(/\s+/g, ""), "base64").toString("utf8");
+    } catch {
+      // keep as-is
+    }
+  }
+  return value.replace(/\\n/g, "\n").trim();
+}
+
+/** GitHub App for /data-flow and /bug-analyzer Connect GitHub. Optional. */
+export function getGithubAppConfig(): {
+  appId: string;
+  privateKey: string;
+  clientId?: string;
+  clientSecret?: string;
+  slug: string;
+  webhookSecret?: string;
+  configured: boolean;
+  privateKeyError?: string;
+} {
   const appId = optional("GITHUB_APP_ID");
   const slug = optional("GITHUB_APP_SLUG");
   const rawKey = optional("GITHUB_APP_PRIVATE_KEY");
-  let privateKey = "";
+  const normalized = rawKey ? normalizePem(rawKey) : undefined;
+  const privateKeyOk = Boolean(
+    normalized && /BEGIN [A-Z ]*PRIVATE KEY/.test(normalized),
+  );
   let privateKeyError: string | undefined;
-  if (rawKey) {
-    privateKey = rawKey.includes("\\n")
-      ? rawKey.replace(/\\n/g, "\n")
-      : rawKey;
-    if (!/BEGIN [A-Z ]*PRIVATE KEY/.test(privateKey)) {
-      privateKeyError = "GITHUB_APP_PRIVATE_KEY does not look like a PEM private key";
-    }
+  if (appId && slug && !privateKeyOk) {
+    privateKeyError = rawKey
+      ? "GITHUB_APP_PRIVATE_KEY is not a valid PEM. Paste the full contents of the downloaded .pem file (starts with -----BEGIN), or set a path to that file."
+      : "GITHUB_APP_PRIVATE_KEY is missing.";
   }
-  const configured = Boolean(appId && slug && privateKey && !privateKeyError);
+  const configured = Boolean(appId && slug && privateKeyOk);
   return {
-    configured,
     appId: appId ?? "",
-    slug: slug ?? "",
-    privateKey,
-    privateKeyError,
+    privateKey: privateKeyOk ? normalized! : "",
     clientId: optional("GITHUB_APP_CLIENT_ID"),
     clientSecret: optional("GITHUB_APP_CLIENT_SECRET"),
+    slug: slug ?? "",
     webhookSecret: optional("GITHUB_APP_WEBHOOK_SECRET"),
+    configured,
+    privateKeyError,
   };
 }
 
@@ -207,6 +246,7 @@ export function envPresence() {
     BROWSERBASE_PROJECT_ID: Boolean(optional("BROWSERBASE_PROJECT_ID")),
     BROWSERLESS_API_KEY: Boolean(optional("BROWSERLESS_API_KEY")),
     IMAGE_REFERENCE_ENABLED: !imageReferenceExplicitOff,
+    GITHUB_APP: getGithubAppConfig().configured,
     DEEPGRAM_API_KEY: Boolean(optional("DEEPGRAM_API_KEY")),
     NEXT_PUBLIC_SUPABASE_URL: Boolean(optional("NEXT_PUBLIC_SUPABASE_URL")),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Boolean(optional("NEXT_PUBLIC_SUPABASE_ANON_KEY")),

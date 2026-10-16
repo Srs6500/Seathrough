@@ -18,11 +18,12 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+// Keep Newsreader queries simple — Turbopack breaks on multi-weight + italic
+// google font maps ("queries have exactly one entry").
 const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-newsreader",
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
+  weight: "400",
 });
 
 // Self-hosted so Vercel/Turbopack builds do not depend on fonts.gstatic.com

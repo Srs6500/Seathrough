@@ -610,6 +610,14 @@ body {
     radial-gradient(ellipse 60% 40% at 50% 100%, rgba(255, 255, 255, 0.04), transparent 50%);
 }
 
+.marketing-shell--light {
+  background-color: #ffffff;
+  color: #1a2b3c;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(27, 108, 168, 0.08), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(26, 43, 60, 0.04), transparent 50%);
+}
+
 .marketing-shell :is(h1, h2, h3) {
   font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
 }
@@ -635,6 +643,14 @@ body {
     transparent 75%
   );
   opacity: 0.7;
+}
+
+.marketing-hero-dots--light {
+  background-image: radial-gradient(
+    rgba(26, 43, 60, 0.18) 1.15px,
+    transparent 1.15px
+  );
+  opacity: 0.55;
 }
 
 .marketing-rise {
@@ -811,12 +827,19 @@ body {
 
 html.marketing-page,
 html.marketing-page body {
-  background: #000000 !important;
+  background: #ffffff !important;
   background-image: none !important;
-  color: #ffffff;
+  color: #1a2b3c;
   --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+html.marketing-page.marketing-theme-dark,
+html.marketing-page.marketing-theme-dark body {
+  background: #000000 !important;
+  background-image: none !important;
+  color: #ffffff;
 }
 
 html.marketing-page .font-display {

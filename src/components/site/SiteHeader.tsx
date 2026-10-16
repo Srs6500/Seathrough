@@ -9,6 +9,8 @@ import { AccountMenu } from "@/components/lms/AccountMenu";
 import { BrandMark } from "@/components/lms/BrandMark";
 import { MODE_UI } from "@/components/lms/modeUi";
 import { useStudioAccess } from "@/components/site/StudioAccess";
+import { ThemeToggle } from "@/components/site/ThemeToggle";
+import { useOptionalTheme } from "@/components/site/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -85,6 +87,8 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
   const labs = listModesByGroup("lab");
   const marketing = variant === "marketing";
   const pathname = usePathname();
+  const { theme } = useOptionalTheme();
+  const dark = marketing && theme === "dark";
 
   function pick(href: string) {
     setFeaturesOpen(false);
@@ -93,10 +97,11 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
 
   const marketingLinks = [
     { label: "Overview", href: "/" },
-    { label: "Features", href: "/bug-analyzer" },
-    { label: "Analyzer", href: "/bug-analyzer" },
+    { label: "Debugger", href: "/bug-analyzer" },
     { label: "Video", href: "/video" },
     { label: "Tutor", href: "/smart-tutor" },
+    { label: "Physics", href: "/smart-tutor/physics-tutor" },
+    { label: "Browser", href: "/browser" },
     { label: "Systems", href: "/system-design" },
   ];
 
@@ -105,7 +110,9 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
       className={cn(
         "sticky top-0 z-50 border-b",
         marketing
-          ? "border-white/10 bg-black/80 backdrop-blur-md"
+          ? dark
+            ? "border-white/10 bg-black/80 backdrop-blur-md"
+            : "border-[#d5e0ea]/80 bg-white/85 backdrop-blur-md"
           : "border-border/80 bg-glass backdrop-blur-md",
       )}
     >
@@ -120,7 +127,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
         <BrandMark
           compact={!marketing}
           size={marketing ? "sm" : "lg"}
-          onDark={marketing}
+          onDark={dark}
         />
 
         <nav
@@ -145,8 +152,20 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                     openStudio(link.href);
                   }}
                   className={cn(
-                    "text-[13px] font-medium outline-none transition-colors hover:text-white focus-visible:text-white",
-                    pathname === link.href ? "text-white" : "text-white/70",
+                    "text-[13px] font-medium outline-none transition-colors",
+                    dark
+                      ? cn(
+                          "hover:text-white focus-visible:text-white",
+                          pathname === link.href
+                            ? "text-white"
+                            : "text-white/70",
+                        )
+                      : cn(
+                          "hover:text-[#1b6ca8] focus-visible:text-[#1b6ca8]",
+                          pathname === link.href
+                            ? "text-[#1a2b3c]"
+                            : "text-[#6a7d90]",
+                        ),
                   )}
                 >
                   {link.label}
@@ -258,7 +277,9 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                 className={cn(
                   "md:hidden",
                   marketing
-                    ? "text-white hover:bg-white/10"
+                    ? dark
+                      ? "text-white hover:bg-white/10"
+                      : "text-[#1a2b3c] hover:bg-[#f2f4f7]"
                     : "text-[#1a2b3c] hover:bg-[#f2f4f7]",
                 )}
                 aria-label="Open menu"
@@ -270,19 +291,26 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
               side="right"
               className={cn(
                 "w-[min(100%,20rem)] p-0",
-                marketing && "border-white/10 bg-[#0a0a0a] text-white",
+                marketing &&
+                  (dark
+                    ? "border-white/10 bg-[#0a0a0a] text-white"
+                    : "border-[#d5e0ea] bg-white text-[#1a2b3c]"),
               )}
             >
               <SheetHeader
                 className={cn(
                   "border-b px-5 py-4",
-                  marketing ? "border-white/10" : "border-[#e6ebf0]",
+                  marketing
+                    ? dark
+                      ? "border-white/10"
+                      : "border-[#e6ebf0]"
+                    : "border-[#e6ebf0]",
                 )}
               >
                 <SheetTitle
                   className={cn(
                     "text-[15px] font-medium",
-                    marketing && "text-white",
+                    marketing && (dark ? "text-white" : "text-[#1a2b3c]"),
                   )}
                 >
                   Menu
@@ -299,17 +327,38 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                             if (link.href === "/") return;
                             openStudio(link.href);
                           }}
-                          className="rounded-lg px-3 py-2.5 text-left text-[14px] text-white/80 hover:bg-white/8 hover:text-white"
+                          className={cn(
+                            "rounded-lg px-3 py-2.5 text-left text-[14px]",
+                            dark
+                              ? "text-white/80 hover:bg-white/8 hover:text-white"
+                              : "text-[#3d5166] hover:bg-[#f2f4f7] hover:text-[#1a2b3c]",
+                          )}
                         >
                           {link.label}
                         </button>
                       </SheetClose>
                     ))}
+                    <div className="mt-2 flex items-center gap-2 px-1">
+                      <ThemeToggle variant="marketing" />
+                      <span
+                        className={cn(
+                          "text-[13px]",
+                          dark ? "text-white/60" : "text-[#6a7d90]",
+                        )}
+                      >
+                        {dark ? "Light mode" : "Dark mode"}
+                      </span>
+                    </div>
                     <SheetClose asChild>
                       <button
                         type="button"
                         onClick={() => openStudio("/bug-analyzer")}
-                        className="mt-2 rounded-lg bg-white px-3 py-2.5 text-center text-[14px] font-bold text-black"
+                        className={cn(
+                          "mt-2 rounded-lg px-3 py-2.5 text-center text-[14px] font-bold",
+                          dark
+                            ? "bg-white text-black"
+                            : "bg-[#1a2b3c] text-white",
+                        )}
                       >
                         Get started
                       </button>
@@ -411,6 +460,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
 
           {marketing ? (
             <>
+              <ThemeToggle variant="marketing" />
               <AccountMenu
                 variant="marketing"
                 onLogin={() => openAuth("login")}
@@ -419,7 +469,12 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
               <button
                 type="button"
                 onClick={() => openStudio("/bug-analyzer")}
-                className="hidden h-9 items-center rounded-lg bg-white px-4 font-[family-name:var(--font-inter)] text-[13px] font-bold text-black outline-none transition hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40 sm:inline-flex"
+                className={cn(
+                  "hidden h-9 items-center rounded-lg px-4 font-[family-name:var(--font-inter)] text-[13px] font-bold outline-none transition sm:inline-flex",
+                  dark
+                    ? "bg-white text-black hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40"
+                    : "bg-[#1a2b3c] text-white hover:bg-[#24384c] focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/40",
+                )}
               >
                 Get started
               </button>

@@ -2,6 +2,7 @@
 
 import { LogOut, UserRound } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useOptionalTheme } from "@/components/site/ThemeProvider";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -29,13 +30,19 @@ export function AccountMenu({
 }: AccountMenuProps) {
   const { user, loading, logout } = useAuth();
   const marketing = variant === "marketing";
+  const { theme } = useOptionalTheme();
+  const dark = marketing && theme === "dark";
 
   if (loading) {
     return (
       <div
         className={cn(
           "size-9 animate-pulse rounded-none",
-          marketing ? "bg-[#e8eef5]" : "bg-secondary",
+          marketing
+            ? dark
+              ? "bg-white/15"
+              : "bg-[#e8eef5]"
+            : "bg-secondary",
         )}
         aria-hidden
       />
@@ -48,7 +55,12 @@ export function AccountMenu({
         <button
           type="button"
           onClick={onLogin}
-          className="hidden text-[13px] font-medium text-white/70 outline-none transition-colors hover:text-white focus-visible:text-white sm:inline"
+          className={cn(
+            "hidden text-[13px] font-medium outline-none transition-colors sm:inline",
+            dark
+              ? "text-white/70 hover:text-white focus-visible:text-white"
+              : "text-[#6a7d90] hover:text-[#1a2b3c] focus-visible:text-[#1a2b3c]",
+          )}
         >
           Login
         </button>

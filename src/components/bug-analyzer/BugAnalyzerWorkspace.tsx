@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Database, ExternalLink, FileCode2, FolderGit2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  ExternalLink,
+  FileCode2,
+  FolderGit2,
+  Loader2,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { DataIndexView } from "@/components/bug-analyzer/DataIndexView";
 import { InspectCodePanel } from "@/components/bug-analyzer/InspectCodePanel";
@@ -30,6 +40,8 @@ import {
 
 type ScopeMode = "file" | "repo";
 type WorkspacePhase = "browse" | "run" | "data";
+
+const REPOS_PER_PAGE = 10;
 
 type InspectChainItem = {
   key: string;
@@ -96,9 +108,15 @@ export function BugAnalyzerWorkspace() {
   const [status, setStatus] = useState<GithubConnectionStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
+  const [repoFilter, setRepoFilter] = useState<"all" | "public" | "private">(
+    "all",
+  );
+  const [repoPage, setRepoPage] = useState(0);
   const [repos, setRepos] = useState<RepoWithStack[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [reposEpoch, setReposEpoch] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const [selected, setSelected] = useState<RepoWithStack | null>(null);
   const [phase, setPhase] = useState<WorkspacePhase>("browse");
@@ -165,33 +183,63 @@ export function BugAnalyzerWorkspace() {
     }
 
     let cancelled = false;
-    const handle = window.setTimeout(() => {
-      setLoadingRepos(true);
-      setListError(null);
-      void listBugAnalyzerRepos(accessToken, query)
-        .then((next) => {
-          if (!cancelled) setRepos(next);
-        })
-        .catch((error: unknown) => {
-          if (!cancelled) {
-            setRepos([]);
-            setListError(
-              error instanceof Error
-                ? error.message
-                : "Could not load repositories.",
-            );
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setLoadingRepos(false);
-        });
-    }, 250);
+    setLoadingRepos(true);
+    setListError(null);
+    void listBugAnalyzerRepos(accessToken, "")
+      .then((next) => {
+        if (!cancelled) setRepos(next);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setRepos([]);
+          setListError(
+            error instanceof Error
+              ? error.message
+              : "Could not load repositories.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRepos(false);
+      });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(handle);
     };
-  }, [accessToken, connected, query]);
+  }, [accessToken, connected, reposEpoch]);
+
+  useEffect(() => {
+    if (!connected) return;
+    const id = window.setTimeout(() => searchInputRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [connected]);
+
+  const filteredRepos = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return repos.filter((repo) => {
+      if (repoFilter === "public" && repo.private) return false;
+      if (repoFilter === "private" && !repo.private) return false;
+      if (!q) return true;
+      const full = repo.fullName.toLowerCase();
+      const name = repo.name.toLowerCase();
+      const stack = repo.stackLabel.toLowerCase();
+      return full.includes(q) || name.includes(q) || stack.includes(q);
+    });
+  }, [repos, query, repoFilter]);
+
+  const repoPageCount = Math.max(
+    1,
+    Math.ceil(filteredRepos.length / REPOS_PER_PAGE),
+  );
+  const safeRepoPage = Math.min(repoPage, repoPageCount - 1);
+  const pagedRepos = useMemo(() => {
+    const start = safeRepoPage * REPOS_PER_PAGE;
+    return filteredRepos.slice(start, start + REPOS_PER_PAGE);
+  }, [filteredRepos, safeRepoPage]);
+
+  useEffect(() => {
+    setRepoPage(0);
+  }, [query, repoFilter]);
 
   useEffect(() => {
     if (!accessToken || !selected || phase !== "run") return;
@@ -507,19 +555,39 @@ export function BugAnalyzerWorkspace() {
   }
 
   if (!connected) {
+    const connectDisabled =
+      busy || authLoading || Boolean(status && !status.configured);
+
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-white">
-        <p>bug analyzer</p>
-        <Button
-          type="button"
-          size="lg"
-          disabled={
-            busy || authLoading || Boolean(status && !status.configured)
-          }
-          onClick={onConnect}
-        >
-          {busy ? "Opening GitHub…" : "Connect GitHub"}
-        </Button>
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-white px-6">
+        <div className="flex w-full max-w-lg flex-col items-center text-center">
+          <h1 className="text-4xl font-semibold tracking-tight text-[#17324a] sm:text-5xl">
+            Connect to GitHub
+          </h1>
+          <p className="mt-4 max-w-md text-base leading-relaxed text-[#5a7388]">
+            Link your GitHub account to pick a repository and start debugging.
+          </p>
+          {status && !status.configured ? (
+            <p className="mt-3 text-sm text-red-700" role="alert">
+              GitHub App is not configured on this server.
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            size="lg"
+            className="mt-8 h-12 min-w-[12rem] px-8 text-base font-semibold"
+            disabled={connectDisabled}
+            onClick={onConnect}
+          >
+            {busy
+              ? "Opening GitHub…"
+              : authLoading
+                ? "Loading…"
+                : !accessToken
+                  ? "Sign in to continue"
+                  : "Connect GitHub"}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -965,90 +1033,215 @@ export function BugAnalyzerWorkspace() {
     );
   }
 
+  const filterOptions = [
+    { id: "all" as const, label: "All" },
+    { id: "public" as const, label: "Public" },
+    { id: "private" as const, label: "Private" },
+  ];
+
+  function openFirstMatch() {
+    const first = pagedRepos[0] ?? filteredRepos[0];
+    if (first) void openRepo(first);
+  }
+
+  const pageStart =
+    filteredRepos.length === 0 ? 0 : safeRepoPage * REPOS_PER_PAGE + 1;
+  const pageEnd = Math.min(
+    (safeRepoPage + 1) * REPOS_PER_PAGE,
+    filteredRepos.length,
+  );
+
   return (
-    <div className="min-h-dvh bg-white px-6 py-10">
-      <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-6">
-          <p className="text-lg font-medium text-[#17324a]">bug analyzer</p>
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#f7fafc]">
+      <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-5 pt-6 pb-5 sm:px-6 sm:pt-8">
+        <header className="shrink-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-[#17324a] sm:text-[1.75rem]">
+            Find a repository
+          </h1>
           <p className="mt-1 text-sm text-[#5a7388]">
-            GitHub connected
-            {status?.slug ? ` · app ${status.slug}` : ""}. Pick a repo, then run
-            a file or the whole app.
+            Search by name, owner, or stack.
           </p>
-        </div>
 
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={loadingRepos ? "Loading…" : "Search repositories"}
-          className="mb-5 h-11 border-[#e5eef4] bg-white"
-        />
+          <div className="relative mt-4">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-[#7a93a8]"
+              aria-hidden
+            />
+            <Input
+              ref={searchInputRef}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  openFirstMatch();
+                }
+              }}
+              placeholder="Search repositories…"
+              aria-label="Search repositories"
+              className="h-11 rounded-xl border-[#d7e3ec] bg-white pr-11 pl-10 text-[15px] shadow-sm placeholder:text-[#9aafc0] focus-visible:border-[#2a5f7a] focus-visible:ring-[#2a5f7a]/20"
+            />
+            {loadingRepos ? (
+              <Loader2
+                className="absolute top-1/2 right-3.5 size-4 -translate-y-1/2 animate-spin text-[#2a5f7a]"
+                aria-label="Loading repositories"
+              />
+            ) : null}
+          </div>
 
-        {listError ? (
-          <p className="mb-4 text-sm text-red-700" role="alert">
-            {listError}
-          </p>
-        ) : null}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div
+              className="flex items-center gap-1"
+              role="group"
+              aria-label="Filter repositories"
+            >
+              {filterOptions.map((option) => {
+                const active = repoFilter === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setRepoFilter(option.id)}
+                    className={
+                      active
+                        ? "rounded-lg bg-[#17324a] px-2.5 py-1 text-sm font-medium text-white"
+                        : "rounded-lg px-2.5 py-1 text-sm font-medium text-[#5a7388] hover:bg-white hover:text-[#17324a]"
+                    }
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-[#7a93a8]" aria-live="polite">
+                {loadingRepos
+                  ? "Loading…"
+                  : filteredRepos.length === 0
+                    ? "0 repos"
+                    : `${pageStart}–${pageEnd} of ${filteredRepos.length}`}
+              </p>
+              <button
+                type="button"
+                onClick={() => setReposEpoch((n) => n + 1)}
+                disabled={loadingRepos}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#2a5f7a] hover:underline disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`size-3.5 ${loadingRepos ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                Refresh
+              </button>
+            </div>
+          </div>
 
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {repos.map((repo) => {
-            const tags = [
-              ...new Set(
-                repo.stackLabel
-                  .split("·")
-                  .map((t) => t.trim())
-                  .filter(Boolean),
-              ),
-            ];
-            return (
-              <li key={repo.id}>
-                <button
-                  type="button"
-                  onClick={() => void openRepo(repo)}
-                  className="flex h-full w-full flex-col rounded-xl border border-[#e5eef4] bg-white p-4 text-left shadow-sm transition hover:border-[#c5d4e0]"
-                >
-                  <div className="mb-3 flex items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef5f9] text-[#2a5f7a]">
-                      <FolderGit2 className="h-5 w-5" aria-hidden />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#17324a]">
-                        {repo.name}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-[#7a93a8]">
-                        {repo.fullName}
-                      </p>
-                    </div>
+          {listError ? (
+            <p className="mt-3 text-sm text-red-700" role="alert">
+              {listError}
+            </p>
+          ) : null}
+        </header>
+
+        <div className="mt-4 min-h-0 flex-1 overflow-hidden rounded-xl border border-[#d7e3ec] bg-white shadow-sm">
+          {loadingRepos && repos.length === 0 ? (
+            <ul className="divide-y divide-[#eef3f7]" aria-busy="true">
+              {Array.from({ length: REPOS_PER_PAGE }).map((_, index) => (
+                <li key={index} className="flex items-center gap-3 px-4 py-3">
+                  <span className="size-8 shrink-0 animate-pulse rounded-lg bg-[#e8eef4]" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3.5 w-1/3 animate-pulse rounded bg-[#e8eef4]" />
+                    <div className="h-3 w-1/2 animate-pulse rounded bg-[#eef3f7]" />
                   </div>
-                  <div className="mt-auto flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-md bg-[#f3f4f6] px-1.5 py-0.5 text-[10px] font-medium text-[#5a7388]">
+                </li>
+              ))}
+            </ul>
+          ) : pagedRepos.length > 0 ? (
+            <ul className="h-full divide-y divide-[#eef3f7] overflow-y-auto">
+              {pagedRepos.map((repo) => (
+                <li key={repo.id}>
+                  <button
+                    type="button"
+                    onClick={() => void openRepo(repo)}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#f4f8fb] focus-visible:bg-[#f4f8fb] focus-visible:outline-none"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#eef5f9] text-[#2a5f7a]">
+                      <FolderGit2 className="size-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-[#17324a]">
+                        {repo.name}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-[#7a93a8]">
+                        {repo.fullName}
+                        <span className="text-[#b0c0ce]"> · </span>
+                        {repo.stackLabel}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs font-medium text-[#7a93a8]">
                       {repo.private ? "Private" : "Public"}
                     </span>
-                    {tags.map((tag) => (
-                      <span
-                        key={`${repo.id}:${tag}`}
-                        className="rounded-full border border-[#e5eef4] bg-[#f8fafc] px-2 py-0.5 text-[10px] font-medium text-[#5a7388]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    <span className="rounded-full bg-[#e0f2fe] px-2 py-0.5 text-[10px] font-medium text-[#0369a1]">
-                      Open files
-                    </span>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center px-6 py-14 text-center">
+              <p className="text-sm font-medium text-[#17324a]">
+                {query.trim() || repoFilter !== "all"
+                  ? "No repositories match"
+                  : "No repositories available"}
+              </p>
+              <p className="mt-1 text-sm text-[#5a7388]">
+                {query.trim() || repoFilter !== "all"
+                  ? "Try another search or filter."
+                  : "Install the GitHub App on the repos you want to debug."}
+              </p>
+            </div>
+          )}
+        </div>
 
-        {!loadingRepos && !listError && repos.length === 0 ? (
-          <p className="mt-6 text-sm text-[#5a7388]">
-            {query.trim()
-              ? "No repositories match that search."
-              : "No repositories available on your GitHub App install."}
+        <footer className="mt-3 flex shrink-0 items-center justify-between gap-3">
+          <p className="text-xs text-[#9aafc0]">
+            {loadingRepos && repos.length > 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-[#5a7388]">
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                Updating…
+              </span>
+            ) : (
+              "10 per page"
+            )}
           </p>
-        ) : null}
+          {filteredRepos.length > REPOS_PER_PAGE ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setRepoPage((p) => Math.max(0, p - 1))}
+                disabled={safeRepoPage === 0}
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#d7e3ec] bg-white text-[#17324a] transition hover:bg-[#f4f8fb] disabled:opacity-35"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <p className="min-w-20 text-center text-sm text-[#5a7388]">
+                {safeRepoPage + 1} / {repoPageCount}
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  setRepoPage((p) => Math.min(repoPageCount - 1, p + 1))
+                }
+                disabled={safeRepoPage >= repoPageCount - 1}
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-[#d7e3ec] bg-white text-[#17324a] transition hover:bg-[#f4f8fb] disabled:opacity-35"
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <span />
+          )}
+        </footer>
       </div>
     </div>
   );
