@@ -211,9 +211,23 @@ export function BugAnalyzerWorkspace() {
             Link your GitHub account to pick a repository and start debugging.
           </p>
           {status && !status.configured ? (
-            <p className="mt-3 text-sm text-red-700" role="alert">
-              GitHub App is not configured on this server.
-            </p>
+            <div
+              className="mt-4 max-w-md rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-800"
+              role="alert"
+            >
+              <p className="font-semibold">
+                GitHub App is not configured on this server.
+              </p>
+              <p className="mt-1.5 leading-relaxed text-red-700/90">
+                {status.privateKeyError ||
+                  "Set GITHUB_APP_ID, GITHUB_APP_SLUG, and GITHUB_APP_PRIVATE_KEY in your production environment, then redeploy."}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-red-700/80">
+                On Vercel, paste the full private key PEM (not a local{" "}
+                <code className="rounded bg-red-100 px-1">.pem</code> file
+                path). Use Production env, then Redeploy.
+              </p>
+            </div>
           ) : null}
           <Button
             type="button"

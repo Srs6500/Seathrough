@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { createPrivateKey, createSign } from "node:crypto";
 import { getGithubAppConfig } from "@/lib/env";
 
 export type GithubRepoOption = {
@@ -58,10 +58,13 @@ function appJwt(): string {
     }),
   ).toString("base64url");
   const data = `${header}.${payload}`;
+  // Load as KeyObject so OpenSSL gets a decoded key (avoids DECODER unsupported
+  // when env PEMs have odd whitespace after normalization).
+  const key = createPrivateKey(cfg.privateKey);
   const signer = createSign("RSA-SHA256");
   signer.update(data);
   signer.end();
-  const signature = signer.sign(cfg.privateKey).toString("base64url");
+  const signature = signer.sign(key).toString("base64url");
   return `${data}.${signature}`;
 }
 

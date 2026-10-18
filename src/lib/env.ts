@@ -159,13 +159,62 @@ export function getSupabaseConfig() {
   };
 }
 
-function normalizePem(raw: string): string {
-  let value = raw.trim().replace(/^["']|["']$/g, "");
-
-  if (
+function looksLikePemPath(value: string): boolean {
+  return (
     value.endsWith(".pem") ||
-    (!value.includes("BEGIN") && (value.includes("/") || value.startsWith(".")))
-  ) {
+    (!value.includes("BEGIN") &&
+      (value.includes("/") || value.startsWith(".")))
+  );
+}
+
+/** Unescape common env-dashboard PEM encodings (Vercel `\n`, double escapes, etc.). */
+function unescapePemNewlines(raw: string): string {
+  let value = raw.trim().replace(/^\uFEFF/, "");
+  // Strip wrapping quotes once or twice (dashboards sometimes nest them).
+  for (let i = 0; i < 2; i++) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1).trim();
+    }
+  }
+  // Collapse any backslash-escaped newlines (\\n, \\\\n, etc.) used by env UIs.
+  value = value
+    .replace(/\\+r\\+n/g, "\n")
+    .replace(/\\+n/g, "\n")
+    .replace(/\\+r/g, "\n")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+  return value.trim();
+}
+
+/**
+ * If a PEM was flattened to one line (spaces instead of newlines), rebuild it.
+ * OpenSSL returns DECODER unsupported for those flattened strings.
+ */
+function rewrapPem(value: string): string {
+  const match = value.match(
+    /-----BEGIN ([A-Z ]*PRIVATE KEY)-----([\s\S]+?)-----END \1-----/,
+  );
+  if (!match) return value;
+  const label = match[1]!;
+  const body = match[2]!.replace(/\s+/g, "");
+  if (!body) return value;
+  const lines = body.match(/.{1,64}/g) ?? [body];
+  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----`;
+}
+
+function normalizePem(raw: string): {
+  value: string;
+  fromFile: boolean;
+  pathMissing: boolean;
+} {
+  let value = unescapePemNewlines(raw);
+  let fromFile = false;
+  let pathMissing = false;
+
+  if (looksLikePemPath(value)) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require("fs") as typeof import("fs");
@@ -175,21 +224,48 @@ function normalizePem(raw: string): string {
         ? value
         : path.resolve(process.cwd(), value);
       if (fs.existsSync(abs)) {
-        value = fs.readFileSync(abs, "utf8");
+        value = unescapePemNewlines(fs.readFileSync(abs, "utf8"));
+        fromFile = true;
+      } else {
+        pathMissing = true;
       }
     } catch {
-      // keep as-is
+      pathMissing = true;
     }
   }
 
   if (!value.includes("BEGIN") && /^[A-Za-z0-9+/=\s]+$/.test(value)) {
     try {
-      value = Buffer.from(value.replace(/\s+/g, ""), "base64").toString("utf8");
+      value = unescapePemNewlines(
+        Buffer.from(value.replace(/\s+/g, ""), "base64").toString("utf8"),
+      );
     } catch {
       // keep as-is
     }
   }
-  return value.replace(/\\n/g, "\n").trim();
+
+  if (value.includes("BEGIN")) {
+    value = rewrapPem(value);
+  }
+
+  return {
+    value: value.trim(),
+    fromFile,
+    pathMissing,
+  };
+}
+
+function canLoadPrivateKey(pem: string): { ok: true } | { ok: false; error: string } {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createPrivateKey } = require("crypto") as typeof import("crypto");
+    createPrivateKey(pem);
+    return { ok: true };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unsupported private key format.";
+    return { ok: false, error: message };
+  }
 }
 
 /** GitHub App for /data-flow and /bug-analyzer Connect GitHub. Optional. */
@@ -206,15 +282,29 @@ export function getGithubAppConfig(): {
   const appId = optional("GITHUB_APP_ID");
   const slug = optional("GITHUB_APP_SLUG");
   const rawKey = optional("GITHUB_APP_PRIVATE_KEY");
-  const normalized = rawKey ? normalizePem(rawKey) : undefined;
-  const privateKeyOk = Boolean(
+  const parsed = rawKey ? normalizePem(rawKey) : undefined;
+  const normalized = parsed?.value;
+  const looksLikePem = Boolean(
     normalized && /BEGIN [A-Z ]*PRIVATE KEY/.test(normalized),
   );
+  const loaded =
+    looksLikePem && normalized ? canLoadPrivateKey(normalized) : null;
+  const privateKeyOk = Boolean(looksLikePem && loaded?.ok);
   let privateKeyError: string | undefined;
   if (appId && slug && !privateKeyOk) {
-    privateKeyError = rawKey
-      ? "GITHUB_APP_PRIVATE_KEY is not a valid PEM. Paste the full contents of the downloaded .pem file (starts with -----BEGIN), or set a path to that file."
-      : "GITHUB_APP_PRIVATE_KEY is missing.";
+    if (!rawKey) {
+      privateKeyError = "GITHUB_APP_PRIVATE_KEY is missing.";
+    } else if (parsed?.pathMissing) {
+      privateKeyError =
+        "GITHUB_APP_PRIVATE_KEY looks like a file path, but that file is not on this server. On Vercel/production, paste the full PEM contents (starts with -----BEGIN), not a local path.";
+    } else if (loaded && !loaded.ok) {
+      privateKeyError =
+        "GITHUB_APP_PRIVATE_KEY could not be decoded by Node/OpenSSL (often bad newlines on Vercel). Re-paste as a single line with \\n between PEM lines, then redeploy. " +
+        loaded.error;
+    } else {
+      privateKeyError =
+        "GITHUB_APP_PRIVATE_KEY is not a valid PEM. Paste the full contents of the downloaded .pem file (starts with -----BEGIN). On production hosts, do not use a local file path.";
+    }
   }
   const configured = Boolean(appId && slug && privateKeyOk);
   return {
