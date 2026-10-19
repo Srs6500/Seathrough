@@ -680,9 +680,27 @@ body {
   }
 }
 
+@keyframes hero-step-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.hero-step-progress {
+  animation: hero-step-progress var(--hero-step-ms, 6500ms) linear forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marketing-rise {
     animation: none;
+  }
+
+  .hero-step-progress {
+    animation: none;
+    transform: scaleX(1);
   }
 
   .draw-stroke path {

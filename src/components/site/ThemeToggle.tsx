@@ -1,7 +1,7 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useTheme } from "@/components/site/ThemeProvider";
+import { useOptionalTheme } from "@/components/site/ThemeProvider";
 import { cn } from "@/lib/utils";
 
 type ThemeToggleProps = {
@@ -13,7 +13,7 @@ export function ThemeToggle({
   className,
   variant = "marketing",
 }: ThemeToggleProps) {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme } = useOptionalTheme();
   const dark = theme === "dark";
   const marketing = variant === "marketing";
 

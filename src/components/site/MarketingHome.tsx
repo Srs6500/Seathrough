@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { MarketingCodeSection } from "@/components/site/MarketingCodeSection";
+import { MarketingEducationSection } from "@/components/site/MarketingEducationSection";
 import { MarketingHero } from "@/components/site/MarketingHero";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -47,6 +49,8 @@ export function MarketingHome() {
             <SiteHeader variant="marketing" />
             <main className="flex flex-1 flex-col">
               <MarketingHero />
+              <MarketingCodeSection />
+              <MarketingEducationSection />
             </main>
             <SiteFooter variant="marketing" />
           </div>

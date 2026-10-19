@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Download, Maximize, Minimize, Pause, Pencil, Play, Trash2, Volume2, VolumeX } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { ThemeProvider } from "@/components/site/ThemeProvider";
 import { StudioAccessProvider } from "@/components/site/StudioAccess";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import { Button } from "@/components/ui/button";
@@ -419,9 +420,11 @@ const TAB_ITEMS: { id: DashboardTab; label: string }[] = [
 
 export function SavedVideosDashboard({ initialTab = "lessons" }: { initialTab?: DashboardTab }) {
   return (
-    <StudioAccessProvider>
-      <SavedVideosDashboardView initialTab={initialTab} />
-    </StudioAccessProvider>
+    <ThemeProvider>
+      <StudioAccessProvider>
+        <SavedVideosDashboardView initialTab={initialTab} />
+      </StudioAccessProvider>
+    </ThemeProvider>
   );
 }
 

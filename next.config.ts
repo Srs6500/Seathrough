@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
     "tesseract.js",
     "tesseract.js-core",
     "playwright-core",
+    "@axe-core/playwright",
+    "axe-core",
     "@browserbasehq/sdk",
     "speech-rule-engine",
     "temml",

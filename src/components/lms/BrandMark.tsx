@@ -15,13 +15,13 @@ export function BrandMark({
   onDark = false,
 }: BrandMarkProps) {
   const mark =
-    size === "lg" ? "h-18 w-18" : size === "md" ? "h-10 w-10" : "h-8 w-8";
+    size === "lg" ? "h-18 w-18" : size === "md" ? "h-11 w-11" : "h-8 w-8";
   const word = cn(
     "truncate font-medium tracking-tight",
     size === "lg"
       ? "text-xl md:text-2xl"
       : size === "md"
-        ? "text-lg md:text-xl"
+        ? "text-xl md:text-[1.65rem]"
         : "text-base md:text-lg",
     onDark ? "text-white" : "text-ink",
   );

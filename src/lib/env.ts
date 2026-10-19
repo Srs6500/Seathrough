@@ -214,7 +214,7 @@ function normalizePem(raw: string): {
   let fromFile = false;
   let pathMissing = false;
 
-  if (looksLikePemPath(value)) {
+  if (looksLikePemPath(value) && typeof window === "undefined") {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require("fs") as typeof import("fs");

@@ -4,7 +4,7 @@ import { MarketingHome } from "@/components/site/MarketingHome";
 export const metadata: Metadata = {
   title: "SeeThrough",
   description:
-    "AI tutor, system design, and debugging visuals — SeeThrough draws the explanation so you can watch and learn.",
+    "System design and debugging visuals — SeeThrough draws the explanation so you can watch and learn.",
 };
 
 export default function HomePage() {

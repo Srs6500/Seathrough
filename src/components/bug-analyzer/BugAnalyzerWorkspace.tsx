@@ -10,7 +10,11 @@ import {
   Search,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { DataIndexView } from "@/components/bug-analyzer/DataIndexView";
+import {
+  DataIndexView,
+  type DataIndexViewMode,
+} from "@/components/bug-analyzer/DataIndexView";
+import { FrontendArchitecturePanel } from "@/components/bug-analyzer/FrontendArchitecturePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
@@ -28,10 +32,15 @@ import {
 
 const REPOS_PER_PAGE = 10;
 
+type DebuggerTab = "frontend" | "backend";
+
 export function BugAnalyzerWorkspace() {
   const { accessToken, loading: authLoading } = useAuth();
   const { openAuth } = useQuestionAccess();
   const [status, setStatus] = useState<GithubConnectionStatus | null>(null);
+  const [debuggerTab, setDebuggerTab] = useState<DebuggerTab>("frontend");
+  const [backendMode, setBackendMode] =
+    useState<DataIndexViewMode>("analyzer");
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [repoFilter, setRepoFilter] = useState<"all" | "public" | "private">(
@@ -251,15 +260,150 @@ export function BugAnalyzerWorkspace() {
 
   if (selected) {
     return (
-      <div className="flex min-h-dvh flex-col bg-[#f7fafc]">
-        <DataIndexView
-          index={dataIndex}
-          loading={dataLoading}
-          error={dataError}
-          repoFullName={selected.fullName}
-          onBack={resetSelection}
-          onRebuild={() => void buildData(selected)}
-        />
+      <div className="flex h-dvh flex-col overflow-hidden bg-[#f7fafc]">
+        <header className="z-20 shrink-0 border-b border-[#e5eef4] bg-white">
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
+            <button
+              type="button"
+              onClick={resetSelection}
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#e5eef4] bg-white text-[#17324a] transition hover:bg-[#f4f8fb]"
+              aria-label="Back to repositories"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+
+            <div
+              className="flex rounded-lg border border-[#e5eef4] bg-[#f7fafc] p-0.5"
+              role="group"
+              aria-label="Debugger view"
+            >
+              <button
+                type="button"
+                onClick={() => setDebuggerTab("frontend")}
+                className={
+                  debuggerTab === "frontend"
+                    ? "rounded-md bg-[#17324a] px-3 py-1.5 text-sm font-medium text-white"
+                    : "rounded-md px-3 py-1.5 text-sm font-medium text-[#5a7388]"
+                }
+              >
+                Frontend
+              </button>
+              <button
+                type="button"
+                onClick={() => setDebuggerTab("backend")}
+                className={
+                  debuggerTab === "backend"
+                    ? "rounded-md bg-[#17324a] px-3 py-1.5 text-sm font-medium text-white"
+                    : "rounded-md px-3 py-1.5 text-sm font-medium text-[#5a7388]"
+                }
+              >
+                Backend
+              </button>
+            </div>
+
+            {debuggerTab === "backend" ? (
+              <>
+                {dataIndex ? (
+                  <div
+                    className="flex rounded-lg border border-[#e5eef4] bg-[#f7fafc] p-0.5"
+                    role="group"
+                    aria-label="Backend mode"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setBackendMode("analyzer")}
+                      disabled={!dataIndex.architecture}
+                      className={
+                        backendMode === "analyzer"
+                          ? "rounded-md bg-[#e8f1ff] px-3 py-1.5 text-sm font-medium text-[#17324a] disabled:opacity-40"
+                          : "rounded-md px-3 py-1.5 text-sm font-medium text-[#5a7388] disabled:opacity-40"
+                      }
+                    >
+                      Analyzer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBackendMode("explorer")}
+                      className={
+                        backendMode === "explorer"
+                          ? "rounded-md bg-[#e8f1ff] px-3 py-1.5 text-sm font-medium text-[#17324a]"
+                          : "rounded-md px-3 py-1.5 text-sm font-medium text-[#5a7388]"
+                      }
+                    >
+                      Explorer
+                    </button>
+                  </div>
+                ) : null}
+                <p className="min-w-0 truncate text-sm text-[#7a93a8]">
+                  {dataLoading && !dataIndex
+                    ? "Scanning entire repository…"
+                    : [
+                        dataIndex?.features?.length
+                          ? `${dataIndex.features.length} features`
+                          : null,
+                        dataIndex?.architecture?.findings.length
+                          ? `${dataIndex.architecture.findings.length} issues`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "Static analysis"}
+                </p>
+              </>
+            ) : null}
+
+            <div className="min-w-0 flex-1" />
+
+            {debuggerTab === "backend" ? (
+              <button
+                type="button"
+                onClick={() => selected && void buildData(selected)}
+                disabled={dataLoading || !selected}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e5eef4] bg-white px-3 text-sm font-semibold text-[#17324a] transition hover:bg-[#f4f8fb] disabled:opacity-50"
+              >
+                {dataLoading ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <RefreshCw className="size-3.5" aria-hidden />
+                )}
+                {dataLoading ? "Scanning…" : "Scan again"}
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        {/* Keep panels mounted so Frontend ↔ Backend does not remount/rescan */}
+        <div
+          className={
+            debuggerTab === "frontend"
+              ? "flex min-h-0 flex-1 flex-col"
+              : "hidden"
+          }
+        >
+          <FrontendArchitecturePanel
+            accessToken={accessToken}
+            onNeedAuth={() => openAuth("login")}
+            fullName={selected.fullName}
+            defaultBranch={selected.defaultBranch}
+          />
+        </div>
+        <div
+          className={
+            debuggerTab === "backend"
+              ? "flex h-0 min-h-0 flex-1 flex-col overflow-hidden"
+              : "hidden"
+          }
+        >
+          <DataIndexView
+            index={dataIndex}
+            loading={dataLoading}
+            error={dataError}
+            repoFullName={selected.fullName}
+            onRebuild={() => void buildData(selected)}
+            embedded
+            mode={backendMode}
+            onModeChange={setBackendMode}
+          />
+        </div>
       </div>
     );
   }

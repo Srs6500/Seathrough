@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acme Studio</title>
+    <style>
+      :root {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        color: #0f172a;
+      }
+      body {
+        margin: 0;
+        background: #f8fafc;
+      }
+      header {
+        display: flex;
+        gap: 1.25rem;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .brand {
+        font-weight: 700;
+      }
+      nav a {
+        margin-right: 0.75rem;
+        color: #334155;
+        text-decoration: none;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 1.5rem 1.25rem 3rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        margin: 0 0 0.5rem;
+      }
+      .hero {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 12px;
+        background: #cbd5e1;
+        display: block;
+        margin: 1rem 0 1.5rem;
+      }
+      form {
+        display: grid;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+      }
+      label {
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+      input {
+        height: 2.5rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 0 0.75rem;
+      }
+      button {
+        height: 2.5rem;
+        border: 0;
+        border-radius: 8px;
+        background: #17324a;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      /* Intentionally clipped on narrow viewports */
+      .mobile-menu {
+        display: flex;
+        gap: 0.5rem;
+        white-space: nowrap;
+        width: 520px;
+        padding: 0.5rem 0;
+        overflow: visible;
+      }
+      .mobile-menu span {
+        padding: 0.35rem 0.75rem;
+        background: #e2e8f0;
+        border-radius: 999px;
+        font-size: 0.75rem;
+      }
+      #status {
+        min-height: 1.25rem;
+        font-size: 0.875rem;
+        color: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">Acme Studio</div>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a
+          id="broken-nav"
+          href="/this-page-does-not-exist"
+          data-st-source="src/components/SiteNav.tsx:18"
+          data-st-component="SiteNav"
+          >Contact</a
+        >
+      </nav>
+    </header>
+    <main>
+      <h1>Build something remarkable.</h1>
+      <p>A sample page shown in SeeThrough's visual scanner.</p>
+      <div class="mobile-menu" id="mobile-menu" data-st-source="src/components/MobileMenu.tsx:12" data-st-component="MobileMenu">
+        <span>Overview</span>
+        <span>Features</span>
+        <span>Pricing</span>
+        <span>Docs</span>
+        <span>Blog</span>
+        <span>Careers</span>
+        <span>Support</span>
+      </div>
+      <img
+        id="hero-image"
+        class="hero"
+        src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='180'%3E%3Crect fill='%2394a3b8' width='800' height='180'/%3E%3Ctext x='40' y='100' fill='white' font-size='28'%3EHero image%3C/text%3E%3C/svg%3E"
+        data-st-source="src/components/Hero.tsx:24"
+        data-st-component="Hero"
+      />
+      <form id="contact-form" data-st-source="src/components/ContactForm.tsx:10" data-st-component="ContactForm">
+        <div>
+          <label for="email">Your email</label>
+          <input id="email" name="email" type="text" placeholder="you@company.com" />
+        </div>
+        <button
+          id="submit-btn"
+          type="button"
+          data-st-source="src/components/ContactForm.tsx:42"
+          data-st-component="ContactForm"
+        >
+          Submit
+        </button>
+        <div id="status"></div>
+      </form>
+    </main>
+    <script>
+      document.getElementById("submit-btn").addEventListener("click", function () {
+        // Deliberate crash for the scanner demo.
+        var api = window.__missingContactApi;
+        api.send();
+      });
+      document.getElementById("contact-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+      });
+    </script>
+  </body>
+</html>

@@ -79,9 +79,58 @@ function FeatureRow({
   );
 }
 
+const MARKETING_MENUS = [
+  {
+    label: "Code",
+    items: [
+      {
+        label: "System design",
+        href: "/system-design",
+        icon: "/systemd.png",
+        hint: "Architecture drawn on one board as you ask.",
+      },
+      {
+        label: "Debugger",
+        href: "/bug-analyzer",
+        icon: "/debugger.png",
+        hint: "Map frontend pages and inspect backend bugs.",
+      },
+    ],
+  },
+  {
+    label: "Education",
+    items: [
+      {
+        label: "Physics",
+        href: "/smart-tutor/physics-tutor",
+        icon: "/electrical-circuit.png",
+        hint: "Field diagrams, short steps, then a check.",
+      },
+      {
+        label: "Browser",
+        href: "/browser",
+        icon: "/globe.png",
+        hint: "Open a live page and learn with highlights.",
+      },
+      {
+        label: "Video",
+        href: "/video",
+        icon: "/video.png",
+        hint: "Type a topic. Watch a short explainer film.",
+      },
+    ],
+  },
+] as const;
+
+function pathUnder(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
   const { openStudio, openAuth, openGetStarted } = useStudioAccess();
   const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [tutorOpen, setTutorOpen] = useState(false);
   const studios = listModesByGroup("studio");
   const more = listModesByGroup("more");
   const labs = listModesByGroup("lab");
@@ -95,15 +144,19 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
     openStudio(href);
   }
 
-  const marketingLinks = [
-    { label: "Overview", href: "/" },
-    { label: "Debugger", href: "/bug-analyzer" },
-    { label: "Video", href: "/video" },
-    { label: "Tutor", href: "/smart-tutor" },
-    { label: "Physics", href: "/smart-tutor/physics-tutor" },
-    { label: "Browser", href: "/browser" },
-    { label: "Systems", href: "/system-design" },
-  ];
+  const marketingLinkClass = (active: boolean) =>
+    cn(
+      "inline-flex items-center gap-1 text-[15px] font-medium tracking-[-0.01em] outline-none transition-colors",
+      dark
+        ? cn(
+            "hover:text-white focus-visible:text-white",
+            active ? "text-white" : "text-white/70",
+          )
+        : cn(
+            "hover:text-[#1b6ca8] focus-visible:text-[#1b6ca8]",
+            active ? "text-[#0f172a]" : "text-[#1a2b3c]",
+          ),
+    );
 
   return (
     <header
@@ -120,13 +173,13 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
         className={cn(
           "relative mx-auto flex items-center",
           marketing
-            ? "marketing-rise h-[4.25rem] max-w-6xl px-6 md:px-8"
+            ? "marketing-rise h-[4.75rem] max-w-6xl px-6 md:px-8"
             : "min-h-16 max-w-7xl gap-6 px-5 py-2.5 lg:px-10",
         )}
       >
         <BrandMark
           compact={!marketing}
-          size={marketing ? "sm" : "lg"}
+          size={marketing ? "md" : "lg"}
           onDark={dark}
         />
 
@@ -139,39 +192,122 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
           )}
           aria-label="Primary"
         >
-          {marketing
-            ? marketingLinks.map((link) => (
-                <button
-                  key={`${link.label}:${link.href}`}
-                  type="button"
-                  onClick={() => {
-                    if (link.href === "/") {
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                      return;
-                    }
-                    openStudio(link.href);
-                  }}
-                  className={cn(
-                    "text-[13px] font-medium outline-none transition-colors",
-                    dark
-                      ? cn(
-                          "hover:text-white focus-visible:text-white",
-                          pathname === link.href
-                            ? "text-white"
-                            : "text-white/70",
-                        )
-                      : cn(
-                          "hover:text-[#1b6ca8] focus-visible:text-[#1b6ca8]",
-                          pathname === link.href
-                            ? "text-[#1a2b3c]"
-                            : "text-[#6a7d90]",
-                        ),
-                  )}
-                >
-                  {link.label}
-                </button>
-              ))
-            : null}
+          {marketing ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pathname === "/") {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    return;
+                  }
+                  openStudio("/");
+                }}
+                className={marketingLinkClass(pathname === "/")}
+              >
+                Home
+              </button>
+              {MARKETING_MENUS.map((menu) => {
+                const open = menu.label === "Code" ? codeOpen : tutorOpen;
+                const setOpen =
+                  menu.label === "Code" ? setCodeOpen : setTutorOpen;
+                const active = menu.items.some((item) =>
+                  pathUnder(pathname, item.href),
+                );
+                return (
+                  <Popover
+                    key={menu.label}
+                    open={open}
+                    onOpenChange={setOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={marketingLinkClass(active || open)}
+                      >
+                        {menu.label}
+                        <ChevronDown
+                          className={cn(
+                            "size-4 opacity-70 transition duration-200",
+                            open && "rotate-180",
+                          )}
+                        />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="center"
+                      sideOffset={14}
+                      collisionPadding={16}
+                      className={cn(
+                        "w-[min(92vw,34rem)] rounded-2xl p-3 shadow-[0_20px_50px_-20px_rgba(26,43,60,0.35)] ring-0",
+                        dark
+                          ? "border-white/10 bg-[#111] text-white"
+                          : "border border-[#e8e8ea] bg-white text-[#0f172a]",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "grid gap-1",
+                          menu.items.length > 2
+                            ? "grid-cols-1 sm:grid-cols-2"
+                            : "grid-cols-1",
+                        )}
+                      >
+                        {menu.items.map((item) => {
+                          const itemActive = pathUnder(pathname, item.href);
+                          return (
+                            <button
+                              key={item.href}
+                              type="button"
+                              onClick={() => {
+                                setOpen(false);
+                                openStudio(item.href);
+                              }}
+                              className={cn(
+                                "flex items-start gap-3 rounded-xl px-3 py-3 text-left outline-none transition-colors",
+                                dark
+                                  ? itemActive
+                                    ? "bg-white/10"
+                                    : "hover:bg-white/8"
+                                  : itemActive
+                                    ? "bg-[#f4f7fb]"
+                                    : "hover:bg-[#f7f8fa]",
+                              )}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element -- static menu thumbnails */}
+                              <img
+                                src={item.icon}
+                                alt=""
+                                className="mt-0.5 size-12 shrink-0 rounded-lg object-contain"
+                              />
+                              <span className="min-w-0">
+                                <span
+                                  className={cn(
+                                    "block font-[family-name:var(--font-inter)] text-[15px] font-semibold leading-snug tracking-[-0.01em]",
+                                    dark ? "text-white" : "text-[#0f172a]",
+                                  )}
+                                >
+                                  {item.label}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "mt-0.5 block text-[13px] leading-5",
+                                    dark ? "text-white" : "text-[#0f172a]",
+                                  )}
+                                >
+                                  {item.hint}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                );
+              })}
+            </>
+          ) : null}
           {!marketing ? (
           <Popover open={featuresOpen} onOpenChange={setFeaturesOpen}>
             <PopoverTrigger asChild>
@@ -319,24 +455,50 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
               <nav className="flex flex-col p-2" aria-label="Mobile">
                 {marketing ? (
                   <>
-                    {marketingLinks.map((link) => (
-                      <SheetClose asChild key={`m:${link.label}`}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (link.href === "/") return;
-                            openStudio(link.href);
-                          }}
+                    <SheetClose asChild>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (pathname === "/") return;
+                          openStudio("/");
+                        }}
+                        className={cn(
+                          "rounded-lg px-3 py-2.5 text-left text-[15px]",
+                          dark
+                            ? "text-white/80 hover:bg-white/8 hover:text-white"
+                            : "text-[#3d5166] hover:bg-[#f2f4f7] hover:text-[#1a2b3c]",
+                        )}
+                      >
+                        Home
+                      </button>
+                    </SheetClose>
+                    {MARKETING_MENUS.map((menu) => (
+                      <div key={menu.label} className="mt-1">
+                        <p
                           className={cn(
-                            "rounded-lg px-3 py-2.5 text-left text-[14px]",
-                            dark
-                              ? "text-white/80 hover:bg-white/8 hover:text-white"
-                              : "text-[#3d5166] hover:bg-[#f2f4f7] hover:text-[#1a2b3c]",
+                            "px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.06em] uppercase",
+                            dark ? "text-white/45" : "text-[#8a9aab]",
                           )}
                         >
-                          {link.label}
-                        </button>
-                      </SheetClose>
+                          {menu.label}
+                        </p>
+                        {menu.items.map((item) => (
+                          <SheetClose asChild key={item.href}>
+                            <button
+                              type="button"
+                              onClick={() => openStudio(item.href)}
+                              className={cn(
+                                "w-full rounded-lg px-3 py-2.5 text-left text-[15px]",
+                                dark
+                                  ? "text-white/80 hover:bg-white/8 hover:text-white"
+                                  : "text-[#3d5166] hover:bg-[#f2f4f7] hover:text-[#1a2b3c]",
+                              )}
+                            >
+                              {item.label}
+                            </button>
+                          </SheetClose>
+                        ))}
+                      </div>
                     ))}
                     <div className="mt-2 flex items-center gap-2 px-1">
                       <ThemeToggle variant="marketing" />
@@ -349,20 +511,36 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                         {dark ? "Light mode" : "Dark mode"}
                       </span>
                     </div>
-                    <SheetClose asChild>
-                      <button
-                        type="button"
-                        onClick={openGetStarted}
-                        className={cn(
-                          "mt-2 rounded-lg px-3 py-2.5 text-center text-[14px] font-bold",
-                          dark
-                            ? "bg-white text-black"
-                            : "bg-[#1a2b3c] text-white",
-                        )}
-                      >
-                        Get started
-                      </button>
-                    </SheetClose>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <SheetClose asChild>
+                        <button
+                          type="button"
+                          onClick={() => openAuth("login")}
+                          className={cn(
+                            "rounded-xl border px-4 py-3.5 text-center text-[16px] font-bold",
+                            dark
+                              ? "border-white/25 text-white"
+                              : "border-[#d5e0ea] bg-white text-[#1a2b3c]",
+                          )}
+                        >
+                          Log in
+                        </button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <button
+                          type="button"
+                          onClick={openGetStarted}
+                          className={cn(
+                            "rounded-xl px-4 py-3.5 text-center text-[16px] font-bold",
+                            dark
+                              ? "bg-white text-black"
+                              : "bg-[#1a2b3c] text-white",
+                          )}
+                        >
+                          Get started
+                        </button>
+                      </SheetClose>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -470,7 +648,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                 type="button"
                 onClick={openGetStarted}
                 className={cn(
-                  "hidden h-9 items-center rounded-lg px-4 font-[family-name:var(--font-inter)] text-[13px] font-bold outline-none transition sm:inline-flex",
+                  "hidden h-12 items-center rounded-xl px-6 font-[family-name:var(--font-inter)] text-[16px] font-bold outline-none transition sm:inline-flex",
                   dark
                     ? "bg-white text-black hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40"
                     : "bg-[#1a2b3c] text-white hover:bg-[#24384c] focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/40",

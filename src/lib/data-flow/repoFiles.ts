@@ -29,7 +29,12 @@ function shouldInclude(path: string, size: number | undefined): boolean {
   if (IGNORE_DIR.test(path)) return false;
   const base = path.split("/").pop() ?? path;
   if (IGNORE_FILE.test(base)) return false;
-  if (!SOURCE_EXT.test(path)) return false;
+  // Manifests needed for framework detection (Next/TS)
+  const isManifest =
+    base === "package.json" ||
+    base === "tsconfig.json" ||
+    base === "jsconfig.json";
+  if (!isManifest && !SOURCE_EXT.test(path)) return false;
   if (typeof size === "number" && size > MAX_FILE_BYTES) return false;
   return true;
 }
@@ -60,6 +65,8 @@ export async function fetchRepoSourceFiles(input: {
   token?: string;
   fullName: string;
   ref?: string;
+  /** Override default file cap (e.g. frontend-arch needs more UI files). */
+  maxFiles?: number;
 }): Promise<{
   fullName: string;
   ref: string;
@@ -90,6 +97,7 @@ export async function fetchRepoSourceFiles(input: {
     ref,
   });
 
+  const fileCap = Math.min(Math.max(input.maxFiles ?? MAX_FILES, 40), 400);
   const candidates = tree.tree
     .filter(
       (entry) =>
@@ -99,7 +107,9 @@ export async function fetchRepoSourceFiles(input: {
       // Prefer UI-ish paths first so cards stay useful when we hit the cap.
       const score = (path: string) => {
         let s = 0;
-        if (/(^|\/)(src|app|pages|components|ui|views|screens)\//i.test(path))
+        const base = path.split("/").pop() ?? path;
+        if (base === "package.json" || base === "tsconfig.json") s += 20;
+        if (/(^|\/)(src|app|pages|components|ui|views|screens|modules)\//i.test(path))
           s += 3;
         if (/\.(tsx|jsx|vue|svelte)$/i.test(path)) s += 2;
         if (/(login|auth|search|form|nav|dashboard|checkout|profile)/i.test(path))
@@ -108,7 +118,7 @@ export async function fetchRepoSourceFiles(input: {
       };
       return score(b.path) - score(a.path) || a.path.localeCompare(b.path);
     })
-    .slice(0, MAX_FILES);
+    .slice(0, fileCap);
 
   const useRaw = !input.token;
   const downloaded = await mapPool(candidates, CONCURRENCY, async (entry) => {
@@ -149,7 +159,7 @@ export async function fetchRepoSourceFiles(input: {
     private: meta.private,
     truncatedTree:
       tree.truncated ||
-      candidates.length >= MAX_FILES ||
+      candidates.length >= fileCap ||
       files.length < downloaded.length,
     files,
   };

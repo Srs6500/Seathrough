@@ -1,6 +1,7 @@
 import { getUserFromRequest } from "@/lib/auth/requestUser";
 import { toUserFacingError } from "@/lib/errors/userFacing";
-import { generateLessonTitle, clipTitle } from "@/lib/experiment/lessonTitle";
+import { generateLessonTitle } from "@/lib/experiment/generateLessonTitle";
+import { clipTitle } from "@/lib/experiment/lessonTitle";
 import {
   insertSavedLessonVideo,
   listSavedLessonVideos,

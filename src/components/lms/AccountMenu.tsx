@@ -56,13 +56,13 @@ export function AccountMenu({
           type="button"
           onClick={onLogin}
           className={cn(
-            "hidden text-[13px] font-medium outline-none transition-colors sm:inline",
+            "hidden h-12 items-center rounded-xl border px-5 font-[family-name:var(--font-inter)] text-[16px] font-bold outline-none transition sm:inline-flex",
             dark
-              ? "text-white/70 hover:text-white focus-visible:text-white"
-              : "text-[#6a7d90] hover:text-[#1a2b3c] focus-visible:text-[#1a2b3c]",
+              ? "border-white/25 text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/35"
+              : "border-[#d5e0ea] bg-white text-[#1a2b3c] hover:bg-[#f4f7fb] focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/30",
           )}
         >
-          Login
+          Log in
         </button>
       );
     }

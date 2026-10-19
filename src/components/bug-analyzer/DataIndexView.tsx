@@ -20,6 +20,8 @@ import type {
   FlowNode,
 } from "@/lib/bug-analyzer/buildDataIndex";
 
+export type DataIndexViewMode = "analyzer" | "explorer";
+
 type Props = {
   index: DataIndex | null;
   loading: boolean;
@@ -27,9 +29,14 @@ type Props = {
   onRebuild: () => void;
   repoFullName?: string;
   onBack?: () => void;
+  /** When true, skip chrome — parent Debugger shell owns the header. */
+  embedded?: boolean;
+  /** Controlled view mode (used when embedded in Debugger shell). */
+  mode?: DataIndexViewMode;
+  onModeChange?: (mode: DataIndexViewMode) => void;
 };
 
-type ViewMode = "analyzer" | "explorer";
+type ViewMode = DataIndexViewMode;
 
 function kindLabel(kind: string): string {
   switch (kind) {
@@ -154,7 +161,7 @@ function FeatureFlowDiagram({
 }) {
   return (
     <div className="mt-5">
-      <h3 className="text-[15px] font-semibold tracking-tight text-[#111827]">
+      <h3 className="text-base font-semibold tracking-tight text-[#111827] sm:text-lg">
         {feature.title}
       </h3>
       <ol className="mt-5 flex flex-col items-stretch gap-0">
@@ -173,23 +180,23 @@ function FeatureFlowDiagram({
 
           const inner = (
             <>
-              <div className="flex items-start justify-center gap-2">
+              <div className="flex items-start justify-center gap-2.5">
                 {hasProblem ? (
                   isCritical ? (
                     <XCircle
-                      className="mt-0.5 h-4 w-4 shrink-0 text-red-600"
+                      className="mt-0.5 h-5 w-5 shrink-0 text-red-600"
                       aria-hidden
                     />
                   ) : (
                     <AlertTriangle
-                      className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+                      className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"
                       aria-hidden
                     />
                   )
                 ) : null}
                 <div className="min-w-0">
                   <p
-                    className={`text-[15px] font-semibold ${
+                    className={`text-base font-semibold ${
                       hasProblem && isCritical
                         ? "text-red-900"
                         : hasProblem
@@ -200,7 +207,7 @@ function FeatureFlowDiagram({
                     {node.label}
                   </p>
                   <p
-                    className={`mt-0.5 text-[12px] ${
+                    className={`mt-1 text-sm ${
                       hasProblem ? "text-red-700/80" : "text-[#6b7280]"
                     }`}
                   >
@@ -208,14 +215,14 @@ function FeatureFlowDiagram({
                     {top ? ` · ${top.severity} issue` : ""}
                   </p>
                   {top ? (
-                    <p className="mt-1 line-clamp-2 text-[11px] text-red-800/90">
+                    <p className="mt-1.5 line-clamp-2 text-sm text-red-800/90">
                       {top.title}
                     </p>
                   ) : null}
                 </div>
               </div>
               {hasProblem ? (
-                <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-red-600">
+                <p className="mt-2 text-xs font-medium uppercase tracking-wide text-red-600">
                   Open in Analyzer →
                 </p>
               ) : null}
@@ -312,17 +319,17 @@ function ExplorerPanel({
   const hasAnyProblems = [...featureProblems.values()].some((h) => h.length > 0);
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-4 py-6 sm:px-8">
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
       <div className="mx-auto w-full max-w-xl rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Link2 className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
-              <h2 className="text-base font-semibold text-[#111827]">
+            <div className="flex items-center gap-2.5">
+              <Link2 className="h-5 w-5 shrink-0 text-[#6b7280]" aria-hidden />
+              <h2 className="text-lg font-semibold text-[#111827]">
                 Repository Explorer
               </h2>
             </div>
-            <p className="mt-1 text-[13px] text-[#6b7280]">
+            <p className="mt-1.5 text-sm text-[#6b7280]">
               <span className="font-medium text-[#374151]">{index.appName}</span>
               <span className="mx-1.5 text-[#d1d5db]">/</span>
               Application structure
@@ -331,8 +338,8 @@ function ExplorerPanel({
           <span
             className={
               hasAnyProblems
-                ? "shrink-0 rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-700"
-                : "shrink-0 rounded-full bg-[#dcfce7] px-2.5 py-0.5 text-[11px] font-semibold text-[#15803d]"
+                ? "shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700"
+                : "shrink-0 rounded-full bg-[#dcfce7] px-3 py-1 text-xs font-semibold text-[#15803d]"
             }
           >
             {hasAnyProblems ? "Issues found" : "Indexed"}
@@ -358,14 +365,14 @@ function ExplorerPanel({
                       selected
                         ? bad
                           ? critical
-                            ? "rounded-full bg-red-700 px-3.5 py-1.5 text-[13px] font-medium text-white"
-                            : "rounded-full bg-amber-700 px-3.5 py-1.5 text-[13px] font-medium text-white"
-                          : "rounded-full bg-[#111827] px-3.5 py-1.5 text-[13px] font-medium text-white"
+                            ? "rounded-full bg-red-700 px-4 py-2 text-sm font-medium text-white"
+                            : "rounded-full bg-amber-700 px-4 py-2 text-sm font-medium text-white"
+                          : "rounded-full bg-[#111827] px-4 py-2 text-sm font-medium text-white"
                         : bad
                           ? critical
-                            ? "rounded-full border border-red-300 bg-red-50 px-3.5 py-1.5 text-[13px] font-medium text-red-800 hover:bg-red-100"
-                            : "rounded-full border border-amber-300 bg-amber-50 px-3.5 py-1.5 text-[13px] font-medium text-amber-900 hover:bg-amber-100"
-                          : "rounded-full border border-[#e5e7eb] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb]"
+                            ? "rounded-full border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
+                            : "rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                          : "rounded-full border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-medium text-[#374151] hover:bg-[#f9fafb]"
                     }
                   >
                     {f.name}
@@ -383,14 +390,14 @@ function ExplorerPanel({
             ) : null}
             {active ? (
               <div className="mt-8 border-t border-[#f3f4f6] pt-5">
-                <p className="text-[13px] font-semibold text-[#111827]">
+                <p className="text-base font-semibold text-[#111827]">
                   AI explanation
                 </p>
-                <p className="mt-2 text-[13px] leading-relaxed text-[#4b5563]">
+                <p className="mt-2 text-sm leading-relaxed text-[#4b5563]">
                   {active.explanation}
                 </p>
                 {(featureProblems.get(active.id) || []).length > 0 ? (
-                  <p className="mt-3 text-[11px] text-red-600">
+                  <p className="mt-3 text-sm text-red-600">
                     Red boxes have linked Analyzer findings — click one to
                     inspect evidence and fixes.
                   </p>
@@ -399,7 +406,7 @@ function ExplorerPanel({
             ) : null}
           </>
         ) : (
-          <p className="mt-6 text-sm text-[#6b7280]">
+          <p className="mt-6 text-base text-[#6b7280]">
             No feature flows yet. Use Analyzer for gap findings, or re-index the
             entire repo.
           </p>
@@ -461,15 +468,24 @@ export function DataIndexView({
   onRebuild,
   repoFullName,
   onBack,
+  embedded = false,
+  mode: modeProp,
+  onModeChange,
 }: Props) {
   const hasArchitecture = Boolean(index?.architecture);
-  const [mode, setMode] = useState<ViewMode>("analyzer");
+  const [internalMode, setInternalMode] = useState<ViewMode>("analyzer");
+  const mode = modeProp ?? internalMode;
+  const setMode = (next: ViewMode) => {
+    if (onModeChange) onModeChange(next);
+    else setInternalMode(next);
+  };
   const [focusFindingId, setFocusFindingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (index?.architecture) setMode("analyzer");
     else if (index?.features?.length) setMode("explorer");
     setFocusFindingId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when index identity changes
   }, [index?.architecture, index?.features?.length, index?.indexHash]);
 
   function openFindingInAnalyzer(findingId: string) {
@@ -484,102 +500,110 @@ export function DataIndexView({
   const repoName = title.includes("/") ? title.split("/").slice(1).join("/") : title;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-[#f7fafc]">
-      <header className="shrink-0 border-b border-[#e5eef4] bg-white">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
-          {onBack ? (
-            <button
-              type="button"
-              onClick={onBack}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#e5eef4] bg-white text-[#17324a] transition hover:bg-[#f4f8fb]"
-              aria-label="Back to repositories"
-            >
-              <ArrowLeft className="size-4" />
-            </button>
-          ) : null}
-
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-baseline gap-2">
-              {owner ? (
-                <span className="truncate text-sm text-[#7a93a8]">{owner}/</span>
-              ) : null}
-              <h1 className="truncate text-base font-semibold tracking-tight text-[#17324a] sm:text-lg">
-                {repoName}
-              </h1>
-            </div>
-            <p className="mt-0.5 truncate text-xs text-[#7a93a8]">
-              {loading && !index
-                ? "Scanning entire repository…"
-                : [
-                    "Entire repo",
-                    featureCount ? `${featureCount} features` : null,
-                    issueCount ? `${issueCount} issues` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {index ? (
-              <div
-                className="flex rounded-lg border border-[#e5eef4] bg-[#f7fafc] p-0.5"
-                role="group"
-                aria-label="View mode"
+    <div className="flex h-0 min-h-0 flex-1 flex-col overflow-hidden bg-[#f7fafc]">
+      {!embedded ? (
+        <header className="shrink-0 border-b border-[#e5eef4] bg-white">
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
+            {onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#e5eef4] bg-white text-[#17324a] transition hover:bg-[#f4f8fb]"
+                aria-label="Back to repositories"
               >
-                <button
-                  type="button"
-                  onClick={() => setMode("analyzer")}
-                  disabled={!hasArchitecture}
-                  className={
-                    mode === "analyzer"
-                      ? "rounded-md bg-[#17324a] px-3 py-1.5 text-xs font-medium text-white"
-                      : "rounded-md px-3 py-1.5 text-xs font-medium text-[#5a7388] disabled:opacity-40"
-                  }
-                >
-                  Analyzer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("explorer");
-                    setFocusFindingId(null);
-                  }}
-                  className={
-                    mode === "explorer"
-                      ? "rounded-md bg-[#17324a] px-3 py-1.5 text-xs font-medium text-white"
-                      : "rounded-md px-3 py-1.5 text-xs font-medium text-[#5a7388]"
-                  }
-                >
-                  Explorer
-                </button>
-              </div>
+                <ArrowLeft className="size-4" />
+              </button>
             ) : null}
-            <button
-              type="button"
-              onClick={onRebuild}
-              disabled={loading}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e5eef4] bg-white px-3 text-xs font-semibold text-[#17324a] transition hover:bg-[#f4f8fb] disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="size-3.5 animate-spin" aria-hidden />
-              ) : (
-                <RefreshCw className="size-3.5" aria-hidden />
-              )}
-              {loading ? "Scanning…" : "Scan again"}
-            </button>
-          </div>
-        </div>
 
-        {loading && index ? (
-          <div className="h-0.5 w-full overflow-hidden bg-[#e5eef4]">
-            <div className="bug-analyzer-scan-bar h-full w-1/3 bg-[#2a5f7a]" />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-baseline gap-2">
+                {owner ? (
+                  <span className="truncate text-sm text-[#7a93a8]">
+                    {owner}/
+                  </span>
+                ) : null}
+                <h1 className="truncate text-lg font-semibold tracking-tight text-[#17324a] sm:text-xl">
+                  {repoName}
+                </h1>
+              </div>
+              <p className="mt-0.5 truncate text-sm text-[#7a93a8]">
+                {loading && !index
+                  ? "Scanning entire repository…"
+                  : [
+                      "Entire repo",
+                      featureCount ? `${featureCount} features` : null,
+                      issueCount ? `${issueCount} issues` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {index ? (
+                <div
+                  className="flex rounded-lg border border-[#e5eef4] bg-[#f7fafc] p-0.5"
+                  role="group"
+                  aria-label="View mode"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setMode("analyzer")}
+                    disabled={!hasArchitecture}
+                    className={
+                      mode === "analyzer"
+                        ? "rounded-md bg-[#17324a] px-3.5 py-2 text-sm font-medium text-white"
+                        : "rounded-md px-3.5 py-2 text-sm font-medium text-[#5a7388] disabled:opacity-40"
+                    }
+                  >
+                    Analyzer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("explorer");
+                      setFocusFindingId(null);
+                    }}
+                    className={
+                      mode === "explorer"
+                        ? "rounded-md bg-[#17324a] px-3.5 py-2 text-sm font-medium text-white"
+                        : "rounded-md px-3.5 py-2 text-sm font-medium text-[#5a7388]"
+                    }
+                  >
+                    Explorer
+                  </button>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={onRebuild}
+                disabled={loading}
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-[#e5eef4] bg-white px-3.5 text-sm font-semibold text-[#17324a] transition hover:bg-[#f4f8fb] disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <RefreshCw className="size-3.5" aria-hidden />
+                )}
+                {loading ? "Scanning…" : "Scan again"}
+              </button>
+            </div>
           </div>
-        ) : null}
-      </header>
+
+          {loading && index ? (
+            <div className="h-0.5 w-full overflow-hidden bg-[#e5eef4]">
+              <div className="bug-analyzer-scan-bar h-full w-1/3 bg-[#2a5f7a]" />
+            </div>
+          ) : null}
+        </header>
+      ) : loading && index ? (
+        <div className="h-0.5 w-full shrink-0 overflow-hidden bg-[#e5eef4]">
+          <div className="bug-analyzer-scan-bar h-full w-1/3 bg-[#2a5f7a]" />
+        </div>
+      ) : null}
 
       {error ? (
-        <p className="border-b border-red-100 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+        <p className="shrink-0 border-b border-red-100 bg-red-50 px-4 py-2.5 text-sm text-red-700">
           {error}
         </p>
       ) : null}
@@ -587,7 +611,7 @@ export function DataIndexView({
       {loading && !index ? (
         <ScanLoadingState repoFullName={repoFullName} />
       ) : !index ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <p className="text-sm font-medium text-[#17324a]">No analysis yet</p>
           <p className="max-w-md text-sm text-[#5a7388]">
             Scan the repository to infer intent from code and surface logical
@@ -603,7 +627,7 @@ export function DataIndexView({
           </button>
         </div>
       ) : mode === "analyzer" && index.architecture ? (
-        <div className="relative min-h-0 flex-1">
+        <div className="relative flex h-0 min-h-0 flex-1 flex-col overflow-hidden">
           {loading ? (
             <div className="absolute inset-0 z-10 flex items-start justify-center bg-[#f7fafc]/70 pt-16 backdrop-blur-[1px]">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#e5eef4] bg-white px-4 py-2 text-sm font-medium text-[#17324a] shadow-sm">

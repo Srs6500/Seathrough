@@ -81,7 +81,7 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
   },
   "bug-analyzer": {
     icon: Bug,
-    hint: "Paste a failure. We map likely causes and where to look in the stack.",
+    hint: "Scan frontend UI health or inspect backend bugs in a connected repo.",
     tone: "ink",
   },
   "scene-explain": {
