@@ -20,6 +20,12 @@ const HERO_VIDEOS = [
     title: "Renders the concept",
     description: "Turn a topic into a short film you can follow step by step.",
   },
+  {
+    src: "/demovid.mp4",
+    label: "AI tutor",
+    title: "Draws while it teaches",
+    description: "The tutor talks, sketches the idea, then checks you got it.",
+  },
 ] as const;
 
 function DemoCard({
@@ -370,9 +376,9 @@ export function MarketingHero() {
               dark ? "text-[#e0e0e0]" : "text-[#3d5166]",
             )}
           >
-            System design maps architecture as you ask. Debugging visuals turn
-            repo issues into clickable diagrams. Education tools draw physics,
-            live pages, and short films so you can follow every step.
+            AI tutor walks you through ideas on a live board. System design maps
+            architecture as you ask. Debugging visuals turn repo issues into
+            clickable diagrams you can follow.
           </p>
         </div>
 
