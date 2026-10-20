@@ -5,26 +5,31 @@ import { cn } from "@/lib/utils";
 
 const VIDEO_SRC = "/electromagnetic-induction.webm";
 
-const ITEMS = [
+const ITEMS: {
+  title: string;
+  badge: string;
+  tone: "blue" | "amber";
+  body: string;
+}[] = [
   {
     title: "Physics",
     badge: "Field diagrams",
-    tone: "blue" as const,
+    tone: "blue",
     body: "Forces, fields, and circuits — short visual steps with a check at the end.",
   },
   {
     title: "Browser",
     badge: "Live page",
-    tone: "blue" as const,
+    tone: "blue",
     body: "Open a real page and learn with highlights while the explanation runs.",
   },
   {
     title: "Video",
     badge: "Short film",
-    tone: "blue" as const,
+    tone: "blue",
     body: "Type a topic and get a short explainer film you can follow step by step.",
   },
-] as const;
+];
 
 export function MarketingEducationSection() {
   return (

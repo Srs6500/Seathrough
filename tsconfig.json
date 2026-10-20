@@ -38,6 +38,7 @@
     "packages/debug",
     "backend",
     "Analytics-Dashboard",
-    "metaphor-dataset"
+    "metaphor-dataset",
+    "Visual Education Vercel Fix"
   ]
 }

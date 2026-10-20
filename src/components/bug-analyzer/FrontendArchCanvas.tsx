@@ -10,6 +10,8 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  type BuiltInEdge,
+  type DefaultEdgeOptions,
   type Edge,
   type Node,
   type NodeProps,
@@ -304,7 +306,7 @@ function toEdges(flowEdges: FlowEdge[], nodes: ArchViewNode[]): Edge[] {
         height: 14,
         color: stroke,
       },
-    } satisfies Edge;
+    } satisfies BuiltInEdge;
   });
 }
 
@@ -376,10 +378,12 @@ function CanvasInner({ nodes, edges, focusNodeId, onSelectNode }: Props) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
-        defaultEdgeOptions={{
-          type: "smoothstep",
-          pathOptions: { borderRadius: 16, offset: 28 },
-        }}
+        defaultEdgeOptions={
+          {
+            type: "smoothstep",
+            pathOptions: { borderRadius: 16, offset: 28 },
+          } as DefaultEdgeOptions
+        }
         fitView
         minZoom={0.25}
         maxZoom={1.4}
