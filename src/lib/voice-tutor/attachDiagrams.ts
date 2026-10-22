@@ -106,11 +106,12 @@ function sanitizeDraw(
 export function attachVoiceDiagrams(plan: VoiceLessonPlan): VoiceLessonPlan {
   if (!plan.beats.length) return plan;
 
-  let beats = plan.beats.map((b) => ({
-    ...b,
-    draw: sanitizeDraw(plan, b.draw),
-  }));
-  let next: VoiceLessonPlan = { ...plan, beats };
+  const beats: VoiceLessonPlan["beats"] = plan.beats.map((b) => {
+    const sanitized = sanitizeDraw(plan, b.draw);
+    if (sanitized === undefined) return b;
+    return { ...b, draw: sanitized };
+  });
+  const next: VoiceLessonPlan = { ...plan, beats };
 
   if (alreadyHasDiagram(next)) return next;
 
@@ -158,9 +159,12 @@ export function attachVoiceDiagrams(plan: VoiceLessonPlan): VoiceLessonPlan {
   }
 
   if (!draw) return next;
+  const attached = draw;
 
-  beats = next.beats.map((b, i) => (i === idx ? { ...b, draw } : b));
-  return { ...next, beats };
+  return {
+    ...next,
+    beats: next.beats.map((b, i) => (i === idx ? { ...b, draw: attached } : b)),
+  };
 }
 
 /** Helper for planner drafts: stamp policy onto a none draw. */

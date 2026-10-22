@@ -8,7 +8,10 @@ import {
   type VoiceLessonPlan,
 } from "@/lib/voice-tutor/sessionTypes";
 import { FUNCTIONS_LESSON } from "@/lib/voice-tutor/lessons/functions";
-import { withNormalizedAnnotations } from "@/lib/voice-tutor/boardAnnotations";
+import {
+  normalizeBoardAnnotations,
+  withNormalizedAnnotations,
+} from "@/lib/voice-tutor/boardAnnotations";
 import {
   attachVoiceDiagrams,
   drawPolicyStub,
@@ -400,9 +403,13 @@ function planFromDraft(draft: LessonDraft): VoiceLessonPlan {
   const keyPoints =
     draft.keyPoints?.filter(Boolean).slice(0, 4) ||
     ["Main fact", "Why it matters", "One example or episode"];
-  const draftAnnotations = Array.isArray(draft.annotations)
-    ? draft.annotations
-    : undefined;
+  const draftAnnotations = normalizeBoardAnnotations(explanation, {
+    annotations: Array.isArray(draft.annotations) ? draft.annotations : undefined,
+    highlight,
+    rememberTip,
+    examCue,
+    pointer: "both",
+  });
   const diagramPolicy = diagramPolicyFromDraft(draft);
   const openDraw = drawPolicyStub(diagramPolicy);
 

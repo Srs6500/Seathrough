@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /** Streaming TTS sample rate (Hz). Must match client AudioContext playback. */
-export const VOICE_TUTOR_TTS_SAMPLE_RATE = 24_000;
+const VOICE_TUTOR_TTS_SAMPLE_RATE = 24_000;
 
 /**
  * Streaming Speak proxy: prepare spoken text, open Deepgram Speak WebSocket,
