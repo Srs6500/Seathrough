@@ -19,14 +19,13 @@ function prefersDynamicMath(text: string): boolean {
 }
 
 /**
- * Deepgram Aura-2 TTS. Captions stay as written; only this path rewrites math.
- * Structured math → Temml + Speech Rule Engine (ClearSpeak); else legacy mathToSpeech.
- * Thin Deepgram phonetics (mu→mew, pi→pie) always; physics mode adds domain phrasing.
+ * Rewrite captions for Aura (math phonetics / physics phrasing).
+ * Shared by batch MP3 TTS and streaming Speak WebSocket.
  */
-export async function synthesizeSpeech(
+export async function prepareTutorSpokenText(
   text: string,
   options?: { mode?: "tutor" | "physics" },
-): Promise<TtsResult> {
+): Promise<string> {
   let spoken = "";
   if (prefersDynamicMath(text)) {
     try {
@@ -44,14 +43,30 @@ export async function synthesizeSpeech(
   if (options?.mode === "physics") {
     spoken = physicsToSpeech(spoken);
   }
+  // Em/en dashes make Aura insert long pauses — keep natural comma pacing.
+  spoken = spoken.replace(/[—–]/g, ", ").replace(/\s+/g, " ").trim();
   if (!spoken) {
     throw new Error("TTS text is empty");
   }
+  return spoken;
+}
+
+/**
+ * Deepgram Aura-2 TTS. Captions stay as written; only this path rewrites math.
+ * Structured math → Temml + Speech Rule Engine (ClearSpeak); else legacy mathToSpeech.
+ * Thin Deepgram phonetics (mu→mew, pi→pie) always; physics mode adds domain phrasing.
+ */
+export async function synthesizeSpeech(
+  text: string,
+  options?: { mode?: "tutor" | "physics" },
+): Promise<TtsResult> {
+  const spoken = await prepareTutorSpokenText(text, options);
 
   const { apiKey, model } = getDeepgramConfig();
   const url = new URL("https://api.deepgram.com/v1/speak");
   url.searchParams.set("model", model);
   url.searchParams.set("encoding", "mp3");
+  // No speed override — same natural Deepgram default as Smart Tutor / other modes.
 
   const response = await fetch(url, {
     method: "POST",

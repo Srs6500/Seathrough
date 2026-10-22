@@ -25,6 +25,12 @@ const START_OPTIONS = [
     icon: "/debugger.png",
   },
   {
+    href: "/smart-tutor/voice-tutor",
+    label: "Voice tutor",
+    hint: "Talk through a structured Socratic lesson.",
+    icon: "/teacher.png",
+  },
+  {
     href: "/smart-tutor/physics-tutor",
     label: "Physics",
     hint: "Field diagrams, short steps, then a check.",
