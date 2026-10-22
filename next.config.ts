@@ -26,6 +26,8 @@ const nextConfig: NextConfig = {
     "@browserbasehq/sdk",
     "speech-rule-engine",
     "temml",
+    "onnxruntime-web",
+    "@ricky0123/vad-web",
   ],
   // Local datasets / Python backend must not be NFT-traced into every serverless function.
   outputFileTracingExcludes: {

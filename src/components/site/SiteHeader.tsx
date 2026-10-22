@@ -101,6 +101,12 @@ const MARKETING_MENUS = [
     label: "Education",
     items: [
       {
+        label: "Voice",
+        href: "/smart-tutor/voice-tutor",
+        icon: "/teacher.png",
+        hint: "Talk through a lesson — board, checks, diagrams.",
+      },
+      {
         label: "Physics",
         href: "/smart-tutor/physics-tutor",
         icon: "/electrical-circuit.png",

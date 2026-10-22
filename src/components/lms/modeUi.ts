@@ -9,6 +9,7 @@ import {
   HeartPulse,
   LayoutDashboard,
   Lightbulb,
+  Mic,
   Monitor,
   Bug,
   GitBranch,
@@ -32,6 +33,11 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
   "smart-tutor": {
     icon: Sparkles,
     hint: "Ask a question. The tutor draws, talks, and checks you understood.",
+    tone: "blue",
+  },
+  "voice-tutor": {
+    icon: Mic,
+    hint: "Voice-first lessons — talk, lock a topic, learn. Diagrams when they help.",
     tone: "blue",
   },
   "physics-tutor": {

@@ -15,6 +15,7 @@ import { screenshotExplainMode } from "@/modules/screenshot-explain/mode";
 import { physicsTutorMode } from "@/modules/physics-tutor/mode";
 import { smartTutorMode } from "@/modules/smart-tutor/mode";
 import { systemDesignMode } from "@/modules/system-design/mode";
+import { voiceTutorMode } from "@/modules/voice-tutor/mode";
 import type { ModeDefinition, ModeGroup, ModeId, ModeKind } from "@/modes/types";
 
 /**
@@ -23,6 +24,7 @@ import type { ModeDefinition, ModeGroup, ModeId, ModeKind } from "@/modes/types"
  */
 const ALL_MODES: ModeDefinition[] = [
   smartTutorMode,
+  voiceTutorMode,
   physicsTutorMode,
   browserExperienceMode,
   dashboardMode,

@@ -15,6 +15,7 @@ const CODE_LINKS = [
 ] as const;
 
 const EDUCATION_LINKS = [
+  { label: "Voice", href: "/smart-tutor/voice-tutor" },
   { label: "Physics", href: "/smart-tutor/physics-tutor" },
   { label: "Browser", href: "/browser" },
   { label: "Video", href: "/video" },
