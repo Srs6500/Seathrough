@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { applyExperimentScene } from "@/components/experiment/applyScene";
 import {
-  boxesToExperimentShapes,
-  sketchBoxesFromSpec,
+  sketchSpecFromRaw,
+  sketchToExperimentShapes,
+  type SketchSpec,
 } from "@/lib/voice-tutor/sketchShapes";
 import type { DrawScene } from "@/lib/voice-tutor/sessionTypes";
 import { cn } from "@/lib/utils";
@@ -28,17 +29,11 @@ export function VoiceTldrawBoard({ draw, className }: VoiceTldrawBoardProps) {
   >(null);
 
   const sceneKey = useMemo(() => {
-    const boxes = sketchBoxesFromSpec(draw.spec);
-    const fallback =
-      boxes.length > 0
-        ? boxes
-        : draw.highlightIds.map((id) => ({ id, label: id }));
     return JSON.stringify({
       title: draw.title ?? "",
-      boxes: fallback,
-      highlightIds: draw.highlightIds,
+      spec: sketchSpecFromRaw(draw.spec),
     });
-  }, [draw.title, draw.spec, draw.highlightIds]);
+  }, [draw.title, draw.spec]);
 
   useEffect(() => {
     let alive = true;
@@ -65,12 +60,11 @@ export function VoiceTldrawBoard({ draw, className }: VoiceTldrawBoardProps) {
     void (async () => {
       const parsed = JSON.parse(sceneKey) as {
         title: string;
-        boxes: Array<{ id: string; label: string }>;
-        highlightIds: string[];
+        spec: SketchSpec | null;
       };
-      const shapes = boxesToExperimentShapes(parsed.boxes, {
-        highlightIds: parsed.highlightIds,
-      });
+      const shapes = parsed.spec
+        ? sketchToExperimentShapes(parsed.title, parsed.spec)
+        : [];
       if (shapes.length < 1) {
         setStatus("Nothing to draw yet.");
         return;

@@ -1104,6 +1104,41 @@ html.marketing-page .font-display {
   animation: vt-tip-in 0.45s 0.15s cubic-bezier(0.22, 0.82, 0.28, 1) both;
 }
 
+.vt-plain-explain {
+  animation: vt-tip-in 0.4s 0.08s cubic-bezier(0.22, 0.82, 0.28, 1) both;
+}
+
+.vt-teach-cursor {
+  position: absolute;
+  z-index: 4;
+  width: 28px;
+  height: 28px;
+  margin-left: -4px;
+  margin-top: -3px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(22, 22, 26, 0.28));
+  transition:
+    left 0.58s cubic-bezier(0.22, 0.82, 0.28, 1),
+    top 0.58s cubic-bezier(0.22, 0.82, 0.28, 1),
+    opacity 0.18s ease,
+    transform 0.12s ease;
+  will-change: left, top, transform;
+}
+
+.vt-teach-cursor[data-hidden="true"] {
+  opacity: 0;
+}
+
+.vt-teach-cursor[data-clicking="true"] {
+  transform: scale(0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vt-teach-cursor {
+    transition: opacity 0.15s ease;
+  }
+}
+
 /* Lyric-stack stanzas: fade/slide like song lines, no card chrome */
 @keyframes vt-stanza-in {
   0% {

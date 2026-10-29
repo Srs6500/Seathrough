@@ -12,7 +12,7 @@ export async function requestVoiceTurn(input: {
   awaitingFocus?: boolean;
   parentTopic?: string;
   focusOptions?: string[];
-  /** After a countdown interrupt — always offer subtopics. */
+  /** After a topic switch — always offer subtopics. */
   preferClarify?: boolean;
   /** Mid-lesson confusion barge-in. */
   clarifyAside?: boolean;
@@ -27,6 +27,8 @@ export async function requestVoiceTurn(input: {
     highlight?: string;
     rememberTip?: string;
   };
+  /** False when the student turned diagrams off — skips the diagram draft. */
+  diagrams?: boolean;
   signal?: AbortSignal;
 }): Promise<TurnResponse> {
   const res = await fetch("/api/voice-tutor/turn", {
@@ -43,6 +45,7 @@ export async function requestVoiceTurn(input: {
       parentTopic: input.parentTopic,
       focusOptions: input.focusOptions,
       preferClarify: input.preferClarify,
+      diagrams: input.diagrams,
       clarifyAside: input.clarifyAside,
       partialAside: input.partialAside,
       deferredClose: input.deferredClose,

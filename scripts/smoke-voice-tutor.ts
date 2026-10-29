@@ -1,6 +1,6 @@
 /**
  * Offline smoke for Voice Tutor DNA rewrite:
- * Functions plan builds, topic lock seconds exist, assess keywords work.
+ * Functions plan builds, lock lines start immediately, assess keywords work.
  */
 import assert from "node:assert/strict";
 import {
@@ -10,7 +10,6 @@ import {
 import {
   LIVE_BARGE_ANSWERS,
   MAX_LESSON_BARGE_DOUBTS,
-  TOPIC_LOCK_SECONDS,
   casualFocusSay,
   extractTopicFromNudge,
   isTopicSwitchAway,
@@ -19,6 +18,7 @@ import {
   looksLikeTopicNudge,
   qualifyFocusWithParent,
   resolveFocusChoice,
+  spokenTopicLockSay,
 } from "../src/lib/voice-tutor/intakeShared";
 import { pickHighlight } from "../src/lib/voice-tutor/pickHighlight";
 
@@ -51,9 +51,13 @@ async function main() {
     "glass board should carry grounded text + key points",
   );
 
-  // Speech must not advertise UI meta.
+  // Speech must not advertise UI meta or point at the board instead of teaching.
   for (const beat of plan.beats) {
     assert.equal(/\bbullets?\b|\bpanel\b|\bUI\b/i.test(beat.say), false);
+    assert.equal(
+      /\bhere's what\b.+\bis about\b|\bthe marked line\b/i.test(beat.say),
+      false,
+    );
   }
 
   const propose = await runVoiceTurn({
@@ -62,8 +66,14 @@ async function main() {
     messages: [],
   });
   assert.equal(propose.action, "propose_topic");
-  assert.equal(propose.lockSeconds, TOPIC_LOCK_SECONDS);
+  assert.equal(propose.lockSeconds, undefined);
+  assert.equal(/\bstarting in\b|\b\d+\s+seconds?\b/i.test(propose.say), false);
   assert.ok(propose.plan);
+
+  const lockLine = spokenTopicLockSay("Newton's second law");
+  assert.equal(/\bstarting in\b|\b\d+\s+seconds?\b/i.test(lockLine), false);
+  const lockFinal = spokenTopicLockSay("Newton's second law", { final: true });
+  assert.equal(/\bstarting in\b|\b\d+\s+seconds?\b/i.test(lockFinal), false);
 
   // Mumble / filler must not invent a lesson.
   assert.equal(looksLikeMumble("um"), true);
@@ -196,7 +206,8 @@ async function main() {
   });
   assert.equal(focusPick.action, "propose_topic");
   assert.ok(/bak/i.test(focusPick.topic || ""));
-  assert.equal(focusPick.lockSeconds, TOPIC_LOCK_SECONDS);
+  assert.equal(focusPick.lockSeconds, undefined);
+  assert.equal(/\bstarting in\b|\b\d+\s+seconds?\b/i.test(focusPick.say), false);
 
   // Nudge mid-clarify → new topic clarify, not a cooking subtopic.
   const nudged = await runVoiceTurn({

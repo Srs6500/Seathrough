@@ -6,7 +6,7 @@ export const VoicePhaseSchema = z.enum([
   "idle",
   "greeting",
   "chatting",
-  /** Broad topic heard — asking which angle / subtopic before lock. */
+  /** Broad topic heard — asking which angle / subtopic before teaching. */
   "clarify_focus",
   "topic_pending",
   "teaching",
@@ -75,6 +75,10 @@ export const BoardContentSchema = z.object({
   formalStatement: z.string().optional(),
   sourceTitle: z.string().optional(),
   sourceText: z.string().optional(),
+  /** Section on the board: Definition, Key concepts, Example. */
+  sectionLabel: z.string().optional(),
+  /** 2–3 very short sentences: what the passage actually means. */
+  plainExplain: z.string().optional(),
   /** Substring in sourceText to highlighter-sweep (legacy single mark). */
   highlight: z.string().optional(),
   /** Short “way to remember” / exam cue drawn off the highlight. */
@@ -108,18 +112,29 @@ export const TeachBeatSchema = z.object({
 
 export type TeachBeat = z.infer<typeof TeachBeatSchema>;
 
+/** Web page the lesson was researched from (hover a sentence to see it). */
+export const LessonSourceRefSchema = z.object({
+  title: z.string(),
+  url: z.string(),
+  publisher: z.string(),
+  excerpt: z.string().optional(),
+});
+
+export type LessonSourceRef = z.infer<typeof LessonSourceRefSchema>;
+
 export const VoiceLessonPlanSchema = z.object({
   topic: z.string(),
   label: z.string(),
   objective: z.string(),
   beats: z.array(TeachBeatSchema).min(1).max(12),
+  sources: z.array(LessonSourceRefSchema).optional(),
 });
 
 export type VoiceLessonPlan = z.infer<typeof VoiceLessonPlanSchema>;
 
 export const TurnActionSchema = z.enum([
   "speak",
-  /** Broad topic — ask which focus before starting the lock countdown. */
+  /** Broad topic — ask which focus before teaching starts. */
   "clarify_focus",
   "propose_topic",
   "begin_teaching",
@@ -138,6 +153,7 @@ export const TurnResponseSchema = z.object({
   parentTopic: z.string().optional(),
   /** 2–4 spoken focus options for clarify_focus. */
   focusOptions: z.array(z.string()).max(6).optional(),
+  /** Legacy; teaching starts immediately after a focus is confirmed. */
   lockSeconds: z.number().int().positive().optional(),
   plan: VoiceLessonPlanSchema.optional(),
   /** If false, speak only — lesson canvas stays on pedagogy. Default true for teaching beats. */

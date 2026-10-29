@@ -1,7 +1,6 @@
 import { envPresence } from "@/lib/env";
 import { toUserFacingError } from "@/lib/errors/userFacing";
 import {
-  TOPIC_LOCK_SECONDS,
   planVoiceLesson,
   runVoiceTurn,
 } from "@/lib/voice-tutor/brain";
@@ -29,6 +28,7 @@ export async function POST(request: Request) {
       deferredClose?: unknown;
       avoidedFocusOptions?: unknown;
       lessonContext?: unknown;
+      diagrams?: unknown;
     };
 
     const mode =
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     const teaching = body.teaching === true;
     const awaitingFocus = body.awaitingFocus === true;
     const preferClarify = body.preferClarify === true;
+    const diagrams = body.diagrams !== false;
     const clarifyAside = body.clarifyAside === true;
     const partialAside = body.partialAside === true;
     const deferredClose = body.deferredClose === true;
@@ -91,11 +92,10 @@ export async function POST(request: Request) {
         // Seed path still works for functions.
         const plan = await planVoiceLesson(topic || userText || "functions");
         return Response.json({
-          say: `Alright — ${plan.topic}. Starting in a few seconds unless you change topics.`,
+          say: `Alright — ${plan.topic}. Let's start.`,
           action: "propose_topic",
           topic: plan.topic,
           label: plan.label,
-          lockSeconds: TOPIC_LOCK_SECONDS,
           plan,
           showOnBoard: false,
         });
@@ -104,6 +104,7 @@ export async function POST(request: Request) {
         mode: "plan",
         userText: topic || userText,
         messages,
+        diagrams,
       });
       return Response.json(turn);
     }
@@ -123,6 +124,7 @@ export async function POST(request: Request) {
       deferredClose,
       avoidedFocusOptions,
       lessonContext,
+      diagrams,
     });
     return Response.json(turn);
   } catch (error) {

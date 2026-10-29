@@ -1,12 +1,12 @@
 import type { ModeDefinition } from "@/modes/types";
 
 /**
- * High-school physics board tutor — folded into Smart tutor as ?mode=physics,
- * with electrostatics RAG + field-diagram context.
+ * High-school physics board tutor — folded into Smart tutor.
+ * Voice lessons pull electrostatics RAG + field diagrams when the ask is physics.
  */
 export const physicsTutorMode: ModeDefinition = {
   id: "physics-tutor",
-  href: "/smart-tutor?mode=physics",
+  href: "/smart-tutor",
   navLabel: "Physics",
   title: "Physics tutor",
   description:

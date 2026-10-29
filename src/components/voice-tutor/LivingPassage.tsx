@@ -8,10 +8,18 @@ import {
   useRef,
   useState,
 } from "react";
-import { PenLine } from "lucide-react";
-import { RoughMarkOverlay } from "@/components/voice-tutor/RoughMarkOverlay";
+import { createPortal } from "react-dom";
+import { ExternalLink, PenLine } from "lucide-react";
+import { TeachingCursor } from "@/components/voice-tutor/TeachingCursor";
 import { normalizeBoardAnnotations } from "@/lib/voice-tutor/boardAnnotations";
-import type { BoardAnnotation } from "@/lib/voice-tutor/sessionTypes";
+import {
+  citeSentence,
+  type SentenceCitation,
+} from "@/lib/voice-tutor/citeSources";
+import type {
+  BoardAnnotation,
+  LessonSourceRef,
+} from "@/lib/voice-tutor/sessionTypes";
 import { cn } from "@/lib/utils";
 
 type PointerKind = "circle" | "arrow" | "both";
@@ -30,8 +38,10 @@ export type LivingPassageProps = {
   frozen?: boolean;
   /** Freeze mid-write (barge-in / pause) without wiping what's already shown. */
   haltWriting?: boolean;
-  /** Called after write → highlight → circle → tip are done. */
+  /** Called after write → highlight → cursor tour are done. */
   onComplete?: () => void;
+  /** Researched pages — hovering a sentence shows its source link. */
+  sources?: LessonSourceRef[];
 };
 
 type LineBox = {
@@ -92,9 +102,50 @@ function segmentPassage(
   return segments;
 }
 
+type SentenceGroup = {
+  text: string;
+  segments: TextSegment[];
+  citation: SentenceCitation | null;
+};
+
+/** Regroup segments into sentences (marks stay whole) for hover citations. */
+function groupSentences(
+  segments: TextSegment[],
+  sources: LessonSourceRef[] | undefined,
+): SentenceGroup[] {
+  const groups: SentenceGroup[] = [];
+  let current: SentenceGroup = { text: "", segments: [], citation: null };
+  const close = () => {
+    if (!current.segments.length) return;
+    current.citation = citeSentence(current.text, sources);
+    groups.push(current);
+    current = { text: "", segments: [], citation: null };
+  };
+  for (const seg of segments) {
+    if (seg.kind === "mark") {
+      current.segments.push(seg);
+      current.text += seg.text;
+      continue;
+    }
+    const pieces = seg.text.match(/[^.!?]*[.!?]+(?:\s+|$)|[^.!?]+$/g) ?? [seg.text];
+    for (const piece of pieces) {
+      current.segments.push({ kind: "text", text: piece });
+      current.text += piece;
+      if (/[.!?]\s*$/.test(piece)) close();
+    }
+  }
+  close();
+  return groups;
+}
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /**
- * Sentence-complete typewriter → DOM-validated marks → Rough circles/tips.
- * Missing phrases never get a stroke (normalized away before render).
+ * Sentence-complete typewriter → highlighter → teaching cursor.
+ * Remember notes sit under the passage so they never cover the text.
  */
 export function LivingPassage({
   text,
@@ -107,12 +158,14 @@ export function LivingPassage({
   frozen = false,
   haltWriting = false,
   onComplete,
+  sources,
 }: LivingPassageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const markRefs = useRef<Map<string, HTMLElement>>(new Map());
   const doneRef = useRef(false);
   const haltRef = useRef(haltWriting);
   haltRef.current = haltWriting;
+  const tourKeyRef = useRef("");
   const uid = useId().replace(/:/g, "");
 
   const annotations = useMemo(
@@ -133,6 +186,66 @@ export function LivingPassage({
     [text, annotations],
   );
 
+  const sentenceGroups = useMemo(
+    () => (sources?.length ? groupSentences(segments, sources) : null),
+    [segments, sources],
+  );
+  const [citeState, setCite] = useState<{
+    index: number;
+    top: number;
+    left: number;
+    text: string;
+  } | null>(null);
+  // A card opened for an older passage never shows on the new one.
+  const cite = citeState?.text === text ? citeState : null;
+  const citeCloseRef = useRef<number | null>(null);
+  const cancelCiteClose = () => {
+    if (citeCloseRef.current) window.clearTimeout(citeCloseRef.current);
+    citeCloseRef.current = null;
+  };
+  const scheduleCiteClose = () => {
+    cancelCiteClose();
+    citeCloseRef.current = window.setTimeout(() => setCite(null), 220);
+  };
+  // Card is portaled to <body> with fixed coords so later stanzas (their own
+  // stacking contexts) can never paint over it.
+  const openCite = (index: number, el: HTMLElement) => {
+    cancelCiteClose();
+    const rects = Array.from(el.getClientRects());
+    const last = rects[rects.length - 1] ?? el.getBoundingClientRect();
+    const first = rects[0] ?? last;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cardW = Math.min(320, vw - 16);
+    const estH = 190;
+    const below = last.bottom + 6;
+    const top = below + estH > vh && first.top - estH - 6 > 8 ? first.top - estH - 6 : below;
+    setCite({
+      index,
+      top,
+      left: Math.max(8, Math.min(last.left, vw - cardW - 8)),
+      text,
+    });
+  };
+  useEffect(() => () => cancelCiteClose(), []);
+  const citeOpen = citeState != null;
+  useEffect(() => {
+    if (!citeOpen) return;
+    // Fixed card would drift from its sentence on scroll — just close it.
+    const close = () => setCite(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [citeOpen]);
+  const citeCardHas = (node: EventTarget | null) =>
+    Boolean(
+      node instanceof Node &&
+        document.getElementById(`vt-cite-${uid}`)?.contains(node),
+    );
+
   const [visibleText, setVisibleText] = useState(frozen ? text : "");
   const [writing, setWriting] = useState(!frozen);
   const [active, setActive] = useState(frozen);
@@ -140,14 +253,24 @@ export function LivingPassage({
   const [markBoxes, setMarkBoxes] = useState<
     Array<{ id: string; boxes: LineBox[] }>
   >([]);
+  const [cursor, setCursor] = useState({
+    x: 0,
+    y: 0,
+    visible: false,
+    clicking: false,
+  });
+  const markBoxesRef = useRef(markBoxes);
+  markBoxesRef.current = markBoxes;
 
   useEffect(() => {
     doneRef.current = false;
+    tourKeyRef.current = "";
     if (frozen) {
       setVisibleText(text);
       setWriting(false);
       setActive(true);
       setDrawn(true);
+      setCursor({ x: 0, y: 0, visible: false, clicking: false });
       return;
     }
 
@@ -156,6 +279,7 @@ export function LivingPassage({
     setActive(false);
     setDrawn(false);
     setMarkBoxes([]);
+    setCursor({ x: 0, y: 0, visible: false, clicking: false });
 
     let cancelled = false;
     let built = "";
@@ -201,19 +325,8 @@ export function LivingPassage({
   useEffect(() => {
     if (frozen || writing || !text) return;
     const start = window.setTimeout(() => setActive(true), 120);
-    const tipAt = window.setTimeout(() => setDrawn(true), 1100);
-    const doneAt = window.setTimeout(() => {
-      if (!doneRef.current) {
-        doneRef.current = true;
-        onComplete?.();
-      }
-    }, 2200);
-    return () => {
-      window.clearTimeout(start);
-      window.clearTimeout(tipAt);
-      window.clearTimeout(doneAt);
-    };
-  }, [writing, text, frozen, onComplete]);
+    return () => window.clearTimeout(start);
+  }, [writing, text, frozen]);
 
   const measureMarks = () => {
     if (!rootRef.current) return;
@@ -238,49 +351,111 @@ export function LivingPassage({
   };
 
   useLayoutEffect(() => {
-    if (!drawn && !frozen) return;
+    if (!active && !frozen) return;
     measureMarks();
-  }, [drawn, frozen, text, visibleText, annotations]);
+  }, [active, frozen, text, visibleText, annotations]);
 
   useEffect(() => {
-    if (!drawn && !frozen) return;
+    if (!active && !frozen) return;
     const onResize = () => measureMarks();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [drawn, frozen, annotations]);
+  }, [active, frozen, annotations]);
 
-  const showMarks = (drawn || frozen) && markBoxes.length > 0 && active;
+  useEffect(() => {
+    if (frozen || writing || !active || haltWriting) return;
+    const key = `${text}::${annotations.map((a) => a.id).join(",")}`;
+    if (tourKeyRef.current === key) return;
+    tourKeyRef.current = key;
+    let cancelled = false;
+    const reduce = prefersReducedMotion();
+
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, reduce ? Math.min(ms, 40) : ms);
+      });
+
+    const finish = () => {
+      if (cancelled || doneRef.current) return;
+      doneRef.current = true;
+      setCursor((prev) => ({ ...prev, clicking: false }));
+      onComplete?.();
+    };
+
+    const run = async () => {
+      for (let i = 0; i < 12; i += 1) {
+        if (cancelled || haltRef.current) return;
+        if (annotations.length === 0 || markBoxesRef.current.length > 0) break;
+        await wait(50);
+      }
+      if (cancelled || haltRef.current) return;
+
+      setDrawn(true);
+      const boxes = markBoxesRef.current;
+      if (boxes.length === 0) {
+        await wait(400);
+        finish();
+        return;
+      }
+
+      const root = rootRef.current?.getBoundingClientRect();
+      const startX = root ? root.width * 0.55 : 180;
+      const startY = root ? Math.max(24, root.height - 12) : 80;
+      setCursor({ x: startX, y: startY, visible: true, clicking: false });
+      await wait(80);
+      if (cancelled || haltRef.current) return;
+
+      for (const mark of boxes) {
+        if (cancelled || haltRef.current) return;
+        const box = mark.boxes[0];
+        if (!box) continue;
+        const x = box.left + Math.min(18, box.width * 0.28);
+        const y = box.top + box.height * 0.45;
+        setCursor({ x, y, visible: true, clicking: false });
+        await wait(580);
+        if (cancelled || haltRef.current) return;
+        setCursor({ x, y, visible: true, clicking: true });
+        await wait(150);
+        if (cancelled || haltRef.current) return;
+        setCursor({ x, y, visible: true, clicking: false });
+        await wait(420);
+      }
+
+      await wait(280);
+      finish();
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [frozen, writing, active, haltWriting, text, annotations, onComplete]);
+
+  const renderSegment = (seg: TextSegment, key: string) =>
+    seg.kind === "text" ? (
+      <span key={`t-${key}`}>{seg.text}</span>
+    ) : (
+      <mark
+        key={seg.id}
+        ref={(el) => {
+          if (el) markRefs.current.set(seg.id, el);
+          else markRefs.current.delete(seg.id);
+        }}
+        className="vt-highlight highlight-target bg-transparent"
+        data-id={seg.id}
+        data-active={!writing && active ? "true" : "false"}
+      >
+        {seg.text}
+      </mark>
+    );
+
   const writingDone = !writing || frozen;
   const showSegmented = writingDone && visibleText.length >= text.length;
-
-  const tips = useMemo(() => {
-    if (!showMarks) return [];
-    const tipWidth = 200;
-    return annotations
-      .map((ann, index) => {
-        const mark = markBoxes.find((m) => m.id === ann.id);
-        const first = mark?.boxes[0];
-        if (!first || !ann.sideNote.trim()) return null;
-        // Stagger tips horizontally when multiple marks share a line band.
-        const stagger = (index % 3) * 12;
-        const tipLeft = Math.max(
-          0,
-          first.left + first.width / 2 - tipWidth / 2 + stagger,
-        );
-        const tipTop = Math.max(0, first.top - 78 - (index % 2) * 8);
-        return { ann, first, tipLeft, tipTop, tipWidth };
-      })
-      .filter((t): t is NonNullable<typeof t> => Boolean(t));
-  }, [annotations, markBoxes, showMarks]);
-
-  const topPad = tips.length > 0 ? 86 : showMarks ? 12 : 0;
+  const showNotes = (drawn || frozen) && annotations.some((a) => a.sideNote.trim());
+  const showCursor = cursor.visible && !frozen;
 
   return (
-    <div
-      ref={rootRef}
-      className={cn("relative", className)}
-      style={{ paddingTop: topPad }}
-    >
+    <div ref={rootRef} className={cn("relative overflow-visible", className)}>
       {writing && !frozen ? (
         <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-[#5b4fd4]">
           <PenLine className="size-3.5 animate-pulse" aria-hidden />
@@ -290,24 +465,39 @@ export function LivingPassage({
 
       <p className="text-[1.05rem] leading-[1.9] text-[#16161a] md:text-[1.12rem] md:leading-[1.95]">
         {showSegmented
-          ? segments.map((seg, i) =>
-              seg.kind === "text" ? (
-                <span key={`t-${i}`}>{seg.text}</span>
-              ) : (
-                <mark
-                  key={seg.id}
-                  ref={(el) => {
-                    if (el) markRefs.current.set(seg.id, el);
-                    else markRefs.current.delete(seg.id);
-                  }}
-                  className="vt-highlight highlight-target bg-transparent"
-                  data-id={seg.id}
-                  data-active={!writing && active ? "true" : "false"}
-                >
-                  {seg.text}
-                </mark>
-              ),
-            )
+          ? sentenceGroups
+            ? sentenceGroups.map((group, gi) =>
+                group.citation ? (
+                  <span
+                    key={`s-${gi}`}
+                    tabIndex={0}
+                    aria-describedby={cite?.index === gi ? `vt-cite-${uid}` : undefined}
+                    className={cn(
+                      "cursor-help rounded-[3px] outline-none transition-colors",
+                      "hover:bg-[#5b4fd4]/[0.07] focus-visible:bg-[#5b4fd4]/[0.07]",
+                      cite?.index === gi && "bg-[#5b4fd4]/[0.07]",
+                    )}
+                    onMouseEnter={(e) => openCite(gi, e.currentTarget)}
+                    onMouseLeave={scheduleCiteClose}
+                    onFocus={(e) => openCite(gi, e.currentTarget)}
+                    onBlur={(e) => {
+                      if (!citeCardHas(e.relatedTarget)) {
+                        scheduleCiteClose();
+                      }
+                    }}
+                    onClick={(e) =>
+                      cite?.index === gi ? setCite(null) : openCite(gi, e.currentTarget)
+                    }
+                  >
+                    {group.segments.map((seg, i) => renderSegment(seg, `${gi}-${i}`))}
+                  </span>
+                ) : (
+                  <span key={`s-${gi}`}>
+                    {group.segments.map((seg, i) => renderSegment(seg, `${gi}-${i}`))}
+                  </span>
+                ),
+              )
+            : segments.map((seg, i) => renderSegment(seg, `${i}`))
           : visibleText}
         {writing && !frozen ? (
           <span
@@ -319,39 +509,87 @@ export function LivingPassage({
         ) : null}
       </p>
 
-      <RoughMarkOverlay
-        markBoxes={markBoxes}
-        annotations={annotations}
-        tips={tips}
-        pointer={pointer}
-        active={showMarks}
-      />
-
-      {tips.map((tip) => (
+      {cite && sentenceGroups?.[cite.index]?.citation ? createPortal(
         <div
-          key={`tip-${tip.ann.id}`}
-          data-vt-tip={tip.ann.id}
-          className="vt-remember-tip pointer-events-none absolute z-[2] max-w-[13.5rem]"
-          style={{
-            left: tip.tipLeft,
-            top: tip.tipTop,
-            width: tip.tipWidth,
-          }}
-          aria-label="Way to remember"
+          id={`vt-cite-${uid}`}
+          role="tooltip"
+          className="fixed z-[1000] w-[min(320px,calc(100vw-16px))] rounded-lg border border-[#ececee] bg-white p-3 shadow-[0_8px_24px_rgba(22,22,26,0.12)]"
+          style={{ top: cite.top, left: cite.left }}
+          onMouseEnter={cancelCiteClose}
+          onMouseLeave={scheduleCiteClose}
         >
-          <p className="text-[10px] font-medium tracking-[0.06em] text-[#5b4fd4] uppercase">
-            {tip.ann.examCue?.trim() ? "Remember" : "Way to remember"}
+          <p className="text-[11px] font-medium uppercase tracking-wide text-[#71717a]">
+            {sentenceGroups[cite.index]!.citation!.specific
+              ? sentenceGroups[cite.index]!.citation!.sources.length > 1
+                ? "Sources"
+                : "Source"
+              : "From lesson research"}
           </p>
-          <p className="mt-0.5 text-[13px] leading-snug text-[#16161a]">
-            {tip.ann.sideNote}
-          </p>
-          {tip.ann.examCue?.trim() && tip.ann.examCue !== tip.ann.sideNote ? (
-            <p className="mt-1 text-[11px] leading-snug text-[#71717a]">
-              {tip.ann.examCue}
-            </p>
-          ) : null}
-        </div>
-      ))}
+          <ul className="mt-1.5 space-y-2">
+            {sentenceGroups[cite.index]!.citation!.sources.map((src) => (
+              <li key={src.url}>
+                <a
+                  href={src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-start gap-1.5 text-[13px] leading-snug text-[#16161a] hover:text-[#5b4fd4]"
+                  onBlur={(e) => {
+                    if (!citeCardHas(e.relatedTarget)) {
+                      scheduleCiteClose();
+                    }
+                  }}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-2 font-medium underline decoration-[#5b4fd4]/30 underline-offset-2 group-hover:decoration-[#5b4fd4]">
+                      {src.title}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[12px] text-[#71717a]">
+                      {src.publisher}
+                    </span>
+                  </span>
+                  <ExternalLink className="mt-0.5 size-3.5 shrink-0 text-[#71717a] group-hover:text-[#5b4fd4]" aria-hidden />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>,
+        document.body,
+      ) : null}
+
+      {showNotes ? (
+        <ul className="vt-remember-tip mt-4 space-y-3" aria-label="Remember">
+          {annotations.map((ann) =>
+            ann.sideNote.trim() ? (
+              <li
+                key={`tip-${ann.id}`}
+                data-vt-tip={ann.id}
+                className="border-l-2 border-[#5b4fd4]/35 pl-3"
+              >
+                <p className="text-[12px] font-medium text-[#5b4fd4]">
+                  Remember
+                </p>
+                <p className="mt-0.5 text-[13px] leading-snug text-[#16161a]">
+                  {ann.sideNote}
+                </p>
+                {ann.examCue?.trim() && ann.examCue !== ann.sideNote ? (
+                  <p className="mt-1 text-[12px] leading-snug text-[#71717a]">
+                    {ann.examCue}
+                  </p>
+                ) : null}
+              </li>
+            ) : null,
+          )}
+        </ul>
+      ) : null}
+
+      {showCursor ? (
+        <TeachingCursor
+          x={cursor.x}
+          y={cursor.y}
+          visible={cursor.visible}
+          clicking={cursor.clicking}
+        />
+      ) : null}
 
       <span id={`vt-tip-${uid}`} className="sr-only">
         {annotations.map((a) => a.sideNote).join(" ")}

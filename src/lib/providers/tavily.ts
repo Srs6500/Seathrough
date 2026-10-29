@@ -210,3 +210,77 @@ export async function searchLessonSources(
   }
   return normalizeTavilyResults(await response.json());
 }
+
+export type TopicBriefing = {
+  answer: string;
+  sources: LessonSource[];
+};
+
+/**
+ * Fast, general web lookup for "what is this, right now?" grounding — product
+ * launches, recent events, new terms the model may not know. Unlike
+ * searchLessonSources it does not restrict to academic domains (news and
+ * official vendor sites are what matter here); only low-signal domains are
+ * dropped.
+ */
+export async function searchTopicBriefing(
+  query: string,
+  signal?: AbortSignal,
+  timeoutMs = 6_000,
+): Promise<TopicBriefing> {
+  const apiKey = getTavilyConfig().apiKey;
+  const trimmed = query.trim().slice(0, 400);
+  if (!apiKey || !trimmed) return { answer: "", sources: [] };
+
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const combinedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+
+  const response = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: trimmed,
+      topic: "general",
+      search_depth: "basic",
+      max_results: 6,
+      include_answer: "basic",
+      include_raw_content: false,
+      include_images: false,
+      exclude_domains: [...BLOCKED_DOMAINS],
+    }),
+    signal: combinedSignal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Tavily search failed with status ${response.status}`);
+  }
+  const json = (await response.json()) as TavilyResponse & { answer?: unknown };
+  const seen = new Set<string>();
+  const sources: LessonSource[] = [];
+  for (const raw of Array.isArray(json.results)
+    ? (json.results as TavilyResult[])
+    : []) {
+    const url = safeUrl(raw?.url);
+    const title = cleanText(raw?.title, 240);
+    const excerpt = cleanText(raw?.content, 600);
+    if (!url || !title || !excerpt || seen.has(url.href)) continue;
+    if (
+      BLOCKED_DOMAINS.some((domain) => isDomainOrSubdomain(url.hostname, domain))
+    ) {
+      continue;
+    }
+    seen.add(url.href);
+    sources.push({
+      id: `S${sources.length + 1}`,
+      title,
+      url: url.href,
+      publisher: url.hostname,
+      excerpt,
+    });
+    if (sources.length >= MAX_RESULTS) break;
+  }
+  return { answer: cleanText(json.answer, 1_200), sources };
+}

@@ -5,9 +5,7 @@
 
 import { dynamicTopicLockSay } from "@/lib/voice-tutor/voiceVariety";
 
-/** Seconds after focus is confirmed before teaching starts. */
-export const TOPIC_LOCK_SECONDS = 10;
-/** How many topic picks (with countdown) a student gets before the last one locks. */
+/** How many topic picks a student gets before the last one locks. */
 export const MAX_TOPIC_CYCLES = 3;
 
 /**
@@ -15,21 +13,41 @@ export const MAX_TOPIC_CYCLES = 3;
  * are the concept only — never "I want to learn I want to learn astrophysics".
  */
 export function cleanTopicLabel(raw: string): string {
-  let t = raw.replace(/\s+/g, " ").trim();
-  // Prefer last comma chunk when the student stuttered the same intent.
-  const commaParts = t
+  const whole = raw.replace(/\s+/g, " ").trim();
+  // Prefer last comma chunk when the student stuttered the same intent —
+  // but only if it still names something ("iPhone Duo, just" ≠ topic "just").
+  const commaParts = whole
     .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (commaParts.length > 1) {
-    t = commaParts[commaParts.length - 1]!;
-  }
+    .map((p) => stripTopicWrappers(p))
+    .filter((p) => p && !isFillerOnly(p));
+  const t =
+    commaParts.length > 0
+      ? commaParts[commaParts.length - 1]!
+      : stripTopicWrappers(whole);
+  return t.slice(0, 120) || "this topic";
+}
+
+const FILLER_WORDS = new Set([
+  "just", "the", "a", "an", "new", "one", "ones", "that", "this", "it", "its",
+  "please", "now", "ok", "okay", "yeah", "yes", "so", "like", "actually",
+  "um", "uh", "latest", "thing", "things", "stuff", "then", "again", "too",
+  "really", "basically", "only", "more", "bit", "some", "about",
+]);
+
+/** "just", "the new one", "please" — references/filler, not a subject. */
+function isFillerOnly(chunk: string): boolean {
+  const words = chunk.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+  return words.every((w) => FILLER_WORDS.has(w));
+}
+
+function stripTopicWrappers(raw: string): string {
+  let t = raw.replace(/\s+/g, " ").trim();
   for (let i = 0; i < 8; i += 1) {
     const next = t
       .replace(/^(hey[, ]+)/i, "")
       .replace(/^(um+|uh+|ah+|er+|hmm+|mm+|mhm+)[, ]+/i, "")
       .replace(
-        /^(actually|you know|like|basically|literally|so|well|ok|okay|please)[, ]+/i,
+        /^(actually|you know|like|basically|literally|so|well|ok|okay|please|just|simply|now|maybe)[, ]+/i,
         "",
       )
       .replace(
@@ -43,22 +61,22 @@ export function cleanTopicLabel(raw: string): string {
       )
       .replace(/^(about|on|regarding)\s+/i, "")
       .replace(/\b(i want to learn(?: about)?|want to learn(?: about)?|learn about)\s+/gi, "")
-      .replace(/\?+$/g, "")
+      .replace(/[?.!]+$/g, "")
+      .replace(/[\s,]+(just|please|now|then|ok|okay|yeah|again)$/i, "")
       .replace(/\s+/g, " ")
       .trim();
     if (next === t) break;
     t = next;
   }
-  return t.slice(0, 120) || "this topic";
+  return t;
 }
 
 /** Spoken lock line — concept only; openers rotate (not always “Cool topic”). */
 export function spokenTopicLockSay(
   topic: string,
-  seconds: number,
   opts?: { final?: boolean; teasers?: string[] },
 ): string {
-  return dynamicTopicLockSay(cleanTopicLabel(topic), seconds, opts);
+  return dynamicTopicLockSay(cleanTopicLabel(topic), opts);
 }
 
 /** Prompt-injection / jailbreak-style voice lines — refuse politely. */
@@ -207,9 +225,17 @@ export function qualifyFocusWithParent(focus: string, parent: string): string {
   const fl = f.toLowerCase();
   const pl = p.toLowerCase();
   if (fl.includes(pl) || pl.includes(fl)) return f;
+  // "a walkthrough of its features" — pronouns point at the parent; name it.
+  const named = f
+    .replace(/^(a|an|the)\s+/i, "")
+    .replace(/\b(its|their)\b/gi, `${p}'s`)
+    .replace(/\b(of|in|for|on|about|with|inside|behind)\s+(it|them|this|that)\b/gi, `$1 ${p}`)
+    .replace(/\b(this|that)\s+(device|product|topic|thing|one|subject|idea)\b/gi, p)
+    .replace(/\b(how|why|what|when|where)\s+(it|they)\b/gi, `$1 ${p}`);
+  if (named.toLowerCase().includes(pl)) return named;
   // Already phrased as "X of/in/for Y"
-  if (/\b(of|in|for|on|about)\b/i.test(f)) return f;
-  return `${f} of ${p}`;
+  if (/\b(of|in|for|on|about)\b/i.test(named)) return named;
+  return `${named} of ${p}`;
 }
 
 /** Drop intensifiers so "random ass things" ≈ "random things". */

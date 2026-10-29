@@ -17,7 +17,7 @@ assert.equal(learning[5]?.id, "data-flow");
 assert.equal(learning[6]?.id, "vibe-coder");
 assert.equal(learning[7]?.id, "ai-tutor-v2");
 assert.equal(getMode("smart-tutor")?.href, "/smart-tutor");
-assert.equal(getMode("physics-tutor")?.href, "/smart-tutor?mode=physics");
+assert.equal(getMode("physics-tutor")?.href, "/smart-tutor");
 assert.equal(getMode("browser-experience")?.href, "/browser");
 assert.equal(getMode("dashboard")?.href, "/dashboard");
 assert.equal(getMode("data-flow")?.href, "/data-flow");

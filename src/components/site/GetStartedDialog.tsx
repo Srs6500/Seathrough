@@ -15,7 +15,7 @@ const START_OPTIONS = [
   {
     href: "/smart-tutor",
     label: "Smart tutor",
-    hint: "Text, diagrams, or physics — pick a mode.",
+    hint: "Talk through a topic. Diagrams and physics figures appear when they help.",
     icon: "/teacher.png",
   },
   {

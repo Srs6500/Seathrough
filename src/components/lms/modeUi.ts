@@ -35,7 +35,7 @@ export type ModeUi = {
 export const MODE_UI: Record<ModeId, ModeUi> = {
   "smart-tutor": {
     icon: Sparkles,
-    hint: "Text mode talks you through it. Diagram mode draws it on the board.",
+    hint: "Talk through a topic. Diagrams and physics figures appear when they help.",
     tone: "blue",
   },
   "voice-tutor": {

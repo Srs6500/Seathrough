@@ -22,18 +22,18 @@ export function fillTemplate(
 }
 
 const LOCK_WITH_TEASERS = [
-  "Nice pick — {topic}. We'll dig into {tail}. Starting in {seconds} seconds unless you want to change.",
-  "Love that — {topic}. Think {tail}. Starting in {seconds} seconds unless you want to switch.",
-  "Solid choice — {topic}. We'll touch {tail}. Starting in {seconds} seconds unless you change your mind.",
-  "Alright, {topic} it is. Expect {tail}. Starting in {seconds} seconds unless you want something else.",
-  "Great call — {topic}. We'll explore {tail}. Starting in {seconds} seconds unless you want to change.",
+  "Nice pick — {topic}. We'll dig into {tail}. Let's start.",
+  "Love that — {topic}. Think {tail}. Let's go.",
+  "Solid choice — {topic}. We'll touch {tail}. Starting now.",
+  "Alright, {topic} it is. Expect {tail}. Here we go.",
+  "Great call — {topic}. We'll explore {tail}. Let's start.",
 ] as const;
 
 const LOCK_PLAIN = [
-  "Nice pick — {topic}. Starting in {seconds} seconds unless you want to change.",
-  "Love that focus — {topic}. Starting in {seconds} seconds unless you switch.",
-  "Solid — locking in {topic}. Starting in {seconds} seconds unless you want something else.",
-  "Alright, {topic} it is. Starting in {seconds} seconds unless you change your mind.",
+  "Nice pick — {topic}. Let's start.",
+  "Love that focus — {topic}. Let's go.",
+  "Solid — {topic} it is. Starting now.",
+  "Alright, {topic} it is. Here we go.",
 ] as const;
 
 const LOCK_FINAL = [
@@ -95,7 +95,6 @@ const OVERVIEW_LABELS = [
 
 export function dynamicTopicLockSay(
   topic: string,
-  seconds: number,
   opts?: { final?: boolean; teasers?: string[] },
 ): string {
   const t = topic.trim() || "this topic";
@@ -114,12 +113,10 @@ export function dynamicTopicLockSay(
     return fillTemplate(pickVariant(LOCK_WITH_TEASERS), {
       topic: t,
       tail,
-      seconds: String(seconds),
     });
   }
   return fillTemplate(pickVariant(LOCK_PLAIN), {
     topic: t,
-    seconds: String(seconds),
   });
 }
 

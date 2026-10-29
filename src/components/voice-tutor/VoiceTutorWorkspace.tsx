@@ -3,12 +3,9 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
-import Link from "next/link";
 import { FileDown, Mic, MicOff, PanelLeft, Pause, Play } from "lucide-react";
 import { HistoryRail } from "@/components/voice-tutor/HistoryRail";
 import {
@@ -17,6 +14,14 @@ import {
   type LessonStanza,
 } from "@/components/voice-tutor/LessonStage";
 import { VoiceOrb, type VoiceOrbState } from "@/components/voice-tutor/VoiceOrb";
+import { LessonVideoJob } from "@/components/voice-tutor/lessonVideo";
+import { LessonVideoPanel } from "@/components/voice-tutor/LessonVideoPanel";
+import {
+  setTeachFormats,
+  TeachFormatPicker,
+  useTeachFormats,
+  type TeachFormats,
+} from "@/components/voice-tutor/TeachFormatPicker";
 import { BrandMark } from "@/components/lms/BrandMark";
 import { StudyMenu } from "@/components/modes/ModeNav";
 import { Button } from "@/components/ui/button";
@@ -24,7 +29,6 @@ import {
   LIVE_BARGE_ANSWERS,
   MAX_CHECK_QUESTION_REPEATS,
   MAX_TOPIC_CYCLES,
-  TOPIC_LOCK_SECONDS,
   casualFocusSay,
   cleanTopicLabel,
   displayHeardTranscript,
@@ -95,6 +99,8 @@ function mergeBoardContent(
     rememberTip: next.rememberTip || prev.rememberTip,
     examCue: next.examCue || prev.examCue,
     pointer: next.pointer || prev.pointer,
+    sectionLabel: next.sectionLabel || prev.sectionLabel,
+    plainExplain: next.plainExplain || prev.plainExplain,
     keyPoints: next.keyPoints?.length ? next.keyPoints : prev.keyPoints,
     annotations:
       next.annotations?.length ? next.annotations : prev.annotations,
@@ -232,11 +238,7 @@ function looksLikeOffTopicChitchat(text: string, activeTopic?: string): boolean 
   );
 }
 
-export function VoiceTutorWorkspace({
-  styleToggle,
-}: {
-  styleToggle?: ReactNode;
-} = {}) {
+export function VoiceTutorWorkspace() {
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [orbState, setOrbState] = useState<VoiceOrbState>("idle");
   const [micOn, setMicOn] = useState(false);
@@ -254,8 +256,16 @@ export function VoiceTutorWorkspace({
   const [drawings, setDrawings] = useState<
     Array<{ title: string; scene: DrawScene }>
   >([]);
-  const [lockLeft, setLockLeft] = useState<number | null>(null);
   const [pendingTopic, setPendingTopic] = useState<string | null>(null);
+  /** Teach with: text / diagram / video (any mix, remembered per browser). */
+  const formats = useTeachFormats();
+  const formatsRef = useRef(formats);
+  const [videoJob, setVideoJob] = useState<LessonVideoJob | null>(null);
+  const videoJobRef = useRef<LessonVideoJob | null>(null);
+  /** Video-only lesson: the video teaches, so voice beats are not delivered. */
+  const videoOnlyLessonRef = useRef(false);
+  /** Video-only: job started at topic lock, adopted by beginTeaching. */
+  const earlyVideoRef = useRef<LessonVideoJob | null>(null);
   const [focusOptions, setFocusOptions] = useState<string[]>([]);
   /** Topic rounds used (1st topic + switches). Max 3 including the first. */
   const [topicCycles, setTopicCycles] = useState(0);
@@ -280,8 +290,6 @@ export function VoiceTutorWorkspace({
   const speakRef = useRef<
     (text: string, opts?: { log?: boolean }) => Promise<boolean>
   >(async () => false);
-  const lockTimerRef = useRef<number | null>(null);
-  const lockTickRef = useRef<number | null>(null);
   const phaseRef = useRef(phase);
   const planRef = useRef(plan);
   const beatIndexRef = useRef(beatIndex);
@@ -425,6 +433,16 @@ export function VoiceTutorWorkspace({
     phaseRef.current = phase;
   }, [phase]);
   useEffect(() => {
+    formatsRef.current = formats;
+  }, [formats]);
+  useEffect(
+    () => () => {
+      videoJobRef.current?.cancel();
+      earlyVideoRef.current?.cancel();
+    },
+    [],
+  );
+  useEffect(() => {
     planRef.current = plan;
   }, [plan]);
   useEffect(() => {
@@ -502,7 +520,7 @@ export function VoiceTutorWorkspace({
       phaseNow === "deferred_close";
 
     // Clarify / lock / greet: only cut TTS. Do NOT abort the in-flight topic
-    // commit — trailing speech after a subtopic pick used to cancel the timer.
+    // commit — trailing speech after a subtopic pick used to cancel the start.
     if (!midLesson) {
       stopPlayback();
       return;
@@ -615,14 +633,6 @@ export function VoiceTutorWorkspace({
     }
   }
 
-  function clearLockTimers() {
-    if (lockTimerRef.current) window.clearTimeout(lockTimerRef.current);
-    if (lockTickRef.current) window.clearInterval(lockTickRef.current);
-    lockTimerRef.current = null;
-    lockTickRef.current = null;
-    setLockLeft(null);
-  }
-
   function pushBoardNote(note: string, title = "Quick clarify") {
     const text = note.trim();
     if (!text) return;
@@ -639,7 +649,62 @@ export function VoiceTutorWorkspace({
   }
 
   /** Wipe pedagogy so a topic switch never stacks under the previous lesson. */
+  function cancelLessonVideo() {
+    videoJobRef.current?.cancel();
+    videoJobRef.current = null;
+    setVideoJob(null);
+    videoOnlyLessonRef.current = false;
+  }
+
+  /** Start (or restart) the background video explainer for `topic`. */
+  function startLessonVideo(topic: string): LessonVideoJob {
+    videoJobRef.current?.cancel();
+    // Reuse a video-only job already filming since topic lock.
+    const early = earlyVideoRef.current;
+    earlyVideoRef.current = null;
+    const job = early && early.status.kind !== "cancelled" ? early : new LessonVideoJob(topic);
+    videoJobRef.current = job;
+    setVideoJob(job);
+    return job;
+  }
+
+  /** Speak once when this lesson's video is ready (video-only lessons). */
+  function announceVideoWhenReady(job: LessonVideoJob) {
+    const off = job.subscribe(() => {
+      const status = job.status;
+      if (status.kind === "ready" || status.kind === "error" || status.kind === "cancelled") {
+        off();
+        if (videoJobRef.current !== job || lessonPausedRef.current) return;
+        if (status.kind === "ready") {
+          void speak(`Your video on ${job.topic} is ready — press play. Ask me anything while you watch.`);
+        } else if (status.kind === "error") {
+          void speak("The video didn't come through this time. Turn on text or diagrams and I'll teach it here instead.");
+        }
+      }
+    });
+  }
+
+  function onFormatsChange(next: TeachFormats) {
+    setTeachFormats(next);
+    const lesson = planRef.current;
+    const teachingNow = phaseRef.current === "teaching" || phaseRef.current === "checking";
+    if (!lesson || !teachingNow) return;
+    if (next.video && !videoJobRef.current) {
+      startLessonVideo(lesson.topic);
+    } else if (!next.video && videoJobRef.current) {
+      videoJobRef.current.cancel();
+      videoJobRef.current = null;
+      setVideoJob(null);
+    }
+    // Leaving video-only mid-lesson: start the written/drawn lesson now.
+    if (videoOnlyLessonRef.current && (next.text || next.diagram)) {
+      videoOnlyLessonRef.current = false;
+      if (beatIndexRef.current < 0) void deliverBeat(lesson, 0);
+    }
+  }
+
   function clearLessonBoard() {
+    cancelLessonVideo();
     setBoard(null);
     setDraw(null);
     setSections([]);
@@ -694,6 +759,7 @@ export function VoiceTutorWorkspace({
             rememberTip: beat.board?.rememberTip,
             examCue: beat.board?.examCue,
             pointer: beat.board?.pointer ?? "both",
+            heading: beat.board?.sectionLabel,
           };
           // If this is the first stanza, keep active at 0; otherwise
           // advance active index only after the previous finishes (onStanzaComplete).
@@ -933,7 +999,7 @@ export function VoiceTutorWorkspace({
   }
 
   async function deliverBeat(nextPlan: VoiceLessonPlan, index: number) {
-    if (lessonPausedRef.current) return;
+    if (lessonPausedRef.current || videoOnlyLessonRef.current) return;
     const beat = nextPlan.beats[index];
     if (!beat) {
       await deliverDeferredCloseouts(nextPlan);
@@ -959,7 +1025,6 @@ export function VoiceTutorWorkspace({
   }
 
   async function beginTeaching(nextPlan: VoiceLessonPlan) {
-    clearLockTimers();
     clearAsideConfirmTimer();
     clearBargeIdleResumeTimer();
     deferredQueriesRef.current = [];
@@ -971,7 +1036,6 @@ export function VoiceTutorWorkspace({
     setBoardHaltWriting(false);
     lessonPausedRef.current = false;
     setLessonPaused(false);
-    setLockLeft(null);
     setPendingTopic(null);
     pendingTopicRef.current = null;
     const cleaned: VoiceLessonPlan = {
@@ -989,48 +1053,25 @@ export function VoiceTutorWorkspace({
       topic: cleaned.topic,
       ended: false,
     });
+    const chosen = formatsRef.current;
+    if (chosen.video) {
+      const job = startLessonVideo(cleaned.topic);
+      if (!chosen.text && !chosen.diagram) {
+        videoOnlyLessonRef.current = true;
+        announceVideoWhenReady(job);
+        await speak(
+          `I'm making you a short video on ${cleaned.topic}. It takes a minute or two — I'll tell you when it's ready.`,
+        );
+        return;
+      }
+    }
     await deliverBeat(cleaned, 0);
   }
 
   /**
-   * After focus is confirmed: show the real 10s lock (board stays blank).
-   * Listening stays on so the student can still switch topics.
+   * Confirm a focus for the current topic round, then start teaching.
+   * Round 3 wording is final (no more switches this session).
    */
-  function armTopicLock(topic: string, nextPlan: VoiceLessonPlan) {
-    clearLockTimers();
-    clearLessonBoard();
-    setPendingTopic(topic);
-    pendingTopicRef.current = topic;
-    setPlan(nextPlan);
-    planRef.current = nextPlan;
-    setSessionLabel(nextPlan.label);
-    setPhase("topic_pending");
-    const seconds = TOPIC_LOCK_SECONDS;
-    setLockLeft(seconds);
-    const started = Date.now();
-    lockTickRef.current = window.setInterval(() => {
-      const left = Math.max(
-        0,
-        seconds - Math.floor((Date.now() - started) / 1000),
-      );
-      setLockLeft(left);
-    }, 200);
-    lockTimerRef.current = window.setTimeout(() => {
-      clearLockTimers();
-      setLockLeft(null);
-      void beginTeaching(nextPlan);
-    }, seconds * 1000);
-  }
-
-  /**
-   * Confirm a focus for the current topic round.
-   * Rounds 1–2: 10s countdown (can still switch).
-   * Round 3: start immediately — no more switches this session.
-   */
-  function finalLockSay(topic: string): string {
-    return spokenTopicLockSay(topic, TOPIC_LOCK_SECONDS, { final: true });
-  }
-
   async function acceptProposedTopic(
     topic: string,
     nextPlan: VoiceLessonPlan,
@@ -1054,10 +1095,10 @@ export function VoiceTutorWorkspace({
       const teasers =
         cleanPlan.beats[0]?.board?.keyPoints?.filter(Boolean).slice(0, 3) ?? [];
       const line = isFinal
-        ? spokenTopicLockSay(cleanTopic, TOPIC_LOCK_SECONDS, { final: true })
-        : spokenTopicLockSay(cleanTopic, TOPIC_LOCK_SECONDS, { teasers });
+        ? spokenTopicLockSay(cleanTopic, { final: true })
+        : spokenTopicLockSay(cleanTopic, { teasers });
       // Prefer our clean lock line over any echoed model say.
-      // No barge: trailing audio after the pick must not cancel the countdown.
+      // No barge: trailing audio after the pick must not cancel the start.
       await speak(/\bi want to learn\b/i.test(say) ? line : say || line, {
         allowBarge: false,
       });
@@ -1065,18 +1106,8 @@ export function VoiceTutorWorkspace({
 
     if (lessonPausedRef.current) return;
 
-    // Always commit — even if TTS was cut, arm timer / start teaching.
-    if (isFinal) {
-      finalAttemptRef.current = false;
-      await beginTeaching(cleanPlan);
-      return;
-    }
-
-    armTopicLock(cleanTopic, cleanPlan);
-    if (micOnRef.current) {
-      setOrbState("listening");
-      startListenLoopRef.current();
-    }
+    finalAttemptRef.current = false;
+    await beginTeaching(cleanPlan);
   }
 
   async function resumeLessonAfterAside() {
@@ -1329,7 +1360,6 @@ export function VoiceTutorWorkspace({
       if (micOnRef.current) startListenLoopRef.current();
       return;
     }
-    clearLockTimers();
     clearBargeIdleResumeTimer();
     pushMessage("user", text);
     flashUserHeard(text);
@@ -1343,56 +1373,8 @@ export function VoiceTutorWorkspace({
     const phaseNow = phaseRef.current;
     const inActiveLesson =
       phaseNow === "teaching" || phaseNow === "checking";
-    let preferClarify = false;
 
     try {
-      // Countdown interrupt: abandon pending lesson, clear board, re-intake.
-      if (phaseNow === "topic_pending") {
-        const heldPlan = planRef.current;
-        const heldTopic = pendingTopicRef.current;
-        // Only bare cancel words — "wait let's learn X" is a topic switch, not cancel.
-        if (/^(stop|cancel|never ?mind)\.?$/i.test(text)) {
-          setPendingTopic(null);
-          pendingTopicRef.current = null;
-          setLockLeft(null);
-          clearLessonBoard();
-          setPlan(null);
-          planRef.current = null;
-          setPhase("chatting");
-          await speak("No problem — what would you like instead?");
-          if (micOnRef.current) startListenLoopRef.current();
-          return;
-        }
-        // Already used all 3 rounds — nudge to change is refused; re-list subtopics.
-        if (topicCyclesRef.current >= MAX_TOPIC_CYCLES) {
-          const stayParent =
-            heldTopic || lastParentRef.current || "this topic";
-          const stayOpts = focusOptionsRef.current;
-          await speak(OVER_LIMIT_SAY);
-          if (stayOpts.length > 0) {
-            await speak(casualFocusSay(stayParent, stayOpts));
-            setPhase("clarify_focus");
-            setPendingTopic(stayParent);
-            pendingTopicRef.current = stayParent;
-          } else if (heldPlan && heldTopic) {
-            armTopicLock(heldTopic, heldPlan);
-          }
-          if (micOnRef.current) {
-            setOrbState("listening");
-            startListenLoopRef.current();
-          }
-          return;
-        }
-        setPendingTopic(null);
-        pendingTopicRef.current = null;
-        setLockLeft(null);
-        clearLessonBoard();
-        setPlan(null);
-        planRef.current = null;
-        preferClarify = true;
-        // Fall through — MUST get clarify_focus for the new topic (2nd/3rd too).
-      }
-
       if (phaseNow === "checking") {
         const currentPlan = planRef.current;
         const beat = currentPlan?.beats[beatIndexRef.current];
@@ -1505,10 +1487,9 @@ export function VoiceTutorWorkspace({
         return;
       }
 
-      // Onboarding / clarify / countdown-change: never mark as teaching.
+      // Onboarding / clarify: never mark as teaching.
       setOrbState("thinking");
       const awaitingFocus = phaseNow === "clarify_focus";
-      const mustClarifyNewTopic = preferClarify && !awaitingFocus;
       if (turnAc.signal.aborted) return;
       const clarifyParent =
         (awaitingFocus
@@ -1525,23 +1506,17 @@ export function VoiceTutorWorkspace({
           ? pendingTopicRef.current || undefined
           : undefined,
         focusOptions: awaitingFocus ? focusOptionsRef.current : undefined,
-        preferClarify: mustClarifyNewTopic,
         avoidedFocusOptions: avoidedFocusFor(clarifyParent),
+        diagrams: formatsRef.current.diagram,
         signal: turnAc.signal,
       });
       if (turnAc.signal.aborted) return;
-
-      // Countdown / topic-switch: NEVER skip subtopics (2nd and 3rd rounds too).
-      if (mustClarifyNewTopic && turn.action !== "clarify_focus") {
-        turn = forceClarifyTurn(text);
-      }
 
       // propose without a prior clarify pick → force subtopic ask (same as first time).
       if (
         turn.action === "propose_topic" &&
         turn.topic &&
-        !awaitingFocus &&
-        !mustClarifyNewTopic
+        !awaitingFocus
       ) {
         turn = forceClarifyTurn(turn.topic);
       }
@@ -1616,6 +1591,14 @@ export function VoiceTutorWorkspace({
         const isFinalRound =
           finalAttemptRef.current ||
           topicCyclesRef.current >= MAX_TOPIC_CYCLES;
+        // Video-only: start filming now, in parallel with lesson planning.
+        // (With text/diagrams on it starts after the plan, so the video's
+        // token use never delays the written lesson on rate-capped tiers.)
+        const chosenNow = formatsRef.current;
+        if (chosenNow.video && !chosenNow.text && !chosenNow.diagram) {
+          earlyVideoRef.current?.cancel();
+          earlyVideoRef.current = new LessonVideoJob(cleanTopicLabel(turn.topic));
+        }
         let nextPlan: VoiceLessonPlan | null = turn.plan ?? null;
         let alreadySpoken = false;
         const topicClean = cleanTopicLabel(turn.topic);
@@ -1623,8 +1606,8 @@ export function VoiceTutorWorkspace({
           turn.plan?.beats[0]?.board?.keyPoints?.filter(Boolean).slice(0, 3) ??
           [];
         const spokenLine = isFinalRound
-          ? spokenTopicLockSay(topicClean, TOPIC_LOCK_SECONDS, { final: true })
-          : spokenTopicLockSay(topicClean, TOPIC_LOCK_SECONDS, { teasers });
+          ? spokenTopicLockSay(topicClean, { final: true })
+          : spokenTopicLockSay(topicClean, { teasers });
         if (!nextPlan) {
           // Speak first so planning latency doesn't feel stuck.
           // No barge on lock line — pick residue must not cancel commit.
@@ -1640,6 +1623,7 @@ export function VoiceTutorWorkspace({
                 userText: turn.topic,
                 topic: turn.topic,
                 messages: messagesRef.current,
+                diagrams: formatsRef.current.diagram,
                 signal: turnAc.signal,
               });
               nextPlan = planned.plan ?? null;
@@ -1661,6 +1645,8 @@ export function VoiceTutorWorkspace({
             alreadySpoken,
           });
         } else {
+          earlyVideoRef.current?.cancel();
+          earlyVideoRef.current = null;
           // Recover into clarify instead of silently dying on the lock line.
           const stayParent =
             pendingTopicRef.current || lastParentRef.current || topicClean;
@@ -1855,7 +1841,6 @@ export function VoiceTutorWorkspace({
   function endSession() {
     stopPlayback();
     stopListening();
-    clearLockTimers();
     clearAsideConfirmTimer();
     clearBargeIdleResumeTimer();
     deferredQueriesRef.current = [];
@@ -1873,7 +1858,6 @@ export function VoiceTutorWorkspace({
   function newSession() {
     stopPlayback();
     stopListening();
-    clearLockTimers();
     clearAsideConfirmTimer();
     clearBargeIdleResumeTimer();
     deferredQueriesRef.current = [];
@@ -1895,6 +1879,7 @@ export function VoiceTutorWorkspace({
     setPlan(null);
     planRef.current = null;
     setBeatIndex(-1);
+    cancelLessonVideo();
     setDraw(null);
     setBoard(null);
     setSections([]);
@@ -1910,7 +1895,6 @@ export function VoiceTutorWorkspace({
     finalAttemptRef.current = false;
     checkHintCountRef.current = 0;
     setTopicCycles(0);
-    setLockLeft(null);
     setUserHeard("");
     setError(null);
     setMicOn(false);
@@ -1924,7 +1908,6 @@ export function VoiceTutorWorkspace({
     if (!found) return;
     stopPlayback();
     stopListening();
-    clearLockTimers();
     setMicOn(false);
     micOnRef.current = false;
     setSessionId(found.id);
@@ -1934,6 +1917,7 @@ export function VoiceTutorWorkspace({
     setPhase(found.ended ? "ended" : "idle");
     setOrbState("idle");
     setPlan(null);
+    cancelLessonVideo();
     setDraw(null);
     setBoard(null);
     setSections([]);
@@ -1958,14 +1942,6 @@ export function VoiceTutorWorkspace({
   }
 
   const showPdf = phase === "ended" || messages.length > 2;
-  const lockLabel = useMemo(() => {
-    if (lockLeft == null || !pendingTopic) return null;
-    const changesLeft = Math.max(0, MAX_TOPIC_CYCLES - topicCycles);
-    if (changesLeft <= 0) {
-      return `Starting “${pendingTopic}” in ${lockLeft}s`;
-    }
-    return `Starting “${pendingTopic}” in ${lockLeft}s — speak to change topic (${changesLeft} left)`;
-  }, [lockLeft, pendingTopic, topicCycles]);
 
   return (
     <div className="fixed inset-0 flex bg-[#f4f4f6] font-[family-name:var(--font-geist)] text-[#16161a]">
@@ -1998,14 +1974,6 @@ export function VoiceTutorWorkspace({
               <PanelLeft className="size-3.5" />
               History
             </Button>
-            {styleToggle ?? (
-              <Link
-                href="/smart-tutor?mode=diagram"
-                className={cn("inline-flex items-center", INSPECT_CHIP)}
-              >
-                Smart tutor
-              </Link>
-            )}
             <BrandMark
               compact
               size="sm"
@@ -2042,8 +2010,15 @@ export function VoiceTutorWorkspace({
             stanzas={stanzas}
             activeStanzaIndex={activeStanzaIndex}
             onStanzaComplete={onStanzaComplete}
-            lockLabel={lockLabel}
             haltWriting={boardHaltWriting || lessonPaused}
+            sources={plan?.sources}
+            showText={formats.text}
+            showDiagram={formats.diagram}
+            video={
+              videoJob && formats.video ? (
+                <LessonVideoPanel key={videoJob.topic} job={videoJob} />
+              ) : undefined
+            }
           />
           {error ? (
             <p className="absolute inset-x-0 top-16 mx-auto max-w-md rounded-lg border border-[#ececee] bg-white px-3 py-2 text-center text-[13px] text-[#c24545]">
@@ -2061,6 +2036,11 @@ export function VoiceTutorWorkspace({
             className="pointer-events-none mb-4"
           />
           <div className="pointer-events-auto w-full max-w-md">
+            <TeachFormatPicker
+              value={formats}
+              onChange={onFormatsChange}
+              className="mb-2"
+            />
             <div className="flex items-center justify-center gap-2 rounded-lg border border-[#ececee] bg-white px-2 py-1.5">
               <form
                 className="min-w-0 flex-1"

@@ -84,7 +84,7 @@ const EXPLANATION_FEATURES = [
     label: "Smart tutor",
     href: "/smart-tutor",
     icon: "/teacher.png",
-    hint: "Text, diagrams, or physics — pick a mode.",
+    hint: "Talk through a topic. Diagrams and physics figures appear when they help.",
   },
   {
     label: "Video explainer",

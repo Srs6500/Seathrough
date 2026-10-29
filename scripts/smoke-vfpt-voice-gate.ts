@@ -4,6 +4,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  looksLikePhysicsAsk,
   looksLikeVfptElectricTopic,
   pickVfptForVoiceTutor,
   VFPT_VOICE_MIN_SCORE,
@@ -44,8 +45,11 @@ function basePlan(topic: string, keyPoints: string[] = []): VoiceLessonPlan {
 function main() {
   assert.equal(looksLikeVfptElectricTopic("electric dipole field lines"), true);
   assert.equal(looksLikeVfptElectricTopic("point charges attract"), true);
+  assert.equal(looksLikeVfptElectricTopic("solenoid magnetic field"), true);
   assert.equal(looksLikeVfptElectricTopic("World War II causes"), false);
   assert.equal(looksLikeVfptElectricTopic("Java inheritance"), false);
+  assert.equal(looksLikePhysicsAsk("Newton's second law"), true);
+  assert.equal(looksLikePhysicsAsk("World War II causes"), false);
 
   const physics = pickVfptForVoiceTutor(
     "electric dipole field lines and point charges",
@@ -90,7 +94,7 @@ function main() {
   const draws = again.beats.filter((b) => b.draw && b.draw.kind !== "none");
   assert.equal(draws.length, 1);
 
-  // Policy none: never attach.
+  // Policy none on a physics ask still gets a figure — one interface, no mode switch.
   const skipPlan = basePlan("electric dipole", [
     "field lines leave +",
     "enter −",
@@ -101,7 +105,21 @@ function main() {
     spec: { policy: "none" },
   };
   const skipped = attachVoiceDiagrams(skipPlan);
-  assert.equal(skipped.beats[0]?.draw?.kind, "none");
+  if (physics) {
+    assert.equal(skipped.beats[0]?.draw?.kind, "vfpt_svg");
+  } else {
+    assert.equal(skipped.beats[0]?.draw?.kind, "tldraw_sketch");
+  }
+
+  // Policy none on a verbal topic stays text-only.
+  const historySkip = basePlan("World War II", ["allies", "axis", "1939"]);
+  historySkip.beats[0]!.draw = {
+    kind: "none",
+    highlightIds: [],
+    spec: { policy: "none" },
+  };
+  const historySkipped = attachVoiceDiagrams(historySkip);
+  assert.equal(historySkipped.beats[0]?.draw?.kind, "none");
 
   // Invalid VFPt draw on WWII is stripped.
   const bad = basePlan("World War II", ["allies", "axis", "1939"]);

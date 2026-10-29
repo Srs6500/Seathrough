@@ -59,3 +59,46 @@ export function formatPhysicsContextBlock(ctx: PhysicsTutorContext): string {
   ];
   return lines.join("\n");
 }
+
+/** Ground a voice lesson (glass board + spoken say), not ExperimentBoard JSON. */
+export function formatPhysicsVoiceContextBlock(
+  ctx: PhysicsTutorContext,
+): string {
+  const chunkBlock =
+    ctx.chunks.length === 0
+      ? "(No on-topic textbook chunks — teach careful general physics. Do not invent citations.)"
+      : ctx.chunks
+          .map(
+            (c, i) =>
+              `[${i + 1}] (${c.source}/${c.topic}) ${c.title}\n${c.text}`,
+          )
+          .join("\n\n");
+
+  const diagramBlock =
+    ctx.diagrams.length === 0
+      ? "(No local field SVG — set diagramKind to tldraw_sketch or auto. Never invent an image filename.)"
+      : ctx.diagrams
+          .map((d) => {
+            const url = `/physics/vfpt/${encodeURIComponent(d.filename)}`;
+            return `- ${d.label} [${d.topics.join(", ")}] src=${url}`;
+          })
+          .join("\n");
+
+  return [
+    "PHYSICS (voice lesson: talk, write the passage, put a picture beside it when one exists).",
+    "Ground spoken explanation in retrieved context when present. Do not invent textbook citations.",
+    "",
+    "PEDAGOGY:",
+    ctx.pedagogyRules,
+    "",
+    "RETRIEVED CONTEXT:",
+    chunkBlock,
+    "",
+    "FIELD DIAGRAMS (the server can pin one beside the lesson):",
+    diagramBlock,
+    "",
+    "If a diagram src is listed, set diagramKind to vfpt_svg and explain what the picture shows.",
+    "If none is listed, set diagramKind to tldraw_sketch (or auto) and sketch the mechanism.",
+    "Never invent a field diagram for a non-physics topic.",
+  ].join("\n");
+}

@@ -499,7 +499,7 @@ export class VoiceDuplexSession {
    * Speak one tutor line. Arms barge-in when student mic is on.
    * Stops the listen loop for the duration of playback.
    * Pass `{ allowBarge: false }` for commit lines (topic lock) so trailing
-   * speech after a subtopic pick can't cancel the countdown.
+   * speech after a subtopic pick can't cancel the start of the lesson.
    */
   async speak(
     text: string,

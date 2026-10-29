@@ -8,7 +8,7 @@ import {
   retrievePhysicsChunks,
 } from "../src/lib/physics-tutor/retrieve";
 
-assert.equal(getMode("physics-tutor")?.href, "/smart-tutor?mode=physics");
+assert.equal(getMode("physics-tutor")?.href, "/smart-tutor");
 assert.equal(getMode("physics-tutor")?.enabled, false);
 assert.equal(getMode("physics-tutor")?.usesWhiteboard, true);
 assert.ok(!listEnabledModes("learning").some((m) => m.id === "physics-tutor"));

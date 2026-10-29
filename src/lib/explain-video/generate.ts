@@ -310,6 +310,12 @@ export async function generateSceneCode(
   }
 
   const llm = makeClient();
+  // No per-minute token cap → write every scene at once: wall time ≈ one scene
+  // instead of all of them streamed serially. Under a cap, parallel calls only
+  // trade waiting for 429s, so keep the single call there.
+  if (!llm.tokensPerMinute) {
+    return writeAllScenesInParallel(llm, topic, plan);
+  }
   const raw = await complete(llm, {
     system: CODE_SYSTEM,
     user: `${filmBrief(topic, plan)}
@@ -356,6 +362,18 @@ function uniqueSceneIndexes(plan: Plan, indexes?: number[]): number[] | null {
   if (!indexes?.length) return null;
   const wanted = [...new Set(indexes.filter((index) => Number.isInteger(index) && index >= 0 && index < plan.scenes.length))];
   return wanted.length ? wanted : null;
+}
+
+async function writeAllScenesInParallel(
+  llm: Client,
+  topic: string,
+  plan: Plan,
+): Promise<SceneCodeResponse> {
+  const scenes = await Promise.all(
+    plan.scenes.map((_, index) => writeOneSceneSafely(llm, topic, plan, index, null)),
+  );
+  if (scenes.every((scene) => scene.code === null)) throw new Error(INCOMPLETE_DRAWINGS);
+  return { scenes };
 }
 
 async function writeSelectedScenes(

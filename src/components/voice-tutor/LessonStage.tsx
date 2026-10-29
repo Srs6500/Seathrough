@@ -1,6 +1,12 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   DiagramGutter,
   estimateGutterCardHeight,
@@ -15,6 +21,7 @@ import type {
   BoardAnnotation,
   BoardContent,
   DrawScene,
+  LessonSourceRef,
 } from "@/lib/voice-tutor/sessionTypes";
 import { packGutterPlacements } from "@/lib/voice-tutor/gutterLayout";
 import { cn } from "@/lib/utils";
@@ -34,6 +41,8 @@ export type LessonStanza = {
   rememberTip?: string;
   examCue?: string;
   pointer?: "circle" | "arrow" | "both";
+  /** Definition / Key concepts / Example. */
+  heading?: string;
 };
 
 export type LessonDrawing = {
@@ -55,9 +64,15 @@ type LessonStageProps = {
   draw: DrawScene | null;
   /** Accumulated diagrams for the gutter (history + active). */
   drawings?: LessonDrawing[];
-  lockLabel?: string | null;
   /** Pause active stanza typing (barge-in / X pause). */
   haltWriting?: boolean;
+  /** Researched pages — hover a sentence to see / open its source. */
+  sources?: LessonSourceRef[];
+  /** Teach-with choices: hide the written passage and/or the diagrams. */
+  showText?: boolean;
+  showDiagram?: boolean;
+  /** Video explainer panel (shown above the passage). */
+  video?: ReactNode;
   className?: string;
 };
 
@@ -87,8 +102,11 @@ export function LessonStage({
   onStanzaComplete,
   draw,
   drawings = [],
-  lockLabel,
   haltWriting = false,
+  sources,
+  showText = true,
+  showDiagram = true,
+  video,
   className,
 }: LessonStageProps) {
   const scrollRef = useRef<HTMLElement>(null);
@@ -101,15 +119,17 @@ export function LessonStage({
   const keyPoints = board?.keyPoints ?? [];
 
   const activeTldraw = useMemo(() => {
+    if (!showDiagram) return null;
     if (isTldrawDraw(draw)) return draw;
     for (let i = drawings.length - 1; i >= 0; i -= 1) {
       const scene = drawings[i]?.scene;
       if (isTldrawDraw(scene)) return scene;
     }
     return null;
-  }, [draw, drawings]);
+  }, [draw, drawings, showDiagram]);
 
   const gutterScenes = useMemo(() => {
+    if (!showDiagram) return [];
     const fromHistory = drawings
       .map((d, i) => ({
         id: `hist_${i}_${d.scene.kind}`,
@@ -137,7 +157,7 @@ export function LessonStage({
       }
     }
     return fromHistory;
-  }, [draw, drawings]);
+  }, [draw, drawings, showDiagram]);
 
   const hasPedagogy =
     Boolean(statement) ||
@@ -145,7 +165,8 @@ export function LessonStage({
     stanzas.length > 0 ||
     keyPoints.length > 0 ||
     gutterScenes.length > 0 ||
-    Boolean(activeTldraw);
+    Boolean(activeTldraw) ||
+    Boolean(video);
 
   useLayoutEffect(() => {
     if (!activeRef.current || !scrollRef.current) return;
@@ -232,22 +253,10 @@ export function LessonStage({
 
       {!hasPedagogy ? (
         <div className="flex flex-1 flex-col items-center justify-center pb-36">
-          {lockLabel ? (
-            <div className="flex flex-col items-center gap-3 px-4 text-center">
-              <p className="text-[2.75rem] leading-none font-medium tracking-tight text-[#16161a] tabular-nums md:text-[3.25rem]">
-                {lockLabel.match(/\b(\d+)s\b/)?.[1] ?? ""}
-                <span className="text-[1.25rem] text-[#71717a]">s</span>
-              </p>
-              <p className="max-w-md text-[15px] leading-6 text-[#3f3f46]">
-                {lockLabel}
-              </p>
-            </div>
-          ) : (
-            <p className="max-w-sm text-center text-[15px] leading-6 text-[#71717a]">
-              Say what you want to learn. The lesson stays on the board — not a chat
-              transcript.
-            </p>
-          )}
+          <p className="max-w-sm text-center text-[15px] leading-6 text-[#71717a]">
+            Say what you want to learn. The tutor writes it, draws when a
+            picture helps, and shows a physics figure when you ask physics.
+          </p>
         </div>
       ) : (
         <div
@@ -287,88 +296,88 @@ export function LessonStage({
               </h1>
             ) : null}
 
-            <div className="flex flex-col gap-8">
-              {stanzas.map((stanza, index) => {
-                if (index > activeStanzaIndex) return null;
-                const allDone = activeStanzaIndex >= stanzas.length;
-                const isActive = !allDone && index === activeStanzaIndex;
-                const isPast = index < activeStanzaIndex || allDone;
-                return (
-                  <div
-                    key={stanza.id}
-                    ref={
-                      isActive || (allDone && index === stanzas.length - 1)
-                        ? activeRef
-                        : undefined
-                    }
-                    className={cn(
-                      "vt-stanza scroll-mt-6",
-                      isActive && "vt-stanza-active",
-                      isPast && "vt-stanza-past",
-                    )}
-                  >
-                    <LivingPassage
-                      text={stanza.text}
-                      annotations={stanza.annotations}
-                      highlight={stanza.highlight}
-                      rememberTip={stanza.rememberTip}
-                      examCue={stanza.examCue}
-                      pointer={stanza.pointer ?? "both"}
-                      frozen={isPast}
-                      haltWriting={isActive ? haltWriting : false}
-                      onComplete={
-                        isActive
-                          ? () => onStanzaComplete?.(index)
-                          : undefined
-                      }
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            {video ? <div className="mb-8">{video}</div> : null}
 
-            {sections.map((section) => (
-              <section key={section.heading} className="vt-stanza mt-8">
-                <h2 className="mb-2 text-[1.05rem] font-medium text-[#16161a]">
-                  {section.heading}
-                </h2>
-                <p className="text-[1.05rem] leading-[1.85] text-[#16161a] md:text-[1.12rem]">
-                  {section.body}
-                </p>
-              </section>
-            ))}
+            {showText ? (
+              <>
+                <div className="flex flex-col gap-8">
+                  {stanzas.map((stanza, index) => {
+                    if (index > activeStanzaIndex) return null;
+                    const allDone = activeStanzaIndex >= stanzas.length;
+                    const isActive = !allDone && index === activeStanzaIndex;
+                    const isPast = index < activeStanzaIndex || allDone;
+                    return (
+                      <div
+                        key={stanza.id}
+                        ref={
+                          isActive || (allDone && index === stanzas.length - 1)
+                            ? activeRef
+                            : undefined
+                        }
+                        className={cn(
+                          "vt-stanza scroll-mt-6",
+                          isActive && "vt-stanza-active",
+                          isPast && "vt-stanza-past",
+                        )}
+                      >
+                        {stanza.heading ? (
+                          <p className="mb-2 text-[13px] font-medium text-[#5b4fd4]">
+                            {stanza.heading}
+                          </p>
+                        ) : null}
+                        <LivingPassage
+                          text={stanza.text}
+                          annotations={stanza.annotations}
+                          highlight={stanza.highlight}
+                          rememberTip={stanza.rememberTip}
+                          examCue={stanza.examCue}
+                          pointer={stanza.pointer ?? "both"}
+                          frozen={isPast}
+                          haltWriting={isActive ? haltWriting : false}
+                          sources={sources}
+                          onComplete={
+                            isActive
+                              ? () => onStanzaComplete?.(index)
+                              : undefined
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
 
-            {keyPoints.length > 0 ? (
-              <div className="mt-8 space-y-2 border-t border-[#ececee] pt-5">
-                <p className="text-[11px] font-medium tracking-[0.08em] text-[#71717a] uppercase">
-                  Keep these
-                </p>
-                {keyPoints.map((point) => (
-                  <p
-                    key={point}
-                    className="text-[0.98rem] leading-7 text-[#3f3f46]"
-                  >
-                    <span className="mr-2 text-[#5b4fd4]">·</span>
-                    {point}
-                  </p>
+                {sections.map((section) => (
+                  <section key={section.heading} className="vt-stanza mt-8">
+                    <h2 className="mb-2 text-[1.05rem] font-medium text-[#16161a]">
+                      {section.heading}
+                    </h2>
+                    <p className="text-[1.05rem] leading-[1.85] text-[#16161a] md:text-[1.12rem]">
+                      {section.body}
+                    </p>
+                  </section>
                 ))}
-              </div>
+
+                {keyPoints.length > 0 ? (
+                  <div className="mt-8 space-y-2 border-t border-[#ececee] pt-5">
+                    <p className="text-[11px] font-medium tracking-[0.08em] text-[#71717a] uppercase">
+                      Keep these
+                    </p>
+                    {keyPoints.map((point) => (
+                      <p
+                        key={point}
+                        className="text-[0.98rem] leading-7 text-[#3f3f46]"
+                      >
+                        <span className="mr-2 text-[#5b4fd4]">·</span>
+                        {point}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             {!activeTldraw ? (
               <DiagramGutter diagrams={gutterDiagrams} stacked />
-            ) : null}
-
-            {lockLabel ? (
-              <div className="sticky bottom-4 mt-8 flex flex-col items-center gap-1 self-center rounded-lg border border-[#ececee] bg-white px-5 py-3 text-center">
-                <p className="text-[2rem] leading-none font-medium text-[#16161a] tabular-nums">
-                  {lockLabel.match(/\b(\d+)s\b/)?.[1] ?? "—"}
-                  <span className="text-[1rem] text-[#71717a]">s</span>
-                </p>
-                <p className="text-[13px] font-medium text-[#5b4fd4]">
-                  {lockLabel}
-                </p>
-              </div>
             ) : null}
           </article>
 

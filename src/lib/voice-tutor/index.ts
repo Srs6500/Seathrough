@@ -47,6 +47,7 @@ export {
   type DiagramPolicy,
 } from "@/lib/voice-tutor/attachDiagrams";
 export {
+  looksLikePhysicsAsk,
   looksLikeVfptElectricTopic,
   pickVfptForVoiceTutor,
   VFPT_VOICE_MIN_SCORE,
