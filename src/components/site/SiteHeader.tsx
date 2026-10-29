@@ -79,76 +79,54 @@ function FeatureRow({
   );
 }
 
-const MARKETING_MENUS = [
+const EXPLANATION_FEATURES = [
   {
-    label: "Code",
-    items: [
-      {
-        label: "System design",
-        href: "/system-design",
-        icon: "/systemd.png",
-        hint: "Architecture drawn on one board as you ask.",
-      },
-      {
-        label: "Debugger",
-        href: "/bug-analyzer",
-        icon: "/debugger.png",
-        hint: "Map frontend pages and inspect backend bugs.",
-      },
-      {
-        label: "Repo-Scan",
-        href: "/repo-scan",
-        icon: "/debugger.png",
-        hint: "Connect a GitHub repo and see its tree-sitter parse.",
-      },
-      {
-        label: "Vibe coder",
-        href: "/vibe-coder",
-        icon: "/debugger.png",
-        hint: "Understand what you built, starting with the database.",
-      },
-    ],
+    label: "Smart tutor",
+    href: "/smart-tutor",
+    icon: "/teacher.png",
+    hint: "Text, diagrams, or physics — pick a mode.",
   },
   {
-    label: "Education",
-    items: [
-      {
-        label: "Voice",
-        href: "/smart-tutor/voice-tutor",
-        icon: "/teacher.png",
-        hint: "Talk through a lesson — board, checks, diagrams.",
-      },
-      {
-        label: "Physics",
-        href: "/smart-tutor/physics-tutor",
-        icon: "/electrical-circuit.png",
-        hint: "Field diagrams, short steps, then a check.",
-      },
-      {
-        label: "Browser",
-        href: "/browser",
-        icon: "/globe.png",
-        hint: "Open a live page and learn with highlights.",
-      },
-      {
-        label: "Video",
-        href: "/video",
-        icon: "/video.png",
-        hint: "Type a topic. Watch a short explainer film.",
-      },
-    ],
+    label: "Video explainer",
+    href: "/video",
+    icon: "/video.png",
+    hint: "Type an idea. Get a visual explanation worth sharing.",
+  },
+  {
+    label: "System design",
+    href: "/system-design",
+    icon: "/systemd.png",
+    hint: "Architecture drawn on one board as you ask.",
+  },
+  {
+    label: "Vibe coder",
+    href: "/vibe-coder",
+    icon: "/debugger.png",
+    hint: "Understand what you built, starting with the database.",
+  },
+  {
+    label: "Browser",
+    href: "/browser",
+    icon: "/globe.png",
+    hint: "Open a live page and learn with highlights.",
   },
 ] as const;
 
 function pathUnder(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  if (pathname === href) return true;
+  if (href === "/smart-tutor") {
+    return (
+      pathname === "/smart-tutor/voice-tutor" ||
+      pathname === "/smart-tutor/physics-tutor"
+    );
+  }
+  return pathname.startsWith(`${href}/`);
 }
 
 export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
   const { openStudio, openAuth, openGetStarted } = useStudioAccess();
   const [featuresOpen, setFeaturesOpen] = useState(false);
-  const [codeOpen, setCodeOpen] = useState(false);
-  const [tutorOpen, setTutorOpen] = useState(false);
+  const [explanationsOpen, setExplanationsOpen] = useState(false);
   const studios = listModesByGroup("studio");
   const more = listModesByGroup("more");
   const labs = listModesByGroup("lab");
@@ -164,15 +142,15 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
 
   const marketingLinkClass = (active: boolean) =>
     cn(
-      "inline-flex items-center gap-1 text-[15px] font-medium tracking-[-0.01em] outline-none transition-colors",
+      "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-medium outline-none transition-colors",
       dark
         ? cn(
-            "hover:text-white focus-visible:text-white",
-            active ? "text-white" : "text-white/70",
+            "hover:bg-white/8 hover:text-white focus-visible:text-white",
+            active ? "bg-white/10 text-white" : "text-white/70",
           )
         : cn(
-            "hover:text-[#1b6ca8] focus-visible:text-[#1b6ca8]",
-            active ? "text-[#0f172a]" : "text-[#1a2b3c]",
+            "hover:bg-[#fafafa] hover:text-[#16161a] focus-visible:text-[#16161a]",
+            active ? "bg-[#f4f1ff] text-[#5b4fd4]" : "text-[#16161a]",
           ),
     );
 
@@ -182,8 +160,8 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
         "sticky top-0 z-50 border-b",
         marketing
           ? dark
-            ? "border-white/10 bg-black/80 backdrop-blur-md"
-            : "border-[#d5e0ea]/80 bg-white/85 backdrop-blur-md"
+            ? "border-[#2a2a2e] bg-[#16161a]"
+            : "border-[#ececee] bg-white"
           : "border-border/80 bg-glass backdrop-blur-md",
       )}
     >
@@ -191,14 +169,17 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
         className={cn(
           "relative mx-auto flex items-center",
           marketing
-            ? "marketing-rise h-[4.75rem] max-w-6xl px-6 md:px-8"
+            ? "h-12 max-w-6xl px-4 md:px-6"
             : "min-h-16 max-w-7xl gap-6 px-5 py-2.5 lg:px-10",
         )}
       >
         <BrandMark
           compact={!marketing}
-          size={marketing ? "md" : "lg"}
+          size={marketing ? "sm" : "lg"}
           onDark={dark}
+          className={cn(
+            marketing && !dark && "[&>span]:text-[#16161a]",
+          )}
         />
 
         <nav
@@ -225,105 +206,96 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
               >
                 Home
               </button>
-              {MARKETING_MENUS.map((menu) => {
-                const open = menu.label === "Code" ? codeOpen : tutorOpen;
-                const setOpen =
-                  menu.label === "Code" ? setCodeOpen : setTutorOpen;
-                const active = menu.items.some((item) =>
-                  pathUnder(pathname, item.href),
-                );
-                return (
-                  <Popover
-                    key={menu.label}
-                    open={open}
-                    onOpenChange={setOpen}
+              <Popover
+                open={explanationsOpen}
+                onOpenChange={setExplanationsOpen}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={marketingLinkClass(
+                      explanationsOpen ||
+                        EXPLANATION_FEATURES.some((item) =>
+                          pathUnder(pathname, item.href),
+                        ),
+                    )}
                   >
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className={marketingLinkClass(active || open)}
-                      >
-                        {menu.label}
-                        <ChevronDown
-                          className={cn(
-                            "size-4 opacity-70 transition duration-200",
-                            open && "rotate-180",
-                          )}
-                        />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align="center"
-                      sideOffset={14}
-                      collisionPadding={16}
+                    Explanations
+                    <ChevronDown
                       className={cn(
-                        "w-[min(92vw,34rem)] rounded-2xl p-3 shadow-[0_20px_50px_-20px_rgba(26,43,60,0.35)] ring-0",
-                        dark
-                          ? "border-white/10 bg-[#111] text-white"
-                          : "border border-[#e8e8ea] bg-white text-[#0f172a]",
+                        "size-4 opacity-70 transition duration-200",
+                        explanationsOpen && "rotate-180",
                       )}
-                    >
-                      <div
-                        className={cn(
-                          "grid gap-1",
-                          menu.items.length > 2
-                            ? "grid-cols-1 sm:grid-cols-2"
-                            : "grid-cols-1",
-                        )}
-                      >
-                        {menu.items.map((item) => {
-                          const itemActive = pathUnder(pathname, item.href);
-                          return (
-                            <button
-                              key={item.href}
-                              type="button"
-                              onClick={() => {
-                                setOpen(false);
-                                openStudio(item.href);
-                              }}
+                    />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="center"
+                  sideOffset={14}
+                  collisionPadding={16}
+                  className={cn(
+                    "w-[min(92vw,34rem)] rounded-lg p-2 shadow-[0_12px_32px_-16px_rgba(17,17,20,0.28)] ring-0",
+                    dark
+                      ? "border border-[#2a2a2e] bg-[#16161a] text-[#f4f4f5]"
+                      : "border border-[#ececee] bg-white text-[#16161a]",
+                  )}
+                >
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                    {EXPLANATION_FEATURES.map((item) => {
+                      const itemActive = pathUnder(pathname, item.href);
+                      return (
+                        <button
+                          key={item.href}
+                          type="button"
+                          onClick={() => {
+                            setExplanationsOpen(false);
+                            openStudio(item.href);
+                          }}
+                          className={cn(
+                            "flex items-start gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors",
+                            dark
+                              ? itemActive
+                                ? "bg-white/10"
+                                : "hover:bg-white/8"
+                              : itemActive
+                                ? "bg-[#f4f1ff]"
+                                : "hover:bg-[#fafafa]",
+                          )}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- static menu thumbnails */}
+                          <img
+                            src={item.icon}
+                            alt=""
+                            className="mt-0.5 size-12 shrink-0 rounded-lg object-contain"
+                          />
+                          <span className="min-w-0">
+                            <span
                               className={cn(
-                                "flex items-start gap-3 rounded-xl px-3 py-3 text-left outline-none transition-colors",
+                                "block text-[14px] font-medium leading-snug",
                                 dark
-                                  ? itemActive
-                                    ? "bg-white/10"
-                                    : "hover:bg-white/8"
+                                  ? "text-white"
                                   : itemActive
-                                    ? "bg-[#f4f7fb]"
-                                    : "hover:bg-[#f7f8fa]",
+                                    ? "text-[#5b4fd4]"
+                                    : "text-[#16161a]",
                               )}
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element -- static menu thumbnails */}
-                              <img
-                                src={item.icon}
-                                alt=""
-                                className="mt-0.5 size-12 shrink-0 rounded-lg object-contain"
-                              />
-                              <span className="min-w-0">
-                                <span
-                                  className={cn(
-                                    "block font-[family-name:var(--font-inter)] text-[15px] font-semibold leading-snug tracking-[-0.01em]",
-                                    dark ? "text-white" : "text-[#0f172a]",
-                                  )}
-                                >
-                                  {item.label}
-                                </span>
-                                <span
-                                  className={cn(
-                                    "mt-0.5 block text-[13px] leading-5",
-                                    dark ? "text-white" : "text-[#0f172a]",
-                                  )}
-                                >
-                                  {item.hint}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                );
-              })}
+                              {item.label}
+                            </span>
+                            <span
+                              className={cn(
+                                "mt-0.5 block text-[13px] leading-5",
+                                dark ? "text-white/55" : "text-[#71717a]",
+                              )}
+                            >
+                              {item.hint}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </>
           ) : null}
           {!marketing ? (
@@ -433,7 +405,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                   marketing
                     ? dark
                       ? "text-white hover:bg-white/10"
-                      : "text-[#1a2b3c] hover:bg-[#f2f4f7]"
+                      : "text-[#16161a] hover:bg-[#fafafa]"
                     : "text-[#1a2b3c] hover:bg-[#f2f4f7]",
                 )}
                 aria-label="Open menu"
@@ -447,8 +419,8 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                 "w-[min(100%,20rem)] p-0",
                 marketing &&
                   (dark
-                    ? "border-white/10 bg-[#0a0a0a] text-white"
-                    : "border-[#d5e0ea] bg-white text-[#1a2b3c]"),
+                    ? "border-[#2a2a2e] bg-[#16161a] text-[#f4f4f5]"
+                    : "border-[#ececee] bg-white text-[#16161a]"),
               )}
             >
               <SheetHeader
@@ -456,15 +428,15 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                   "border-b px-5 py-4",
                   marketing
                     ? dark
-                      ? "border-white/10"
-                      : "border-[#e6ebf0]"
+                      ? "border-[#2a2a2e]"
+                      : "border-[#ececee]"
                     : "border-[#e6ebf0]",
                 )}
               >
                 <SheetTitle
                   className={cn(
                     "text-[15px] font-medium",
-                    marketing && (dark ? "text-white" : "text-[#1a2b3c]"),
+                    marketing && (dark ? "text-white" : "text-[#16161a]"),
                   )}
                 >
                   Menu
@@ -484,46 +456,44 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                           "rounded-lg px-3 py-2.5 text-left text-[15px]",
                           dark
                             ? "text-white/80 hover:bg-white/8 hover:text-white"
-                            : "text-[#3d5166] hover:bg-[#f2f4f7] hover:text-[#1a2b3c]",
+                            : "text-[#3f3f46] hover:bg-[#fafafa] hover:text-[#16161a]",
                         )}
                       >
                         Home
                       </button>
                     </SheetClose>
-                    {MARKETING_MENUS.map((menu) => (
-                      <div key={menu.label} className="mt-1">
-                        <p
-                          className={cn(
-                            "px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.06em] uppercase",
-                            dark ? "text-white/45" : "text-[#8a9aab]",
-                          )}
-                        >
-                          {menu.label}
-                        </p>
-                        {menu.items.map((item) => (
-                          <SheetClose asChild key={item.href}>
-                            <button
-                              type="button"
-                              onClick={() => openStudio(item.href)}
-                              className={cn(
-                                "w-full rounded-lg px-3 py-2.5 text-left text-[15px]",
-                                dark
-                                  ? "text-white/80 hover:bg-white/8 hover:text-white"
-                                  : "text-[#3d5166] hover:bg-[#f2f4f7] hover:text-[#1a2b3c]",
-                              )}
-                            >
-                              {item.label}
-                            </button>
-                          </SheetClose>
-                        ))}
-                      </div>
-                    ))}
+                    <div className="mt-1">
+                      <p
+                        className={cn(
+                          "px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.06em] uppercase",
+                          dark ? "text-white/45" : "text-[#71717a]",
+                        )}
+                      >
+                        Explanations
+                      </p>
+                      {EXPLANATION_FEATURES.map((item) => (
+                        <SheetClose asChild key={item.href}>
+                          <button
+                            type="button"
+                            onClick={() => openStudio(item.href)}
+                            className={cn(
+                              "w-full rounded-lg px-3 py-2.5 text-left text-[15px]",
+                              dark
+                                ? "text-white/80 hover:bg-white/8 hover:text-white"
+                                : "text-[#3f3f46] hover:bg-[#fafafa] hover:text-[#16161a]",
+                            )}
+                          >
+                            {item.label}
+                          </button>
+                        </SheetClose>
+                      ))}
+                    </div>
                     <div className="mt-2 flex items-center gap-2 px-1">
                       <ThemeToggle variant="marketing" />
                       <span
                         className={cn(
                           "text-[13px]",
-                          dark ? "text-white/60" : "text-[#6a7d90]",
+                          dark ? "text-white/60" : "text-[#71717a]",
                         )}
                       >
                         {dark ? "Light mode" : "Dark mode"}
@@ -535,10 +505,10 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                           type="button"
                           onClick={() => openAuth("login")}
                           className={cn(
-                            "rounded-xl border px-4 py-3.5 text-center text-[16px] font-bold",
+                            "rounded-lg border px-4 py-3 text-center text-[13px] font-medium",
                             dark
-                              ? "border-white/25 text-white"
-                              : "border-[#d5e0ea] bg-white text-[#1a2b3c]",
+                              ? "border-[#2a2a2e] text-white"
+                              : "border-[#ececee] bg-white text-[#16161a]",
                           )}
                         >
                           Log in
@@ -549,10 +519,10 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                           type="button"
                           onClick={openGetStarted}
                           className={cn(
-                            "rounded-xl px-4 py-3.5 text-center text-[16px] font-bold",
+                            "rounded-lg px-4 py-3 text-center text-[13px] font-medium",
                             dark
-                              ? "bg-white text-black"
-                              : "bg-[#1a2b3c] text-white",
+                              ? "bg-white text-[#111]"
+                              : "bg-[#16161a] text-white",
                           )}
                         >
                           Get started
@@ -666,10 +636,10 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                 type="button"
                 onClick={openGetStarted}
                 className={cn(
-                  "hidden h-12 items-center rounded-xl px-6 font-[family-name:var(--font-inter)] text-[16px] font-bold outline-none transition sm:inline-flex",
+                  "hidden h-9 items-center rounded-lg px-3 text-[13px] font-medium outline-none transition sm:inline-flex",
                   dark
-                    ? "bg-white text-black hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40"
-                    : "bg-[#1a2b3c] text-white hover:bg-[#24384c] focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/40",
+                    ? "bg-white text-[#111] hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40"
+                    : "bg-[#16161a] text-white hover:bg-[#2a2a2e] focus-visible:ring-2 focus-visible:ring-[#5b4fd4]/40",
                 )}
               >
                 Get started

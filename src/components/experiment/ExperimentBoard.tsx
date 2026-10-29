@@ -4,9 +4,11 @@ import {
   FormEvent,
   KeyboardEvent,
   PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -19,10 +21,12 @@ import {
   LayoutGrid,
   LoaderCircle,
   Mic,
+  PanelLeft,
   Save,
   Square,
   Undo2,
 } from "lucide-react";
+import { HistoryRail } from "@/components/voice-tutor/HistoryRail";
 import { ExperimentScript } from "@/components/experiment/ExperimentScript";
 import { SystemDesignIntakeForm } from "@/components/experiment/SystemDesignIntakeForm";
 import { BoxesLoader } from "@/components/ui/BoxesLoader";
@@ -50,9 +54,23 @@ import type {
   ExperimentLesson,
 } from "@/lib/experiment/scene";
 import { toUserFacingError } from "@/lib/errors/userFacing";
+import { INSPECT_CHIP_ICON } from "@/lib/smart-tutor/chrome";
+import { cn } from "@/lib/utils";
 import type { ExperimentDrawSession } from "@/components/experiment/applyScene";
 import { visibleLessonGraph } from "@/lib/experiment/graph";
-import { fallbackLessonTitle } from "@/lib/experiment/lessonTitle";
+import {
+  clipTitle,
+  fallbackLessonTitle,
+} from "@/lib/experiment/lessonTitle";
+import {
+  deleteDiagramHistorySession,
+  getDiagramHistorySession,
+  listDiagramHistorySessions,
+  newDiagramHistoryId,
+  saveDiagramHistorySession,
+  type DiagramHistorySession,
+  type DiagramHistoryStore,
+} from "@/lib/experiment/diagramHistory";
 import type { IntakeAnswers, SystemDesignIntake } from "@/lib/experiment/systemDesign/sections";
 import {
   MAX_SAVED_MESSAGES,
@@ -162,12 +180,18 @@ type BrowserSpeechRecognition = {
 export function ExperimentBoard({
   kind = "tutor",
   sessionId,
+  styleToggle,
 }: {
   kind?: "tutor" | "system" | "physics";
   /** A saved system design to reopen. */
   sessionId?: string;
+  /** Text / Diagram / Physics switch when hosted inside Smart tutor. */
+  styleToggle?: ReactNode;
 } = {}) {
   const { accessToken, loading: authLoading } = useAuth();
+  const usesLessonHistory = kind === "tutor" || kind === "physics";
+  const historyStore: DiagramHistoryStore =
+    kind === "physics" ? "physics" : "diagram";
   const [TldrawComp, setTldrawComp] = useState<
     typeof import("tldraw").Tldraw | null
   >(null);
@@ -239,6 +263,14 @@ export function ExperimentBoard({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; width: number } | null>(null);
   const [panelWidth, setPanelWidth] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<DiagramHistorySession[]>([]);
+  const [historySessionId, setHistorySessionId] = useState(newDiagramHistoryId);
+  const historyIdRef = useRef(historySessionId);
+  const topicRef = useRef("");
+  const pendingOpenRef = useRef<string | null>(null);
+  const skipArchiveRef = useRef(false);
+  const openHistoryRef = useRef<(id: string) => void>(() => undefined);
 
   const busy =
     phase === "planning" ||
@@ -257,6 +289,8 @@ export function ExperimentBoard({
   const canDictate = voiceReady || browserStt;
   phaseRef.current = phase;
   draftRef.current = draft;
+  historyIdRef.current = historySessionId;
+  topicRef.current = topic;
 
   useEffect(() => {
     let alive = true;
@@ -417,6 +451,79 @@ export function ExperimentBoard({
     setMessages(messagesRef.current);
   }
 
+  const refreshHistory = useCallback(() => {
+    if (!usesLessonHistory) return;
+    setHistory(listDiagramHistorySessions(historyStore));
+  }, [historyStore, usesLessonHistory]);
+
+  useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
+
+  const persist = useCallback(
+    (patch?: Partial<DiagramHistorySession>) => {
+      if (!usesLessonHistory) return;
+      const lesson = patch?.lesson === undefined ? lessonRef.current : patch.lesson;
+      const messages =
+        patch?.messages === undefined ? messagesRef.current : patch.messages;
+      const topicNow =
+        (patch?.topic ?? topicRef.current.trim()) || lesson?.question || "";
+      if (!lesson && messages.length === 0 && !topicNow) return;
+      const existing = getDiagramHistorySession(
+        historyIdRef.current,
+        historyStore,
+      );
+      const label =
+        patch?.label ||
+        (lesson ? fallbackLessonTitle(lesson) : clipTitle(topicNow || "Lesson"));
+      saveDiagramHistorySession(
+        {
+          id: historyIdRef.current,
+          label,
+          topic: topicNow || label,
+          createdAt: existing?.createdAt ?? Date.now(),
+          updatedAt: Date.now(),
+          ended: patch?.ended ?? existing?.ended ?? false,
+          lesson,
+          messages,
+          currentBeat:
+            patch?.currentBeat ?? indexRef.current ?? existing?.currentBeat ?? -1,
+        },
+        historyStore,
+      );
+      refreshHistory();
+    },
+    [historyStore, refreshHistory, usesLessonHistory],
+  );
+
+  function wipeBoardShapes() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    try {
+      const ids = [...editor.getCurrentPageShapeIds()];
+      if (ids.length) editor.deleteShapes(ids);
+    } catch {
+      /* board may already be empty */
+    }
+  }
+
+  function archiveCurrentLesson() {
+    if (!usesLessonHistory) return;
+    if (skipArchiveRef.current) {
+      skipArchiveRef.current = false;
+      return;
+    }
+    if (lessonRef.current || messagesRef.current.length || topicRef.current.trim()) {
+      persist({ ended: true });
+    }
+  }
+
+  function mintHistorySession() {
+    const nextId = newDiagramHistoryId();
+    historyIdRef.current = nextId;
+    setHistorySessionId(nextId);
+  }
+
   function markChanged() {
     setSaveState((current) => (current === "saved" ? "changed" : current));
   }
@@ -432,6 +539,7 @@ export function ExperimentBoard({
     };
     setConversation([...messagesRef.current, message]);
     markChanged();
+    persist();
     return message.id;
   }
 
@@ -441,6 +549,7 @@ export function ExperimentBoard({
         message.id === id ? { ...message, failed: true } : message,
       ),
     );
+    persist();
   }
 
   function setSessionParam(id: string | null) {
@@ -480,15 +589,7 @@ export function ExperimentBoard({
     abortRef.current = null;
     resetDesign();
     stopMic();
-    const editor = editorRef.current;
-    if (editor) {
-      try {
-        const ids = [...editor.getCurrentPageShapeIds()];
-        if (ids.length) editor.deleteShapes(ids);
-      } catch {
-        /* board may already be empty */
-      }
-    }
+    wipeBoardShapes();
     sessionRef.current = null;
     lessonRef.current = null;
     indexRef.current = 0;
@@ -500,12 +601,72 @@ export function ExperimentBoard({
     setStatus("");
     setPhase("idle");
     setTopic("");
+    topicRef.current = "";
     setDraft("");
     setIntake(null);
     setDesignPrompt("");
     setConversation([]);
     forgetSaved();
   }
+
+  function newSession() {
+    archiveCurrentLesson();
+    mintHistorySession();
+    clearBoard();
+  }
+
+  async function openHistory(id: string) {
+    if (!usesLessonHistory) return;
+    const found = getDiagramHistorySession(id, historyStore);
+    if (!found) return;
+    if (id === historyIdRef.current) return;
+    if (id !== historyIdRef.current) {
+      archiveCurrentLesson();
+    }
+    abortRef.current?.abort();
+    abortRef.current = null;
+    resetDesign();
+    stopMic();
+    wipeBoardShapes();
+    sessionRef.current = null;
+    historyIdRef.current = found.id;
+    setHistorySessionId(found.id);
+    lessonRef.current = found.lesson;
+    setLesson(found.lesson);
+    messageSeqRef.current = found.messages.length;
+    setConversation(found.messages);
+    topicRef.current = found.topic;
+    setTopic(found.topic);
+    indexRef.current = found.currentBeat;
+    setCurrentBeat(found.currentBeat);
+    setPausedCheck(null);
+    setNote("");
+    setError("");
+    setStatus("");
+    setPhase("idle");
+    setDraft("");
+    setIntake(null);
+    setDesignPrompt("");
+    forgetSaved();
+
+    const editor = editorRef.current;
+    if (!editor) {
+      pendingOpenRef.current = found.id;
+      return;
+    }
+    if (!found.lesson?.beats.length) return;
+    try {
+      const { drawExperimentLessonNow } = await import(
+        "@/components/experiment/applyScene"
+      );
+      sessionRef.current = await drawExperimentLessonNow(editor, found.lesson);
+    } catch (caught) {
+      setError(
+        toUserFacingError(caught, "Could not reopen that lesson. Try another."),
+      );
+    }
+  }
+  openHistoryRef.current = openHistory;
 
   function onPromptKey(event: KeyboardEvent<HTMLElement>) {
     event.stopPropagation();
@@ -569,6 +730,7 @@ export function ExperimentBoard({
           setPausedCheck(beat.check);
           setPhase("paused");
           setStatus("");
+          persist({ ended: false });
           const ask = beat.check.ask.trim();
           const alreadySaid =
             ask.localeCompare(beat.say.trim(), undefined, {
@@ -585,6 +747,7 @@ export function ExperimentBoard({
     setPhase("idle");
     setStatus("");
     setCurrentBeat(Math.max(0, (lessonRef.current?.beats.length ?? 1) - 1));
+    persist({ ended: true });
     if (outcomesRef.current.length) void flushRevisions();
   }
 
@@ -809,6 +972,12 @@ export function ExperimentBoard({
     abortRef.current = ac;
     stopMic();
     resetDesign();
+    if (usesLessonHistory && (lessonRef.current || messagesRef.current.length)) {
+      archiveCurrentLesson();
+      mintHistorySession();
+      wipeBoardShapes();
+      sessionRef.current = null;
+    }
 
     setPhase("planning");
     setError("");
@@ -819,6 +988,7 @@ export function ExperimentBoard({
     setPausedCheck(null);
     setNote("");
     setTopic(text);
+    topicRef.current = text;
     setIntake(null);
     setDesignPrompt("");
     forgetSaved();
@@ -838,6 +1008,12 @@ export function ExperimentBoard({
       const next = result.lesson;
       lessonRef.current = next;
       setLesson(next);
+      persist({
+        ended: false,
+        lesson: next,
+        topic: text,
+        label: fallbackLessonTitle(next),
+      });
       const { prepareExperimentSession } = await import(
         "@/components/experiment/applyScene"
       );
@@ -973,6 +1149,7 @@ export function ExperimentBoard({
         };
         lessonRef.current = merged;
         setLesson(merged);
+        persist({ lesson: merged, ended: false });
       }
 
       await playFrom(indexRef.current + 1, ac);
@@ -1377,7 +1554,37 @@ export function ExperimentBoard({
   const inputLocked = busy && !designEditable;
 
   return (
-    <div className="experiment-board fixed inset-0 flex bg-board">
+    <div className="experiment-board fixed inset-0 flex bg-[#f4f4f6] font-[family-name:var(--font-geist)] text-[#16161a]">
+      {usesLessonHistory && historyOpen ? (
+        <div className="hidden h-full w-[min(18rem,34vw)] shrink-0 border-r border-[#ececee] bg-white md:block">
+          <HistoryRail
+            sessions={history}
+            activeId={historySessionId}
+            onSelect={(id) => void openHistory(id)}
+            onDelete={(id) => {
+              deleteDiagramHistorySession(id, historyStore);
+              refreshHistory();
+              if (id === historyIdRef.current) {
+                skipArchiveRef.current = true;
+                newSession();
+              }
+            }}
+            onNew={newSession}
+            ariaLabel={
+              kind === "physics"
+                ? "Physics lesson history"
+                : "Diagram lesson history"
+            }
+            listTitle="Lessons"
+            emptyText={
+              kind === "physics"
+                ? "Finished physics lessons show up here with topic labels."
+                : "Finished diagram lessons show up here with topic labels."
+            }
+            deleteLabel="Delete lesson"
+          />
+        </div>
+      ) : null}
       <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <div
           ref={captureRef}
@@ -1405,6 +1612,11 @@ export function ExperimentBoard({
                   editor.selectNone();
                   editor.setCurrentTool("hand");
                   setEditorReady(true);
+                  const pending = pendingOpenRef.current;
+                  if (pending) {
+                    pendingOpenRef.current = null;
+                    queueMicrotask(() => openHistoryRef.current(pending));
+                  }
                 }}
               />
             ) : null}
@@ -1426,117 +1638,134 @@ export function ExperimentBoard({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute top-3 left-3 z-30 flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={clearBoard}
-            className="pointer-events-auto h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)] backdrop-blur-sm"
-          >
-            <Eraser className="size-3.5" />
-            Clear
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (recording) void stopRecording();
-              else void startRecording();
-            }}
-            disabled={saving}
-            aria-pressed={recording}
-            aria-label={recording ? "Stop recording" : "Start recording"}
-            className="pointer-events-auto h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)] backdrop-blur-sm disabled:opacity-50"
-          >
-            {recording ? (
-              <>
-                <span className="record-dot" aria-hidden />
-                Stop
-              </>
-            ) : (
-              <>
-                <Circle className="size-3.5 fill-[#c24545] text-[#c24545]" />
-                Record
-              </>
-            )}
-          </Button>
-          {kind === "system" && hasDesign ? (
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex flex-wrap items-start justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            {usesLessonHistory ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setHistoryOpen((open) => !open)}
+                className={cn("gap-1.5", INSPECT_CHIP_ICON)}
+              >
+                <PanelLeft className="size-3.5" />
+                History
+              </Button>
+            ) : null}
+            {styleToggle ? (
+              <div className="pointer-events-auto">{styleToggle}</div>
+            ) : null}
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={undoChange}
-              disabled={!canUndo || queuedEdits > 0 || saving}
-              aria-label="Undo the last design change"
-              className="pointer-events-auto h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)] backdrop-blur-sm disabled:opacity-50"
+              onClick={usesLessonHistory ? newSession : clearBoard}
+              className={cn("gap-1.5", INSPECT_CHIP_ICON)}
             >
-              <Undo2 className="size-3.5" />
-              Undo
+              <Eraser className="size-3.5" />
+              Clear
             </Button>
-          ) : null}
-        </div>
-        <div className="pointer-events-none absolute top-3 right-3 z-30 flex gap-2">
-          {kind === "system" && hasDesign ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void saveDesign()}
-              disabled={
-                savingDesign ||
-                queuedEdits > 0 ||
-                phase === "opening" ||
-                phase === "planning"
-              }
-              aria-label={
-                saveState === "saved"
-                  ? "Design saved"
-                  : saveState === "changed"
-                    ? "Save changes to this design"
-                    : "Save this design"
-              }
-              className="pointer-events-auto h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)] backdrop-blur-sm disabled:opacity-50"
+              onClick={() => {
+                if (recording) void stopRecording();
+                else void startRecording();
+              }}
+              disabled={saving}
+              aria-pressed={recording}
+              aria-label={recording ? "Stop recording" : "Start recording"}
+              className={cn("gap-1.5", INSPECT_CHIP_ICON)}
             >
-              {savingDesign ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : saveState === "saved" ? (
-                <Check className="size-3.5" />
+              {recording ? (
+                <>
+                  <span className="record-dot" aria-hidden />
+                  Stop
+                </>
               ) : (
-                <Save className="size-3.5" />
+                <>
+                  <Circle className="size-3.5 fill-[#c24545] text-[#c24545]" />
+                  Record
+                </>
               )}
-              {savingDesign ? "Saving" : saveState === "saved" ? "Saved" : "Save"}
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void exportPdf()}
-            disabled={exporting || !lesson}
-            aria-label="Export the board as PDF"
-            className="pointer-events-auto h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)] backdrop-blur-sm disabled:opacity-50"
-          >
-            {exporting ? (
-              <LoaderCircle className="size-3.5 animate-spin" />
-            ) : (
-              <FileDown className="size-3.5" />
-            )}
-            {exporting ? "Exporting" : "PDF"}
-          </Button>
-          <Button
-            asChild
-            type="button"
-            variant="outline"
-            size="sm"
-            className="pointer-events-auto h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)] backdrop-blur-sm"
-          >
-            <Link href={kind === "system" ? "/dashboard?tab=designs" : "/dashboard"}>
-              <LayoutGrid className="size-3.5" />
-              Dashboard
-            </Link>
-          </Button>
+            {kind === "system" && hasDesign ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={undoChange}
+                disabled={!canUndo || queuedEdits > 0 || saving}
+                aria-label="Undo the last design change"
+                className={cn("gap-1.5", INSPECT_CHIP_ICON)}
+              >
+                <Undo2 className="size-3.5" />
+                Undo
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            {kind === "system" && hasDesign ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void saveDesign()}
+                disabled={
+                  savingDesign ||
+                  queuedEdits > 0 ||
+                  phase === "opening" ||
+                  phase === "planning"
+                }
+                aria-label={
+                  saveState === "saved"
+                    ? "Design saved"
+                    : saveState === "changed"
+                      ? "Save changes to this design"
+                      : "Save this design"
+                }
+                className={cn("gap-1.5", INSPECT_CHIP_ICON)}
+              >
+                {savingDesign ? (
+                  <LoaderCircle className="size-3.5 animate-spin" />
+                ) : saveState === "saved" ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                {savingDesign ? "Saving" : saveState === "saved" ? "Saved" : "Save"}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void exportPdf()}
+              disabled={exporting || !lesson}
+              aria-label="Export the board as PDF"
+              className={cn("gap-1.5", INSPECT_CHIP_ICON)}
+            >
+              {exporting ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : (
+                <FileDown className="size-3.5" />
+              )}
+              {exporting ? "Exporting" : "PDF"}
+            </Button>
+            <Button
+              asChild
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn("gap-1.5", INSPECT_CHIP_ICON)}
+            >
+              <Link href={kind === "system" ? "/dashboard?tab=designs" : "/dashboard"}>
+                <LayoutGrid className="size-3.5" />
+                Dashboard
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <form
@@ -1548,18 +1777,18 @@ export function ExperimentBoard({
           <div className="pointer-events-auto w-full max-w-[34rem]">
             {error ? (
               <p
-                className="mb-2 rounded-none bg-white/90 px-3 py-2 text-center text-[13px] text-error shadow-[0_8px_20px_rgba(26,43,60,0.08)]"
+                className="mb-2 rounded-lg border border-[#ececee] bg-white px-3 py-2 text-center text-[13px] text-[#c24545]"
                 role="alert"
               >
                 {error}
               </p>
             ) : null}
             {editNotice ? (
-              <p className="mb-2 text-center text-[12px] text-muted" role="status">
+              <p className="mb-2 text-center text-[12px] text-[#71717a]" role="status">
                 {editNotice}
               </p>
             ) : busy && status && !boardWaiting ? (
-              <p className="mb-2 text-center text-[12px] text-muted">
+              <p className="mb-2 text-center text-[12px] text-[#71717a]">
                 {status}
               </p>
             ) : null}
@@ -1567,14 +1796,14 @@ export function ExperimentBoard({
               <div className="mb-2 flex justify-center">
                 <button
                   type="button"
-                  className="text-[12px] text-muted underline-offset-2 hover:underline"
+                  className="text-[12px] text-[#71717a] underline-offset-2 hover:underline hover:text-[#16161a]"
                   onClick={() => void skipCheck()}
                 >
                   Skip this check
                 </button>
               </div>
             ) : null}
-            <div className="flex items-center gap-2 rounded-none border border-board-edge bg-white/95 p-1.5 shadow-[0_12px_32px_rgba(26,43,60,0.12)] backdrop-blur-sm">
+            <div className="flex items-center gap-2 rounded-lg border border-[#ececee] bg-white p-1.5">
               <label htmlFor="experiment-prompt" className="sr-only">
                 {phase === "paused" ? "Answer" : "Question"}
               </label>
@@ -1592,7 +1821,12 @@ export function ExperimentBoard({
                   }
                   aria-pressed={listening}
                   onClick={() => void toggleMic()}
-                  className="size-9 rounded-none"
+                  className={cn(
+                    "size-9 rounded-lg",
+                    listening
+                      ? "bg-[#16161a] text-white hover:bg-[#2a2a2e]"
+                      : "text-[#16161a] hover:bg-[#fafafa]",
+                  )}
                 >
                   {listening ? (
                     <Square className="size-3.5" />
@@ -1609,7 +1843,7 @@ export function ExperimentBoard({
                 autoComplete="off"
                 disabled={inputLocked}
                 maxLength={designEditable ? 500 : 800}
-                className="h-10 min-w-0 flex-1 rounded-none border-0 bg-transparent px-3 text-[15px] shadow-none focus-visible:ring-0"
+                className="h-9 min-w-0 flex-1 rounded-lg border-0 bg-transparent px-3 text-[13px] text-[#16161a] shadow-none placeholder:text-[#71717a] focus-visible:ring-0"
               />
               <Button
                 type="submit"
@@ -1624,7 +1858,7 @@ export function ExperimentBoard({
                         ? "Submit answer"
                         : "Send"
                 }
-                className="size-9 rounded-none bg-[#085080] text-white hover:bg-[#083068]"
+                className="size-9 rounded-lg bg-[#16161a] text-white hover:bg-[#2a2a2e]"
               >
                 {inputLocked ? (
                   <LoaderCircle className="size-4 animate-spin" />
@@ -1652,7 +1886,7 @@ export function ExperimentBoard({
           aria-valuemax={760}
           aria-valuenow={panelWidth ?? 352}
           tabIndex={0}
-          className="absolute inset-y-0 -left-1 z-40 w-2 cursor-col-resize touch-none outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-board-edge hover:before:bg-[#085080] focus-visible:before:bg-[#085080]"
+          className="absolute inset-y-0 -left-1 z-40 w-2 cursor-col-resize touch-none outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-[#ececee] hover:before:bg-[#5b4fd4] focus-visible:before:bg-[#5b4fd4]"
           onPointerDown={onResizeStart}
           onPointerMove={onResizeMove}
           onPointerUp={onResizeEnd}

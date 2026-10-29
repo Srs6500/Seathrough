@@ -19,8 +19,8 @@ function MarketingShell({ children }: { children: React.ReactNode }) {
       className={cn(
         "marketing-shell flex min-h-dvh flex-col",
         dark
-          ? "marketing-shell--dark text-white"
-          : "marketing-shell--light text-[#1a2b3c]",
+          ? "marketing-shell--dark text-[#f4f4f5]"
+          : "marketing-shell--light text-[#16161a]",
       )}
     >
       {children}

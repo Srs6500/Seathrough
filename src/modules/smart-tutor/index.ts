@@ -1,2 +1,2 @@
 export { smartTutorMode as mode } from "./mode";
-export { ExperimentBoard as Workspace } from "@/components/experiment/ExperimentBoard";
+export { SmartTutorWorkspace as Workspace } from "@/components/smart-tutor/SmartTutorWorkspace";

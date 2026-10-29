@@ -282,13 +282,13 @@ export function LivingPassage({
       style={{ paddingTop: topPad }}
     >
       {writing && !frozen ? (
-        <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-accent">
+        <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-medium tracking-wide text-[#5b4fd4]">
           <PenLine className="size-3.5 animate-pulse" aria-hidden />
           Writing
         </div>
       ) : null}
 
-      <p className="font-[family-name:var(--font-newsreader)] text-[1.05rem] leading-[1.9] text-ink md:text-[1.12rem] md:leading-[1.95]">
+      <p className="text-[1.05rem] leading-[1.9] text-[#16161a] md:text-[1.12rem] md:leading-[1.95]">
         {showSegmented
           ? segments.map((seg, i) =>
               seg.kind === "text" ? (
@@ -311,7 +311,7 @@ export function LivingPassage({
           : visibleText}
         {writing && !frozen ? (
           <span
-            className="ml-0.5 inline-flex translate-y-[2px] text-accent"
+            className="ml-0.5 inline-flex translate-y-[2px] text-[#5b4fd4]"
             aria-hidden
           >
             <PenLine className="size-3.5 animate-pulse" />
@@ -339,14 +339,14 @@ export function LivingPassage({
           }}
           aria-label="Way to remember"
         >
-          <p className="font-[family-name:var(--font-newsreader)] text-[10px] font-semibold tracking-[0.06em] text-accent uppercase">
+          <p className="text-[10px] font-medium tracking-[0.06em] text-[#5b4fd4] uppercase">
             {tip.ann.examCue?.trim() ? "Remember" : "Way to remember"}
           </p>
-          <p className="mt-0.5 font-[family-name:var(--font-newsreader)] text-[13px] leading-snug text-accent-deep">
+          <p className="mt-0.5 text-[13px] leading-snug text-[#16161a]">
             {tip.ann.sideNote}
           </p>
           {tip.ann.examCue?.trim() && tip.ann.examCue !== tip.ann.sideNote ? (
-            <p className="mt-1 text-[11px] leading-snug text-ink-soft">
+            <p className="mt-1 text-[11px] leading-snug text-[#71717a]">
               {tip.ann.examCue}
             </p>
           ) : null}

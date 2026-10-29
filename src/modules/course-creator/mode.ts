@@ -1,9 +1,9 @@
 import type { ModeDefinition } from "@/modes/types";
 
-/** Prompt in, a shooting script out — first step of course creator. */
+/** Course creator — folded into Video explainer. */
 export const courseCreatorMode: ModeDefinition = {
   id: "course-creator",
-  href: "/course-creator",
+  href: "/video",
   navLabel: "Course creator",
   title: "Course creator",
   description:
@@ -11,7 +11,7 @@ export const courseCreatorMode: ModeDefinition = {
   kind: "learning",
   group: "studio",
   order: 8,
-  enabled: true,
+  enabled: false,
   badge: "new",
   usesWhiteboard: false,
   metaTitle: "Course creator | SeeThrough",

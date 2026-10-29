@@ -42,14 +42,14 @@ function DiagramBody({ scene }: { scene: DrawScene }) {
       scene.title ||
       "Physics diagram";
     return (
-      <figure className="overflow-hidden rounded-xl border border-board-edge bg-white shadow-[0_8px_22px_rgba(26,43,60,0.08)]">
+      <figure className="overflow-hidden rounded-lg border border-[#ececee] bg-white">
         {/* eslint-disable-next-line @next/next/no-img-element -- local VFPt corpus */}
         <img
           src={url}
           alt={label}
-          className="max-h-[220px] w-full object-contain bg-[#f7fafc] p-2"
+          className="max-h-[220px] w-full object-contain bg-[#fafafa] p-2"
         />
-        <figcaption className="border-t border-board-edge/70 px-3 py-2 text-[11px] leading-4 text-muted">
+        <figcaption className="border-t border-[#ececee] px-3 py-2 text-[11px] leading-4 text-[#71717a]">
           {label}
         </figcaption>
       </figure>
@@ -65,7 +65,7 @@ function DiagramBody({ scene }: { scene: DrawScene }) {
     const visual = visualFromDraw(scene);
     if (!visual) return null;
     return (
-      <div className="overflow-hidden rounded-xl border border-board-edge bg-white shadow-[0_8px_22px_rgba(26,43,60,0.08)]">
+      <div className="overflow-hidden rounded-lg border border-[#ececee] bg-white">
         <SceneCanvas
           scene={visual}
           focusObjectIds={scene.highlightIds}

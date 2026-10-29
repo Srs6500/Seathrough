@@ -49,10 +49,10 @@ assert.equal(getMode("browser-experience")?.navLabel, "Browser");
 const learning = listEnabledModes("learning");
 assert.ok(learning.some((m) => m.id === "browser-experience"));
 assert.equal(learning[0]?.id, "smart-tutor");
-assert.ok(learning.some((m) => m.id === "physics-tutor"));
+assert.ok(!learning.some((m) => m.id === "physics-tutor"));
 assert.ok(
   learning.findIndex((m) => m.id === "browser-experience") >
-    learning.findIndex((m) => m.id === "physics-tutor"),
+    learning.findIndex((m) => m.id === "smart-tutor"),
 );
 
 const studios = listModesByGroup("studio");

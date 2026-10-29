@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { FileDown, Mic, MicOff, PanelLeft, Pause, Play } from "lucide-react";
 import { HistoryRail } from "@/components/voice-tutor/HistoryRail";
@@ -94,6 +101,7 @@ function mergeBoardContent(
   };
 }
 
+import { INSPECT_CHIP } from "@/lib/smart-tutor/chrome";
 import { cn } from "@/lib/utils";
 
 function uid(prefix: string): string {
@@ -224,7 +232,11 @@ function looksLikeOffTopicChitchat(text: string, activeTopic?: string): boolean 
   );
 }
 
-export function VoiceTutorWorkspace() {
+export function VoiceTutorWorkspace({
+  styleToggle,
+}: {
+  styleToggle?: ReactNode;
+} = {}) {
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [orbState, setOrbState] = useState<VoiceOrbState>("idle");
   const [micOn, setMicOn] = useState(false);
@@ -1956,9 +1968,9 @@ export function VoiceTutorWorkspace() {
   }, [lockLeft, pendingTopic, topicCycles]);
 
   return (
-    <div className="fixed inset-0 flex bg-board text-ink">
+    <div className="fixed inset-0 flex bg-[#f4f4f6] font-[family-name:var(--font-geist)] text-[#16161a]">
       {historyOpen ? (
-        <div className="hidden h-full w-[min(18rem,34vw)] shrink-0 border-r border-board-edge bg-paper md:block">
+        <div className="hidden h-full w-[min(18rem,34vw)] shrink-0 border-r border-[#ececee] bg-white md:block">
           <HistoryRail
             sessions={history}
             activeId={sessionId}
@@ -1973,26 +1985,32 @@ export function VoiceTutorWorkspace() {
         </div>
       ) : null}
 
-      <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col bg-board">
+      <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col bg-[#f4f4f6]">
         <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-3">
           <div className="pointer-events-auto flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)]"
+              className={cn("gap-1.5", INSPECT_CHIP)}
               onClick={() => setHistoryOpen((v) => !v)}
             >
               <PanelLeft className="size-3.5" />
               History
             </Button>
-            <Link
-              href="/smart-tutor"
-              className="inline-flex h-8 items-center rounded-none border border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)]"
-            >
-              Smart tutor
-            </Link>
-            <BrandMark compact size="sm" />
+            {styleToggle ?? (
+              <Link
+                href="/smart-tutor?mode=diagram"
+                className={cn("inline-flex items-center", INSPECT_CHIP)}
+              >
+                Smart tutor
+              </Link>
+            )}
+            <BrandMark
+              compact
+              size="sm"
+              className="[&>span]:text-[#16161a]"
+            />
           </div>
           <div className="pointer-events-auto flex items-center gap-2">
             <Button
@@ -2001,17 +2019,20 @@ export function VoiceTutorWorkspace() {
               size="sm"
               disabled={!showPdf}
               aria-label="Export the session as PDF"
-              className="h-8 gap-1.5 rounded-none border-board-edge bg-white/95 px-2.5 text-[13px] text-ink shadow-[0_8px_20px_rgba(26,43,60,0.08)] disabled:opacity-40"
+              className={cn("gap-1.5 disabled:opacity-40", INSPECT_CHIP)}
               onClick={() => void downloadPdf()}
             >
               <FileDown className="size-3.5" />
               PDF
             </Button>
-            <StudyMenu current="voice-tutor" />
+            <StudyMenu
+              current="smart-tutor"
+              className="h-9 rounded-lg border border-[#ececee] bg-white px-3 text-[13px] font-medium text-[#16161a] hover:bg-[#fafafa] [&>span]:text-[#16161a]"
+            />
           </div>
         </header>
 
-        <main className="relative flex min-h-0 flex-1 flex-col bg-board pt-14">
+        <main className="relative flex min-h-0 flex-1 flex-col bg-[#f4f4f6] pt-14">
           <LessonStage
             userHeard={userHeard}
             board={board}
@@ -2025,7 +2046,7 @@ export function VoiceTutorWorkspace() {
             haltWriting={boardHaltWriting || lessonPaused}
           />
           {error ? (
-            <p className="absolute inset-x-0 top-16 mx-auto max-w-md rounded-xl border border-error/30 bg-white px-3 py-2 text-center text-[13px] text-error shadow-[0_8px_20px_rgba(26,43,60,0.08)]">
+            <p className="absolute inset-x-0 top-16 mx-auto max-w-md rounded-lg border border-[#ececee] bg-white px-3 py-2 text-center text-[13px] text-[#c24545]">
               {error}
             </p>
           ) : null}
@@ -2040,7 +2061,7 @@ export function VoiceTutorWorkspace() {
             className="pointer-events-none mb-4"
           />
           <div className="pointer-events-auto w-full max-w-md">
-            <div className="flex items-center justify-center gap-3 rounded-[1.6rem] border border-board-edge bg-white/95 px-3 py-2 shadow-[0_16px_40px_rgba(26,43,60,0.12)] backdrop-blur-sm">
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-[#ececee] bg-white px-2 py-1.5">
               <form
                 className="min-w-0 flex-1"
                 onSubmit={(event) => {
@@ -2055,7 +2076,7 @@ export function VoiceTutorWorkspace() {
                   onChange={(event) => setTextFallback(event.target.value)}
                   placeholder="Type if needed"
                   disabled={busy || phase === "ended"}
-                  className="h-9 w-full bg-transparent px-2 text-[14px] text-ink outline-none placeholder:text-muted disabled:opacity-50"
+                  className="h-9 w-full bg-transparent px-2 text-[13px] text-[#16161a] outline-none placeholder:text-[#71717a] disabled:opacity-50"
                 />
               </form>
               <button
@@ -2064,16 +2085,16 @@ export function VoiceTutorWorkspace() {
                 aria-pressed={micOn}
                 onClick={() => void toggleMic()}
                 className={cn(
-                  "grid size-11 shrink-0 place-items-center rounded-full transition",
+                  "grid size-9 shrink-0 place-items-center rounded-lg transition",
                   micOn
-                    ? "bg-[#085080] text-white shadow-[0_8px_20px_rgba(8,80,128,0.28)]"
-                    : "bg-[#e8eef5] text-ink hover:bg-accent-soft",
+                    ? "bg-[#16161a] text-white"
+                    : "bg-[#f4f4f6] text-[#16161a] hover:bg-[#ececee]",
                 )}
               >
                 {micOn ? (
-                  <Mic className="size-5" />
+                  <Mic className="size-4" />
                 ) : (
-                  <MicOff className="size-5" />
+                  <MicOff className="size-4" />
                 )}
               </button>
               <button
@@ -2090,22 +2111,22 @@ export function VoiceTutorWorkspace() {
                 }
                 onClick={togglePauseLesson}
                 className={cn(
-                  "grid size-11 shrink-0 place-items-center rounded-full transition",
+                  "grid size-9 shrink-0 place-items-center rounded-lg transition",
                   lessonPaused
-                    ? "bg-[#085080] text-white shadow-[0_8px_20px_rgba(8,80,128,0.28)]"
-                    : "bg-[#e8eef5] text-ink hover:bg-accent-soft",
+                    ? "bg-[#16161a] text-white"
+                    : "bg-[#f4f4f6] text-[#16161a] hover:bg-[#ececee]",
                 )}
               >
                 {lessonPaused ? (
-                  <Play className="size-5" />
+                  <Play className="size-4" />
                 ) : (
-                  <Pause className="size-5" />
+                  <Pause className="size-4" />
                 )}
               </button>
               <button
                 type="button"
                 onClick={endSession}
-                className="h-11 shrink-0 rounded-full bg-[#085080] px-4 text-[13px] font-semibold text-white shadow-[0_8px_20px_rgba(8,80,128,0.28)] transition hover:bg-[#083068]"
+                className="h-9 shrink-0 rounded-lg bg-[#16161a] px-3 text-[13px] font-medium text-white transition hover:bg-[#2a2a2e]"
               >
                 End
               </button>

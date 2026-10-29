@@ -1,12 +1,12 @@
 import type { ModeDefinition } from "@/modes/types";
 
 /**
- * High-school physics board tutor — same ExperimentBoard DNA as Smart tutor,
- * with electrostatics RAG + field-diagram context under /smart-tutor/physics-tutor.
+ * High-school physics board tutor — folded into Smart tutor as ?mode=physics,
+ * with electrostatics RAG + field-diagram context.
  */
 export const physicsTutorMode: ModeDefinition = {
   id: "physics-tutor",
-  href: "/smart-tutor/physics-tutor",
+  href: "/smart-tutor?mode=physics",
   navLabel: "Physics",
   title: "Physics tutor",
   description:
@@ -14,7 +14,7 @@ export const physicsTutorMode: ModeDefinition = {
   kind: "learning",
   group: "studio",
   order: 1.5,
-  enabled: true,
+  enabled: false,
   badge: "new",
   usesWhiteboard: true,
   metaTitle: "Physics tutor | SeeThrough",

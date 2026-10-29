@@ -3,7 +3,7 @@ import type { ModeDefinition } from "@/modes/types";
 /** Voice-led Socratic tutor (SLR lesson engine) under the Smart Tutor family. */
 export const voiceTutorMode: ModeDefinition = {
   id: "voice-tutor",
-  href: "/smart-tutor/voice-tutor",
+  href: "/smart-tutor?mode=text",
   navLabel: "Voice tutor",
   title: "Voice tutor",
   description:
@@ -11,7 +11,7 @@ export const voiceTutorMode: ModeDefinition = {
   kind: "learning",
   group: "studio",
   order: 1.2,
-  enabled: true,
+  enabled: false,
   badge: "new",
   usesWhiteboard: true,
   metaTitle: "Voice tutor | SeeThrough",

@@ -71,8 +71,15 @@ async function signedUrl(path: string | null | undefined): Promise<string | unde
   }
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isSavedVideoId(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 export async function insertSavedLessonVideo(input: {
-  userId: string;
+  userId?: string | null;
   title: string;
   titleSource: SavedVideoTitleSource;
   question?: string;
@@ -86,10 +93,11 @@ export async function insertSavedLessonVideo(input: {
 }): Promise<SavedLessonVideo> {
   const supabase = getServiceSupabase();
   const id = crypto.randomUUID();
+  const owner = input.userId?.trim() || "shared";
   const ext = input.videoMime.includes("mp4") ? "mp4" : "webm";
-  const storagePath = `${input.userId}/${id}.${ext}`;
+  const storagePath = `${owner}/${id}.${ext}`;
   const posterPath = input.poster
-    ? `${input.userId}/${id}.jpg`
+    ? `${owner}/${id}.jpg`
     : undefined;
 
   const { error: uploadError } = await supabase.storage
@@ -111,7 +119,7 @@ export async function insertSavedLessonVideo(input: {
     .from("saved_lesson_videos")
     .insert({
       id,
-      user_id: input.userId,
+      user_id: input.userId?.trim() || null,
       title: input.title,
       title_source: input.titleSource,
       question: input.question ?? null,
@@ -172,6 +180,30 @@ export async function listSavedLessonVideos(
       ),
     })),
   );
+}
+
+export async function getPublicExplainVideo(id: string): Promise<SavedLessonVideo | null> {
+  if (!isSavedVideoId(id)) return null;
+  const supabase = getServiceSupabase();
+  const { data, error } = await supabase
+    .from("saved_lesson_videos")
+    .select(COLUMNS)
+    .eq("id", id)
+    .eq("lesson->>kind", EXPLAIN_VIDEO_KIND)
+    .maybeSingle();
+  if (error) {
+    if (isMissingRelation(error)) return null;
+    throw error;
+  }
+  if (!data) return null;
+  const row = data as Record<string, unknown>;
+  return {
+    ...rowToVideo(row),
+    videoUrl: await signedUrl(String(row.storage_path)),
+    posterUrl: await signedUrl(
+      typeof row.poster_path === "string" ? row.poster_path : undefined,
+    ),
+  };
 }
 
 export async function renameSavedLessonVideo(input: {

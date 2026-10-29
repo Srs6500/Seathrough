@@ -1,12 +1,6 @@
-import type { Metadata } from "next";
-import { ExperimentBoard } from "@/components/experiment/ExperimentBoard";
-import { physicsTutorMode } from "@/modules/physics-tutor/mode";
-
-export const metadata: Metadata = {
-  title: physicsTutorMode.metaTitle,
-  description: physicsTutorMode.metaDescription,
-};
+import { redirect } from "next/navigation";
+import { smartTutorHref } from "@/lib/smart-tutor/tutorStyle";
 
 export default function PhysicsTutorPage() {
-  return <ExperimentBoard kind="physics" />;
+  redirect(smartTutorHref("physics"));
 }

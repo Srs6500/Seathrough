@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ExperimentBoard } from "@/components/experiment/ExperimentBoard";
+import { SmartTutorWorkspace } from "@/components/smart-tutor/SmartTutorWorkspace";
 import { smartTutorMode } from "@/modules/smart-tutor/mode";
 
 export const metadata: Metadata = {
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function SmartTutorPage() {
-  return <ExperimentBoard />;
+  return <SmartTutorWorkspace />;
 }

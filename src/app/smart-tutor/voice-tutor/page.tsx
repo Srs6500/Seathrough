@@ -1,12 +1,6 @@
-import type { Metadata } from "next";
-import { VoiceTutorWorkspace } from "@/components/voice-tutor/VoiceTutorWorkspace";
-import { voiceTutorMode } from "@/modules/voice-tutor/mode";
-
-export const metadata: Metadata = {
-  title: voiceTutorMode.metaTitle,
-  description: voiceTutorMode.metaDescription,
-};
+import { redirect } from "next/navigation";
+import { smartTutorHref } from "@/lib/smart-tutor/tutorStyle";
 
 export default function VoiceTutorPage() {
-  return <VoiceTutorWorkspace />;
+  redirect(smartTutorHref("text"));
 }

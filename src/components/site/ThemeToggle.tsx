@@ -25,8 +25,8 @@ export function ThemeToggle({
         "inline-flex size-9 items-center justify-center rounded-lg outline-none transition",
         marketing
           ? dark
-            ? "border border-white/15 bg-white/5 text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
-            : "border border-[#d5e0ea] bg-white text-[#1a2b3c] hover:bg-[#f4f7fb] focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/40"
+            ? "border border-[#2a2a2e] bg-[#16161a] text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
+            : "border border-[#ececee] bg-white text-[#16161a] hover:bg-[#fafafa] focus-visible:ring-2 focus-visible:ring-[#5b4fd4]/40"
           : "border border-border bg-background text-foreground hover:bg-secondary",
         className,
       )}

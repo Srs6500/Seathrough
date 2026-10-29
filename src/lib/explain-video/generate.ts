@@ -6,12 +6,16 @@ import {
   INCOMPLETE_DRAWINGS,
   INCOMPLETE_PLAN,
   LOOK_PALETTE,
+  TARGET_SCENES,
+  trimToTargetScenes,
   type Plan,
   type SceneCodeResponse,
 } from "@/lib/explain-video/film";
 import { extractScenes, LOOP_COUNTER, prepareScene } from "@/lib/explain-video/sceneCode";
 
-const PLAN_SYSTEM = `You plan a short hand-drawn explainer film: 3 to 7 scenes, 20 to 50 seconds in total. Every frame will be drawn in code on a 2D canvas in a hand-made print look, so plan pictures that can be drawn with shapes, lines, arrows, simple characters and a few hand-lettered labels. No photos, no real faces, no detailed maps.
+const PLAN_SYSTEM = `You plan a short hand-drawn explainer film: exactly 5 scenes, about 50 to 60 seconds in total. Every frame will be drawn in code on a 2D canvas in a hand-made print look, so plan pictures that can be drawn with shapes, lines, arrows, simple characters and a few hand-lettered labels. No photos, no real faces, no detailed maps.
+
+The user may type a short topic or paste source text. If they pasted material, teach that material. Do not add facts that are not in the topic or source.
 
 Decide the path from the topic. Do not use a stock outline such as title, three facts, summary. Ask what the viewer needs to SEE to get it. A mechanism is a machine that moves. A process is one object travelling through stages. A comparison is two things side by side, changing. A question of size is a zoom. A cause is a chain reaction. A recurring visual anchor (the same object or character in several scenes) makes a film feel like one story; use one when it helps.
 
@@ -46,7 +50,7 @@ Rules:
 - Teach accurately. The captions, read in order, explain the topic on their own. Pictures must be right too: correct order, correct anatomy or mechanism, conventional colours (oxygen-poor blood blue, oxygen-rich red).
 - The angle states the idea the film teaches, not a description of the drawings.
 - Each scene shows something different; the film moves forward, it does not repeat a layout.
-- Give each scene enough seconds to read its caption and watch the motion, usually 5 to 8.
+- Give each scene enough seconds to read its caption and watch the motion, usually 8 to 10. Five scenes should add up to about a minute.
 - The narration is a voice-over, heard while the picture moves. It explains what the picture shows, in plain spoken words, and flows from scene to scene like one talk. It says more than the caption but never contradicts it. Write numbers and symbols as words ("two", "percent"). No lists, no brackets, no "as you can see".
 - Do not say "in this video". Do not invent statistics.
 - If the topic asks for help doing harm, do not explain it. Plan a 3-scene film that says this page explains ordinary topics.
@@ -164,7 +168,7 @@ export async function generatePlan(topic: string): Promise<Plan> {
     complete(llm, {
       system: json ? PLAN_SYSTEM : `${PLAN_SYSTEM}\n\nReturn a single JSON object only. No markdown.`,
       user: retry
-        ? `Topic:\n${topic}\n\nYour last answer was incomplete. Return the full JSON object with 3 to 7 scenes.`
+        ? `Topic:\n${topic}\n\nYour last answer was incomplete. Return the full JSON object with exactly ${TARGET_SCENES} scenes.`
         : `Topic:\n${topic}`,
       json,
       maxTokens: 3000,
@@ -179,12 +183,22 @@ export async function generatePlan(topic: string): Promise<Plan> {
     if (isRateLimit(error)) throw error;
     raw = await ask(false, false);
   }
+  let plan: Plan;
   try {
-    return coercePlan(extractJsonObject(raw));
+    plan = trimToTargetScenes(coercePlan(extractJsonObject(raw)));
   } catch (error) {
     if (!(error instanceof Error) || error.message !== INCOMPLETE_PLAN) throw error;
-    return coercePlan(extractJsonObject(await ask(false, true)));
+    plan = trimToTargetScenes(coercePlan(extractJsonObject(await ask(false, true))));
   }
+  if (plan.scenes.length === TARGET_SCENES) return plan;
+  try {
+    const retried = trimToTargetScenes(coercePlan(extractJsonObject(await ask(false, true))));
+    if (retried.scenes.length === TARGET_SCENES) return retried;
+    if (retried.scenes.length > plan.scenes.length) return retried;
+  } catch {
+    // Keep the first usable outline rather than failing the review step.
+  }
+  return plan;
 }
 
 function sceneBrief(plan: Plan, index: number): string {
@@ -285,7 +299,16 @@ async function inBatches<T, R>(items: T[], size: number, run: (item: T) => Promi
 }
 
 /** Write every scene in one pass, then retry the ones that did not survive validation, one by one. */
-export async function generateSceneCode(topic: string, plan: Plan): Promise<SceneCodeResponse> {
+export async function generateSceneCode(
+  topic: string,
+  plan: Plan,
+  indexes?: number[],
+): Promise<SceneCodeResponse> {
+  const wanted = uniqueSceneIndexes(plan, indexes);
+  if (wanted && wanted.length > 0 && wanted.length < plan.scenes.length) {
+    return writeSelectedScenes(topic, plan, wanted);
+  }
+
   const llm = makeClient();
   const raw = await complete(llm, {
     system: CODE_SYSTEM,
@@ -326,6 +349,30 @@ Write scene1 through scene${plan.scenes.length}.`,
     });
   }
   if (scenes.every((scene) => scene.code === null)) throw new Error(INCOMPLETE_DRAWINGS);
+  return { scenes };
+}
+
+function uniqueSceneIndexes(plan: Plan, indexes?: number[]): number[] | null {
+  if (!indexes?.length) return null;
+  const wanted = [...new Set(indexes.filter((index) => Number.isInteger(index) && index >= 0 && index < plan.scenes.length))];
+  return wanted.length ? wanted : null;
+}
+
+async function writeSelectedScenes(
+  topic: string,
+  plan: Plan,
+  indexes: number[],
+): Promise<SceneCodeResponse> {
+  const llm = makeClient();
+  const scenes: SceneCodeResponse["scenes"] = plan.scenes.map(() => ({ code: null }));
+  const policy = rewritePolicy(llm);
+  const written = await inBatches(indexes, policy.concurrency, (index) =>
+    writeOneSceneSafely(llm, topic, plan, index, null),
+  );
+  indexes.forEach((index, order) => {
+    scenes[index] = written[order]!;
+  });
+  if (indexes.every((_, order) => written[order]!.code === null)) throw new Error(INCOMPLETE_DRAWINGS);
   return { scenes };
 }
 

@@ -1,4 +1,5 @@
 import { toUserFacingError } from "@/lib/errors/userFacing";
+import { TOPIC_MAX } from "@/lib/explain-video/film";
 import { filmWriterMissing, generatePlan } from "@/lib/explain-video/generate";
 import { z } from "zod";
 
@@ -6,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
-  topic: z.string().trim().min(1).max(400),
+  topic: z.string().trim().min(1).max(TOPIC_MAX),
 });
 
 export async function POST(request: Request) {
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(json);
   if (!parsed.success) {
     return Response.json(
-      { error: "Enter a topic between 1 and 400 characters." },
+      { error: `Enter a topic or paste text (up to ${TOPIC_MAX.toLocaleString()} characters).` },
       { status: 400 },
     );
   }

@@ -24,7 +24,7 @@ function runPython(stdin: string, extraArgs: string[] = []) {
 }
 
 assert.equal(getMode("repo-scan")?.href, "/repo-scan");
-assert.equal(getMode("repo-scan")?.enabled, true);
+assert.equal(getMode("repo-scan")?.enabled, false);
 assert.equal(sanitizeReturnTo("/repo-scan"), "/repo-scan");
 assert.equal(sanitizeReturnTo("/not-allowed"), "/data-flow");
 assert.equal(sanitizeReturnTo(""), "/data-flow");

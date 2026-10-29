@@ -406,7 +406,7 @@ const TABS: {
     newLabel: "New video",
     newHref: "/video",
     emptyTitle: "No saved explainer videos yet",
-    emptyBody: "Type a topic in Video explainer, let the film finish, then press Save. It lands here.",
+    emptyBody: "Make an explainer, then share the link. Signed-in shares also land here.",
     emptyCta: "Make a video",
     playError: "This copy cannot be played. Make the video again and press Save.",
   },

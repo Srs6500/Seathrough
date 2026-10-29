@@ -106,16 +106,16 @@ export function VoiceTldrawBoard({ draw, className }: VoiceTldrawBoardProps) {
   return (
     <section
       className={cn(
-        "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-board-edge bg-white shadow-[0_12px_32px_rgba(26,43,60,0.08)]",
+        "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#ececee] bg-white",
         className,
       )}
       aria-label={draw.title || "Whiteboard"}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-board-edge px-4 py-2.5">
-        <p className="text-[12px] font-medium tracking-[0.04em] text-muted uppercase">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#ececee] px-3">
+        <p className="text-[13px] font-medium text-[#16161a]">
           {draw.title || "Whiteboard"}
         </p>
-        <p className="text-[11px] text-muted">Drag to pan · Smart Tutor board</p>
+        <p className="text-[11px] text-[#71717a]">Drag to pan</p>
       </div>
       <div className="relative min-h-[min(55vh,480px)] flex-1 lg:min-h-0">
         {Tldraw ? (

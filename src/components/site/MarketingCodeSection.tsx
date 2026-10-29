@@ -11,7 +11,7 @@ const AUTO_MS = 5000;
 const SLIDES = [
   {
     src: "/code-demo-1.png",
-    alt: "Frontend debugger mapping pages and surfacing API issues",
+    alt: "Frontend inspect mapping pages and surfacing API issues",
   },
   {
     src: "/code-demo-2.png",
@@ -29,8 +29,8 @@ const FEATURES = [
     body: "Ask for an architecture. Diagrams stay put as you go from overview to failure modes.",
   },
   {
-    title: "Debugger for frontend and backend",
-    body: "Connect a repo. Map pages and components, then inspect backend bugs with file:line.",
+    title: "Vibe coder for frontend and backend",
+    body: "Connect a repo. Map pages and components, then inspect the rest of the app.",
   },
   {
     title: "From ask to diagram in seconds",
@@ -47,44 +47,51 @@ export function MarketingCodeSection() {
     <section
       className={cn(
         "flex min-h-dvh flex-col px-4 py-6 sm:px-6 sm:py-8 md:px-8 lg:px-10",
-        dark ? "bg-black text-white" : "bg-[#f4f6f8] text-[#1a2b3c]",
+        dark ? "bg-[#111113] text-[#f4f4f5]" : "bg-[#f4f4f6] text-[#16161a]",
       )}
     >
       <div className="mx-auto flex w-full max-w-[96rem] flex-1 flex-col gap-5 lg:gap-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
           <div className="max-w-3xl">
-            <h2 className="font-[family-name:var(--font-inter)] text-[clamp(1.75rem,3.5vw,2.75rem)] leading-[1.05] font-medium tracking-[-0.04em]">
+            <h2 className="text-[clamp(1.65rem,3.2vw,2.5rem)] leading-[1.08] font-medium tracking-[-0.03em]">
               See your software clearly
             </h2>
             <p
               className={cn(
-                "mt-2 max-w-2xl font-[family-name:var(--font-inter)] text-[clamp(0.95rem,1.4vw,1.125rem)] leading-[1.5]",
-                dark ? "text-[#c8d0d8]" : "text-[#3d5166]",
+                "mt-2 max-w-2xl text-[15px] leading-relaxed sm:text-[16px]",
+                dark ? "text-[#a1a1aa]" : "text-[#3f3f46]",
               )}
             >
-              From system design to debugging — architecture and issues drawn so
-              you can follow the path, not guess it.
+              From system design to the live app — architecture and pages drawn
+              so you can follow the path, not guess it.
             </p>
           </div>
 
           <div className="flex shrink-0 flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => openStudio("/bug-analyzer")}
+              onClick={() => openStudio("/vibe-coder")}
               className={cn(
-                "inline-flex h-11 items-center rounded-xl px-5 font-[family-name:var(--font-inter)] text-[15px] font-bold outline-none transition",
+                "inline-flex h-9 items-center rounded-lg px-3 text-[13px] font-medium outline-none transition",
                 dark
-                  ? "bg-white text-black hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40"
-                  : "bg-[#1a2b3c] text-white hover:bg-[#24384c] focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/40",
+                  ? "bg-white text-[#111] hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40"
+                  : "bg-[#16161a] text-white hover:bg-[#2a2a2e] focus-visible:ring-2 focus-visible:ring-[#5b4fd4]/40",
               )}
             >
-              Try debugger
+              Try vibe coder
             </button>
           </div>
         </div>
 
         <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] lg:items-stretch lg:gap-8">
-          <ul className="flex flex-col justify-center lg:py-2">
+          <ul
+            className={cn(
+              "flex flex-col justify-center rounded-lg border px-4 py-2 lg:py-3",
+              dark
+                ? "border-[#2a2a2e] bg-[#16161a]"
+                : "border-[#ececee] bg-white",
+            )}
+          >
             {FEATURES.map((feature, i) => (
               <li
                 key={feature.title}
@@ -92,17 +99,15 @@ export function MarketingCodeSection() {
                   "py-3.5",
                   i > 0 &&
                     (dark
-                      ? "border-t border-white/10"
-                      : "border-t border-[#e5eef4]"),
+                      ? "border-t border-[#2a2a2e]"
+                      : "border-t border-[#ececee]"),
                 )}
               >
-                <p className="font-[family-name:var(--font-inter)] text-[1.05rem] font-semibold tracking-[-0.015em]">
-                  {feature.title}
-                </p>
+                <p className="text-[14px] font-medium">{feature.title}</p>
                 <p
                   className={cn(
-                    "mt-1 font-[family-name:var(--font-inter)] text-[0.92rem] leading-6",
-                    dark ? "text-[#9aa6b2]" : "text-[#3d5166]",
+                    "mt-1 text-[13px] leading-6",
+                    dark ? "text-[#a1a1aa]" : "text-[#71717a]",
                   )}
                 >
                   {feature.body}
@@ -112,15 +117,6 @@ export function MarketingCodeSection() {
           </ul>
 
           <div className="relative flex min-h-[min(62dvh,760px)] flex-1 flex-col lg:min-h-0">
-            <div
-              className={cn(
-                "pointer-events-none absolute -inset-4 rounded-[2rem] blur-2xl sm:-inset-8",
-                dark
-                  ? "bg-[radial-gradient(ellipse_at_center,rgba(91,163,217,0.18),transparent_65%)]"
-                  : "bg-[radial-gradient(ellipse_at_center,rgba(125,198,232,0.35),transparent_65%)]",
-              )}
-              aria-hidden
-            />
             <CodeDemoSlideshow dark={dark} />
           </div>
         </div>
@@ -145,10 +141,10 @@ function CodeDemoSlideshow({ dark }: { dark: boolean }) {
     <div className="relative flex h-full min-h-[min(62dvh,760px)] w-full flex-col">
       <div
         className={cn(
-          "relative min-h-0 flex-1 overflow-hidden rounded-2xl border shadow-[0_28px_70px_-24px_rgba(15,30,50,0.4)] ring-1",
+          "relative min-h-0 flex-1 overflow-hidden rounded-lg border",
           dark
-            ? "border-white/10 bg-[#0b1220] ring-white/5"
-            : "border-black/10 bg-white ring-black/5",
+            ? "border-[#2a2a2e] bg-[#111113]"
+            : "border-[#ececee] bg-white",
         )}
       >
         {SLIDES.map((slide, i) => (
@@ -186,10 +182,10 @@ function CodeDemoSlideshow({ dark }: { dark: boolean }) {
               i === index
                 ? dark
                   ? "w-6 bg-white"
-                  : "w-6 bg-[#1a2b3c]"
+                  : "w-6 bg-[#5b4fd4]"
                 : dark
                   ? "w-1.5 bg-white/40 hover:bg-white/65"
-                  : "w-1.5 bg-[#1a2b3c]/30 hover:bg-[#1a2b3c]/50",
+                  : "w-1.5 bg-[#16161a]/20 hover:bg-[#16161a]/40",
             )}
           />
         ))}

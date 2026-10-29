@@ -19,7 +19,7 @@ function Message({ message }: { message: DesignMessage }) {
   if (message.role === "user") {
     return (
       <div className="animate-fade-up flex flex-col items-end">
-        <p className="max-w-[92%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-[#085080] px-3 py-2 text-[14px] leading-6 text-white">
+        <p className="max-w-[92%] whitespace-pre-wrap rounded-lg bg-[#16161a] px-3 py-2 text-[14px] leading-6 text-white">
           {message.text}
         </p>
         {message.failed ? (
@@ -29,7 +29,7 @@ function Message({ message }: { message: DesignMessage }) {
     );
   }
   return (
-    <p className="animate-fade-up border-l-2 border-[#9dbbd3] pl-3 text-[14px] leading-6 text-[#1e3a5f]">
+    <p className="animate-fade-up border-l-2 border-[#ececee] pl-3 text-[14px] leading-6 text-[#3f3f46]">
       {message.text}
     </p>
   );
@@ -66,17 +66,17 @@ export function ExperimentScript({
 
   return (
     <aside
-      className="flex h-full min-h-0 w-full flex-col border-l border-board-edge bg-[#f4f8fb]"
+      className="flex h-full min-h-0 w-full flex-col border-l border-[#ececee] bg-white"
       aria-label="Explanation script"
     >
       <div className="flex shrink-0 items-start justify-between gap-3 px-5 pt-4 pb-2">
         <div className="min-w-0">
-          <p className="text-[12px] font-medium text-muted">Script</p>
-          <h2 className="mt-0.5 truncate font-[family-name:var(--font-newsreader)] text-[1.15rem] tracking-tight text-ink">
+          <p className="text-[11px] text-[#71717a]">Script</p>
+          <h2 className="mt-0.5 truncate text-[15px] font-medium tracking-tight text-[#16161a]">
             {lesson?.title || "Ask a question"}
           </h2>
           {question && !thread.some((message) => message.role === "user") ? (
-            <p className="mt-1 line-clamp-3 text-[12px] leading-5 text-muted">
+            <p className="mt-1 line-clamp-3 text-[12px] leading-5 text-[#71717a]">
               {question}
             </p>
           ) : null}
@@ -94,7 +94,7 @@ export function ExperimentScript({
         className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-3"
       >
         {!lesson && !streaming && !leading.length ? (
-          <p className="text-[14px] leading-6 text-muted">
+          <p className="text-[14px] leading-6 text-[#71717a]">
             {intro}
           </p>
         ) : null}
@@ -120,26 +120,26 @@ export function ExperimentScript({
                 }`}
               >
                 <span
-                  className="mt-0.5 w-4 shrink-0 font-mono text-[11px] text-[#8a9aab]"
+                  className="mt-0.5 w-4 shrink-0 font-mono text-[11px] text-[#71717a]"
                   aria-hidden
                 >
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <div className="min-w-0">
                   {beat.section ? (
-                    <p className="mb-1 text-[11px] font-medium tracking-wide text-muted uppercase">
+                    <p className="mb-1 text-[11px] font-medium tracking-wide text-[#71717a] uppercase">
                       {beat.section}
                     </p>
                   ) : null}
                   <p
                     className={`text-[15px] leading-7 ${
-                      active ? "text-ink" : "text-[#1e3a5f]"
+                      active ? "text-[#16161a]" : "text-[#3f3f46]"
                     }`}
                   >
                     {beat.say}
                   </p>
                   {beat.example ? (
-                    <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-white px-3 py-2.5 font-mono text-[12px] leading-relaxed text-[#4a6580]">
+                    <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg border border-[#ececee] bg-[#fafafa] px-3 py-2.5 font-mono text-[12px] leading-relaxed text-[#3f3f46]">
                       {beat.example}
                     </pre>
                   ) : null}
@@ -153,21 +153,21 @@ export function ExperimentScript({
         })}
 
         {pausedCheck ? (
-          <div className="rounded-xl border border-[#d7e4ef] bg-white px-3 py-3">
-            <p className="text-[11px] font-medium tracking-wide text-muted uppercase">
+          <div className="rounded-lg border border-[#ececee] bg-[#f4f1ff] px-3 py-3">
+            <p className="text-[11px] font-medium tracking-wide text-[#5b4fd4] uppercase">
               Your turn
             </p>
-            <p className="mt-1 text-[15px] leading-6 text-ink">
+            <p className="mt-1 text-[15px] leading-6 text-[#16161a]">
               {pausedCheck.ask}
             </p>
             {pausedCheck.hint ? (
-              <p className="mt-1 text-[12px] text-muted">{pausedCheck.hint}</p>
+              <p className="mt-1 text-[12px] text-[#71717a]">{pausedCheck.hint}</p>
             ) : null}
           </div>
         ) : null}
 
         {note ? (
-          <p className="text-[13px] leading-6 text-[#1e3a5f]">{note}</p>
+          <p className="text-[13px] leading-6 text-[#3f3f46]">{note}</p>
         ) : null}
       </div>
     </aside>

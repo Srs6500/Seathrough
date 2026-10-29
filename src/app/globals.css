@@ -509,7 +509,18 @@ body {
 }
 
 .experiment-board [data-slot="button"] {
-  border-radius: 0 !important;
+  border-radius: 0.5rem !important;
+}
+
+html.smart-tutor-page,
+html.video-explainer-page,
+html.smart-tutor-page body,
+html.video-explainer-page body {
+  background: #f4f4f6 !important;
+  color: #16161a;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
 .record-dot {
@@ -612,32 +623,27 @@ body {
   font-family: var(--font-fraunces), ui-serif, Georgia, serif;
 }
 
-/* Marketing page — dark Asset-style canvas */
+/* Marketing page — same chrome as Vibe coder inspect */
 .marketing-shell {
   position: relative;
   isolation: isolate;
-  background-color: #ffffff;
-  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  background-color: #f4f4f6;
+  color: #16161a;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
 .marketing-shell--dark {
-  background-color: #000000;
-  color: #ffffff;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255, 255, 255, 0.08), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(255, 255, 255, 0.04), transparent 50%);
+  background-color: #111113;
+  color: #f4f4f5;
 }
 
 .marketing-shell--light {
-  background-color: #ffffff;
-  color: #1a2b3c;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(27, 108, 168, 0.08), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(26, 43, 60, 0.04), transparent 50%);
+  background-color: #f4f4f6;
+  color: #16161a;
 }
 
 .marketing-shell :is(h1, h2, h3) {
-  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Soft centered dot grid for the dark hero */
@@ -863,25 +869,23 @@ body {
 
 html.marketing-page,
 html.marketing-page body {
-  background: #ffffff !important;
+  background: #f4f4f6 !important;
   background-image: none !important;
-  color: #1a2b3c;
-  --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #16161a;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
 html.marketing-page.marketing-theme-dark,
 html.marketing-page.marketing-theme-dark body {
-  background: #000000 !important;
+  background: #111113 !important;
   background-image: none !important;
-  color: #ffffff;
+  color: #f4f4f5;
 }
 
 html.marketing-page .font-display {
-  font-family: var(--font-newsreader), Newsreader, Georgia, "Times New Roman",
-    serif;
-  font-optical-sizing: auto;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
 }
 
 @keyframes bug-analyzer-scan-slide {

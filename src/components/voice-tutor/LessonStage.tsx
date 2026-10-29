@@ -221,7 +221,7 @@ export function LessonStage({
     >
       {userHeard ? (
         <p
-          className="mb-5 max-w-xl shrink-0 text-center text-[15px] leading-6 text-accent"
+          className="mb-5 max-w-xl shrink-0 text-center text-[15px] leading-6 text-[#5b4fd4]"
           aria-live="polite"
         >
           {userHeard}
@@ -234,16 +234,16 @@ export function LessonStage({
         <div className="flex flex-1 flex-col items-center justify-center pb-36">
           {lockLabel ? (
             <div className="flex flex-col items-center gap-3 px-4 text-center">
-              <p className="font-[family-name:var(--font-newsreader)] text-[2.75rem] leading-none tracking-tight text-ink tabular-nums md:text-[3.25rem]">
+              <p className="text-[2.75rem] leading-none font-medium tracking-tight text-[#16161a] tabular-nums md:text-[3.25rem]">
                 {lockLabel.match(/\b(\d+)s\b/)?.[1] ?? ""}
-                <span className="text-[1.25rem] text-muted">s</span>
+                <span className="text-[1.25rem] text-[#71717a]">s</span>
               </p>
-              <p className="max-w-md text-[15px] leading-6 text-ink-soft">
+              <p className="max-w-md text-[15px] leading-6 text-[#3f3f46]">
                 {lockLabel}
               </p>
             </div>
           ) : (
-            <p className="max-w-sm text-center text-[15px] leading-6 text-muted">
+            <p className="max-w-sm text-center text-[15px] leading-6 text-[#71717a]">
               Say what you want to learn. The lesson stays on the board — not a chat
               transcript.
             </p>
@@ -276,13 +276,13 @@ export function LessonStage({
             )}
           >
             {board?.sourceTitle ? (
-              <p className="mb-3 text-[12px] font-medium tracking-[0.06em] text-muted uppercase">
+              <p className="mb-3 text-[12px] font-medium tracking-[0.06em] text-[#71717a] uppercase">
                 {board.sourceTitle}
               </p>
             ) : null}
 
             {statement ? (
-              <h1 className="mb-6 font-[family-name:var(--font-newsreader)] text-[1.55rem] leading-snug tracking-[-0.02em] text-ink md:text-[1.75rem]">
+              <h1 className="mb-6 text-[1.55rem] leading-snug font-medium tracking-[-0.02em] text-[#16161a] md:text-[1.75rem]">
                 {statement}
               </h1>
             ) : null}
@@ -329,26 +329,26 @@ export function LessonStage({
 
             {sections.map((section) => (
               <section key={section.heading} className="vt-stanza mt-8">
-                <h2 className="mb-2 font-[family-name:var(--font-newsreader)] text-[1.05rem] font-semibold text-ink">
+                <h2 className="mb-2 text-[1.05rem] font-medium text-[#16161a]">
                   {section.heading}
                 </h2>
-                <p className="font-[family-name:var(--font-newsreader)] text-[1.05rem] leading-[1.85] text-ink md:text-[1.12rem]">
+                <p className="text-[1.05rem] leading-[1.85] text-[#16161a] md:text-[1.12rem]">
                   {section.body}
                 </p>
               </section>
             ))}
 
             {keyPoints.length > 0 ? (
-              <div className="mt-8 space-y-2 border-t border-board-edge/70 pt-5">
-                <p className="text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
+              <div className="mt-8 space-y-2 border-t border-[#ececee] pt-5">
+                <p className="text-[11px] font-medium tracking-[0.08em] text-[#71717a] uppercase">
                   Keep these
                 </p>
                 {keyPoints.map((point) => (
                   <p
                     key={point}
-                    className="font-[family-name:var(--font-newsreader)] text-[0.98rem] leading-7 text-ink-soft"
+                    className="text-[0.98rem] leading-7 text-[#3f3f46]"
                   >
-                    <span className="mr-2 text-accent">·</span>
+                    <span className="mr-2 text-[#5b4fd4]">·</span>
                     {point}
                   </p>
                 ))}
@@ -360,12 +360,12 @@ export function LessonStage({
             ) : null}
 
             {lockLabel ? (
-              <div className="sticky bottom-4 mt-8 flex flex-col items-center gap-1 self-center rounded-xl border border-board-edge bg-white/95 px-5 py-3 text-center shadow-[0_8px_20px_rgba(26,43,60,0.1)]">
-                <p className="font-[family-name:var(--font-newsreader)] text-[2rem] leading-none text-ink tabular-nums">
+              <div className="sticky bottom-4 mt-8 flex flex-col items-center gap-1 self-center rounded-lg border border-[#ececee] bg-white px-5 py-3 text-center">
+                <p className="text-[2rem] leading-none font-medium text-[#16161a] tabular-nums">
                   {lockLabel.match(/\b(\d+)s\b/)?.[1] ?? "—"}
-                  <span className="text-[1rem] text-muted">s</span>
+                  <span className="text-[1rem] text-[#71717a]">s</span>
                 </p>
-                <p className="text-[13px] font-medium text-accent-deep">
+                <p className="text-[13px] font-medium text-[#5b4fd4]">
                   {lockLabel}
                 </p>
               </div>

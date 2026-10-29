@@ -11,7 +11,7 @@ export const repoScanMode: ModeDefinition = {
   kind: "learning",
   group: "studio",
   order: 6.5,
-  enabled: true,
+  enabled: false,
   badge: "new",
   usesWhiteboard: false,
   metaTitle: "Repo-Scan | SeeThrough",

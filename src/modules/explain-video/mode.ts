@@ -6,14 +6,14 @@ export const explainVideoMode: ModeDefinition = {
   href: "/video",
   navLabel: "Video explainer",
   title: "Video explainer",
-  description: "Type a topic. A short film explains it.",
+  description: "Type an idea. Get a visual explanation worth sharing.",
   kind: "learning",
   group: "studio",
-  order: 7,
+  order: 1.25,
   enabled: true,
   badge: "new",
   usesWhiteboard: false,
   metaTitle: "Video explainer | SeeThrough",
   metaDescription:
-    "Type one topic. SeeThrough writes a short explainer film and renders it on a canvas.",
+    "Type an idea or paste text. Review five scenes, then get a narrated explainer you can edit and share.",
 };

@@ -1,6 +1,6 @@
 import { getUserFromRequest } from "@/lib/auth/requestUser";
 import { toUserFacingError } from "@/lib/errors/userFacing";
-import { clip, planSchema } from "@/lib/explain-video/film";
+import { clip, planSchema, TOPIC_MAX } from "@/lib/explain-video/film";
 import {
   EXPLAIN_VIDEO_KIND,
   insertSavedLessonVideo,
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "That video is too large to save." }, { status: 413 });
     }
 
-    const topic = clip(form.get("topic"), 400);
+    const topic = clip(form.get("topic"), TOPIC_MAX);
     let plan: unknown = null;
     try {
       const parsed = planSchema.safeParse(JSON.parse(String(form.get("plan") ?? "null")));

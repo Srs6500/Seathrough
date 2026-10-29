@@ -1,13 +1,13 @@
 import type { ModeDefinition } from "@/modes/types";
 
-/** Isolated whiteboard tutor (tldraw + spoken checks). */
+/** Smart tutor: text, diagram, or physics board pedagogy. */
 export const smartTutorMode: ModeDefinition = {
   id: "smart-tutor",
   href: "/smart-tutor",
   navLabel: "Smart tutor",
   title: "Smart tutor",
   description:
-    "Ask a question. The tutor talks in short steps, draws on the board, then checks you understood.",
+    "Ask a question. Text talks you through it. Diagram draws it on the board. Physics uses field diagrams and a check.",
   kind: "learning",
   group: "studio",
   order: 1,
@@ -16,5 +16,5 @@ export const smartTutorMode: ModeDefinition = {
   usesWhiteboard: true,
   metaTitle: "Smart tutor | SeeThrough",
   metaDescription:
-    "Ask any question. SeeThrough draws it on the board, talks you through it, and checks you understood.",
+    "Ask any question. Switch between a talk-through text lesson, a diagram lesson on the board, or a physics lesson with field diagrams.",
 };

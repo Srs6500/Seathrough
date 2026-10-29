@@ -8,11 +8,11 @@ import {
   retrievePhysicsChunks,
 } from "../src/lib/physics-tutor/retrieve";
 
-assert.equal(getMode("physics-tutor")?.href, "/smart-tutor/physics-tutor");
-assert.equal(getMode("physics-tutor")?.enabled, true);
+assert.equal(getMode("physics-tutor")?.href, "/smart-tutor?mode=physics");
+assert.equal(getMode("physics-tutor")?.enabled, false);
 assert.equal(getMode("physics-tutor")?.usesWhiteboard, true);
-assert.ok(listEnabledModes("learning").some((m) => m.id === "physics-tutor"));
-assert.ok(listModesByGroup("studio").some((m) => m.id === "physics-tutor"));
+assert.ok(!listEnabledModes("learning").some((m) => m.id === "physics-tutor"));
+assert.ok(!listModesByGroup("studio").some((m) => m.id === "physics-tutor"));
 
 const rules = loadPhysicsPedagogyRules();
 assert.ok(rules.length > 40);

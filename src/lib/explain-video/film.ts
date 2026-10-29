@@ -36,7 +36,10 @@ export const APP_COLORS = { paper: "#f4f7fb", ink: "#1a2b3c", accent: "#1b6ca8",
 
 export const SCENE_SECONDS_MIN = 3;
 export const SCENE_SECONDS_MAX = 10;
-export const FILM_SECONDS_MAX = 54;
+/** A five-scene explainer should land near a minute. */
+export const FILM_SECONDS_MAX = 60;
+export const TARGET_SCENES = 5;
+export const TOPIC_MAX = 6000;
 /** A narrated scene lasts as long as its voice line, up to this. */
 export const VOICED_SECONDS_MAX = 20;
 /** Seconds of picture before the narrator starts speaking in each scene. */
@@ -187,6 +190,12 @@ function coerceScene(value: unknown): PlanScene | null {
     say: say || title,
     speak: speak || say || title,
   };
+}
+
+/** Drop extra scenes so the outline stays a five-beat story. */
+export function trimToTargetScenes(plan: Plan): Plan {
+  if (plan.scenes.length <= TARGET_SCENES) return plan;
+  return { ...plan, scenes: plan.scenes.slice(0, TARGET_SCENES) };
 }
 
 /** Keep the whole film under FILM_SECONDS_MAX by shrinking every scene evenly. */

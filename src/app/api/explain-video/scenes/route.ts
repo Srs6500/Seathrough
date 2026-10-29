@@ -1,5 +1,5 @@
 import { toUserFacingError } from "@/lib/errors/userFacing";
-import { planSchema } from "@/lib/explain-video/film";
+import { planSchema, TOPIC_MAX } from "@/lib/explain-video/film";
 import {
   filmWriterMissing,
   generateSceneCode,
@@ -13,8 +13,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 180;
 
 const requestSchema = z.object({
-  topic: z.string().trim().min(1).max(400),
+  topic: z.string().trim().min(1).max(TOPIC_MAX),
   plan: planSchema,
+  indexes: z.array(z.number().int().min(0).max(6)).min(1).max(7).optional(),
   repairs: z
     .array(
       z.object({
@@ -44,8 +45,11 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json({ error: "The film plan is not valid. Plan the film again." }, { status: 400 });
   }
-  const { topic, plan, repairs } = parsed.data;
+  const { topic, plan, repairs, indexes } = parsed.data;
   if (repairs?.some((repair) => repair.index >= plan.scenes.length)) {
+    return Response.json({ error: "The film plan is not valid. Plan the film again." }, { status: 400 });
+  }
+  if (indexes?.some((index) => index >= plan.scenes.length)) {
     return Response.json({ error: "The film plan is not valid. Plan the film again." }, { status: 400 });
   }
 
@@ -54,7 +58,7 @@ export async function POST(request: Request) {
       const fixed = await repairSceneCode(topic, plan, repairs);
       return Response.json({ repairs: fixed });
     }
-    return Response.json(await generateSceneCode(topic, plan));
+    return Response.json(await generateSceneCode(topic, plan, indexes));
   } catch (error) {
     console.error("[explain-video] drawing failed", error instanceof Error ? error.message : "error");
     return Response.json(

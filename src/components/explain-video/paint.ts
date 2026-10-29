@@ -213,12 +213,14 @@ export function paintHold(
   ctx.font = `600 78px ${fonts.display}`;
   ctx.fillStyle = colors.ink;
   ctx.textAlign = "center";
-  const title = hold.writing ? "Planning the film" : "Video explainer";
+  const title = hold.writing ? "Planning the outline" : "Video explainer";
   const titleLines = wrap(ctx, title, 1500, 2);
   titleLines.forEach((line, k) => ctx.fillText(line, cx, 490 + k * 92));
   ctx.font = `400 32px ${fonts.sans}`;
   ctx.fillStyle = colors.mute;
-  const line = hold.writing ? hold.topic.trim() || "Choosing the path." : "Type what you want explained.";
+  const line = hold.writing
+    ? hold.topic.trim() || "Choosing the five scenes."
+    : "Type an idea. Get a visual explanation worth sharing.";
   const below = 490 + titleLines.length * 92 + 30;
   wrap(ctx, line, 1200, 2).forEach((text, k) => ctx.fillText(text, cx, below + k * 46));
 }

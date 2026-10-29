@@ -1,9 +1,9 @@
 import type { ModeDefinition } from "@/modes/types";
 
-/** Debugger — frontend architecture graph + backend static analysis. */
+/** Debugger — folded into Vibe coder; keep APIs for inspect. */
 export const bugAnalyzerMode: ModeDefinition = {
   id: "bug-analyzer",
-  href: "/bug-analyzer",
+  href: "/vibe-coder",
   navLabel: "Debugger",
   title: "Debugger",
   description:
@@ -11,7 +11,7 @@ export const bugAnalyzerMode: ModeDefinition = {
   kind: "learning",
   group: "studio",
   order: 6,
-  enabled: true,
+  enabled: false,
   badge: "new",
   usesWhiteboard: false,
   metaTitle: "Debugger | SeeThrough",

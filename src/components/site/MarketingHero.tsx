@@ -18,7 +18,7 @@ const HERO_VIDEOS = [
     src: "/magnetic-pole-basics.mp4",
     label: "Video explainer",
     title: "Renders the concept",
-    description: "Turn a topic into a short film you can follow step by step.",
+    description: "Type an idea. Get a visual explanation worth sharing.",
   },
   {
     src: "/demovid.mp4",
@@ -32,10 +32,12 @@ function DemoCard({
   src,
   label,
   active,
+  dark,
 }: {
   src: string;
   label: string;
   active: boolean;
+  dark: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(!active);
@@ -70,22 +72,34 @@ function DemoCard({
   }
 
   return (
-    <div className="w-full overflow-hidden rounded-[14px] border border-[#e5e7eb] bg-white shadow-[0_28px_80px_-28px_rgba(15,30,50,0.45)] ring-1 ring-black/[0.04]">
-      <div className="relative flex items-center border-b border-[#eef1f4] px-3.5 py-2.5">
-        <span className="flex gap-1.5" aria-hidden>
-          <span className="size-2.5 rounded-full bg-[#ff5f57]" />
-          <span className="size-2.5 rounded-full bg-[#febc2e]" />
-          <span className="size-2.5 rounded-full bg-[#28c840]" />
-        </span>
-        <span className="pointer-events-none absolute inset-x-0 text-center text-[13px] font-medium text-[#0f172a]">
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-lg border",
+        dark
+          ? "border-[#2a2a2e] bg-[#111113]"
+          : "border-[#ececee] bg-white",
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-10 items-center border-b px-3",
+          dark ? "border-[#2a2a2e]" : "border-[#ececee]",
+        )}
+      >
+        <span
+          className={cn(
+            "text-[13px] font-medium",
+            dark ? "text-[#f4f4f5]" : "text-[#16161a]",
+          )}
+        >
           {label}
         </span>
       </div>
-      <div className="relative bg-[#0b1220]">
+      <div className="relative bg-[#111113]">
         <video
           ref={videoRef}
           src={src}
-          className="aspect-video w-full bg-[#0b1220] object-contain"
+          className="aspect-video w-full bg-[#111113] object-contain"
           muted
           loop
           playsInline
@@ -96,7 +110,7 @@ function DemoCard({
           <button
             type="button"
             onClick={togglePlayback}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white outline-none backdrop-blur-md transition hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white/50"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-black/55 text-white outline-none transition hover:bg-black/70 focus-visible:ring-2 focus-visible:ring-white/50"
             aria-label={paused ? `Play ${label}` : `Pause ${label}`}
           >
             {paused ? (
@@ -186,7 +200,7 @@ function DemoSteps({
             <span
               className={cn(
                 "relative mb-3 block h-[2px] w-full overflow-hidden rounded-full",
-                dark ? "bg-white/15" : "bg-[#d5e0ea]",
+                dark ? "bg-white/15" : "bg-[#ececee]",
               )}
             >
               <span
@@ -196,7 +210,7 @@ function DemoSteps({
                   active
                     ? cn(
                         "hero-step-progress w-full",
-                        dark ? "bg-white" : "bg-[#0f172a]",
+                        dark ? "bg-white" : "bg-[#5b4fd4]",
                       )
                     : "w-0",
                 )}
@@ -209,14 +223,14 @@ function DemoSteps({
             </span>
             <span
               className={cn(
-                "block font-[family-name:var(--font-inter)] text-[15px] font-semibold tracking-[-0.015em] transition-colors sm:text-[16px]",
+                "block text-[15px] font-medium transition-colors sm:text-[16px]",
                 active
                   ? dark
                     ? "text-white"
-                    : "text-[#0f172a]"
+                    : "text-[#16161a]"
                   : dark
                     ? "text-white/45 group-hover:text-white/70"
-                    : "text-[#94a3b8] group-hover:text-[#64748b]",
+                    : "text-[#71717a] group-hover:text-[#16161a]",
               )}
             >
               {video.title}
@@ -227,10 +241,10 @@ function DemoSteps({
                 active
                   ? dark
                     ? "text-white/75"
-                    : "text-[#334155]"
+                    : "text-[#3f3f46]"
                   : dark
                     ? "text-white/35 group-hover:text-white/55"
-                    : "text-[#94a3b8] group-hover:text-[#64748b]",
+                    : "text-[#71717a] group-hover:text-[#3f3f46]",
               )}
             >
               {video.description}
@@ -272,66 +286,23 @@ function HeroDemoSlideshow({ dark }: { dark: boolean }) {
   return (
     <div className="relative w-full">
       <div
-        className={cn(
-          "relative overflow-hidden rounded-2xl px-3 py-8 sm:rounded-[1.75rem] sm:px-8 sm:py-12 md:px-12 md:py-14",
-          dark ? "bg-[#0a0a0a]" : "bg-[#f3f6f9]",
-        )}
+        ref={scrollerRef}
+        className="flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label="Product demos"
       >
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
+        {HERO_VIDEOS.map((video, i) => (
           <div
-            className={cn(
-              "absolute -top-[20%] left-[-10%] h-[70%] w-[55%] rounded-full blur-3xl",
-              dark
-                ? "bg-[radial-gradient(circle,rgba(91,163,217,0.28),transparent_70%)]"
-                : "bg-[radial-gradient(circle,rgba(125,198,232,0.75),transparent_70%)]",
-            )}
-          />
-          <div
-            className={cn(
-              "absolute top-[10%] right-[-15%] h-[65%] w-[50%] rounded-full blur-3xl",
-              dark
-                ? "bg-[radial-gradient(circle,rgba(214,168,110,0.22),transparent_70%)]"
-                : "bg-[radial-gradient(circle,rgba(244,206,150,0.8),transparent_70%)]",
-            )}
-          />
-          <div
-            className={cn(
-              "absolute bottom-[-25%] left-[20%] h-[60%] w-[60%] rounded-full blur-3xl",
-              dark
-                ? "bg-[radial-gradient(circle,rgba(90,170,150,0.2),transparent_70%)]"
-                : "bg-[radial-gradient(circle,rgba(170,220,205,0.7),transparent_70%)]",
-            )}
-          />
-          <div
-            className={cn(
-              "absolute inset-0",
-              dark
-                ? "bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.35)_100%)]"
-                : "bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(255,255,255,0.35)_100%)]",
-            )}
-          />
-        </div>
-
-        <div className="relative w-full">
-          <div
-            ref={scrollerRef}
-            className="flex w-full snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="Product demos"
+            key={video.src}
+            className="w-full min-w-0 shrink-0 grow-0 basis-full snap-start snap-always"
           >
-            {HERO_VIDEOS.map((video, i) => (
-              <div
-                key={video.src}
-                className="w-full min-w-0 shrink-0 grow-0 basis-full snap-start snap-always"
-              >
-                <DemoCard
-                  src={video.src}
-                  label={video.label}
-                  active={i === index}
-                />
-              </div>
-            ))}
+            <DemoCard
+              src={video.src}
+              label={video.label}
+              active={i === index}
+              dark={dark}
+            />
           </div>
-        </div>
+        ))}
       </div>
 
       <div className="mt-8 sm:mt-10">
@@ -352,33 +323,26 @@ export function MarketingHero() {
 
   return (
     <section className="relative flex flex-1 flex-col overflow-hidden">
-      <div
-        className={cn(
-          "marketing-hero-dots pointer-events-none absolute inset-0 z-0",
-          !dark && "marketing-hero-dots--light",
-        )}
-        aria-hidden
-      />
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 pt-20 pb-16 md:px-10 md:pt-28 md:pb-24 lg:px-12">
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 pt-16 pb-14 md:px-10 md:pt-20 md:pb-20 lg:px-12">
         <div className="max-w-4xl text-left">
           <h1
             className={cn(
-              "marketing-rise marketing-rise-1 font-[family-name:var(--font-inter)] text-[2.75rem] leading-[1.05] font-medium tracking-[-0.04em] sm:text-[3.5rem] md:text-[4.25rem]",
-              dark ? "text-white" : "text-[#1a2b3c]",
+              "marketing-rise marketing-rise-1 text-[2.5rem] leading-[1.08] font-medium tracking-[-0.03em] sm:text-[3.25rem] md:text-[3.75rem]",
+              dark ? "text-white" : "text-[#16161a]",
             )}
           >
-            Visual AI for learning systems and code
+            Visualize everything
           </h1>
 
           <p
             className={cn(
-              "marketing-rise marketing-rise-2 mt-6 max-w-xl font-[family-name:var(--font-inter)] text-[17px] leading-[1.55] font-normal sm:text-[19px] sm:leading-[1.6] md:text-[20px]",
-              dark ? "text-[#e0e0e0]" : "text-[#3d5166]",
+              "marketing-rise marketing-rise-2 mt-5 max-w-xl text-[16px] leading-relaxed sm:text-[17px]",
+              dark ? "text-[#a1a1aa]" : "text-[#3f3f46]",
             )}
           >
             AI tutor walks you through ideas on a live board. System design maps
-            architecture as you ask. Debugging visuals turn repo issues into
-            clickable diagrams you can follow.
+            architecture as you ask. Vibe coder turns a repo into clickable
+            diagrams you can follow.
           </p>
         </div>
 

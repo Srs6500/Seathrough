@@ -41,7 +41,7 @@ export function AccountMenu({
           marketing
             ? dark
               ? "bg-white/15"
-              : "bg-[#e8eef5]"
+              : "bg-[#ececee]"
             : "bg-secondary",
         )}
         aria-hidden
@@ -56,10 +56,10 @@ export function AccountMenu({
           type="button"
           onClick={onLogin}
           className={cn(
-            "hidden h-12 items-center rounded-xl border px-5 font-[family-name:var(--font-inter)] text-[16px] font-bold outline-none transition sm:inline-flex",
+            "hidden h-9 items-center rounded-lg border px-3 text-[13px] font-medium outline-none transition sm:inline-flex",
             dark
-              ? "border-white/25 text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/35"
-              : "border-[#d5e0ea] bg-white text-[#1a2b3c] hover:bg-[#f4f7fb] focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/30",
+              ? "border-[#2a2a2e] text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/35"
+              : "border-[#ececee] bg-white text-[#16161a] hover:bg-[#fafafa] focus-visible:ring-2 focus-visible:ring-[#5b4fd4]/30",
           )}
         >
           Log in

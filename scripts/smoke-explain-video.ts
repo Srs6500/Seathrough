@@ -9,6 +9,9 @@ import {
   sceneIndexAt,
   sceneStarts,
   SPEAK_MAX,
+  TARGET_SCENES,
+  TOPIC_MAX,
+  trimToTargetScenes,
   VOICED_SECONDS_MAX,
 } from "../src/lib/explain-video/film";
 import { extractScenes, LOOP_COUNTER, prepareScene } from "../src/lib/explain-video/sceneCode";
@@ -61,7 +64,9 @@ const long = coercePlan({
   scenes: Array.from({ length: 9 }, (_, k) => ({ title: `Scene ${k + 1}`, seconds: 10, see: "Something moves.", say: "Something happens." })),
 });
 assert.equal(long.scenes.length, 7, "at most 7 scenes");
+assert.equal(trimToTargetScenes(long).scenes.length, TARGET_SCENES, "outline keeps five scenes");
 assert.ok(planDuration(long) <= FILM_SECONDS_MAX, `film fits in ${FILM_SECONDS_MAX}s`);
+assert.equal(TOPIC_MAX, 6000);
 assert.ok(long.scenes.every((scene) => scene.seconds >= 3));
 
 assert.equal(coercePlan({ title: "x", look: "oil painting", scenes: plan.scenes }).look, "ink", "unknown look falls back to ink");

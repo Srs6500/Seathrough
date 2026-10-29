@@ -22,7 +22,7 @@ export type Directed = {
   width: number;
 };
 
-function config(plan: Plan, fps: 12 | 24, width: number): EngineConfig {
+export function filmEngineConfig(plan: Plan, fps: 12 | 24, width: number): EngineConfig {
   return {
     palette: LOOK_PALETTE[plan.look],
     fps,
@@ -124,7 +124,7 @@ export async function directFilm(options: {
   const total = plan.scenes.length;
   const all = plan.scenes.map((_, index) => index);
 
-  let engine = await FilmEngine.create(codes, config(plan, 24, 1920));
+  let engine = await FilmEngine.create(codes, filmEngineConfig(plan, 24, 1920));
   const runnable = all.filter((index) => codes[index]);
   const results = await probeAll(engine, runnable, onStatus, total, () => isCancelled());
   if (isCancelled()) {
@@ -161,7 +161,7 @@ export async function directFilm(options: {
       if (fixed) retried.push(failure.index);
     }
     engine.dispose();
-    engine = await FilmEngine.create(codes, config(plan, 24, 1920));
+    engine = await FilmEngine.create(codes, filmEngineConfig(plan, 24, 1920));
     const second = await probeAll(engine, retried, onStatus, total, () => isCancelled());
     if (isCancelled()) {
       engine.dispose();
@@ -185,14 +185,14 @@ export async function directFilm(options: {
     }
     if (dropped) {
       engine.dispose();
-      engine = await FilmEngine.create(codes, config(plan, 24, 1920));
+      engine = await FilmEngine.create(codes, filmEngineConfig(plan, 24, 1920));
     }
   }
 
   const quality = chooseQuality(plan, results);
   if (quality.fps !== 24 || quality.width !== 1920) {
     engine.dispose();
-    engine = await FilmEngine.create(codes, config(plan, quality.fps, quality.width));
+    engine = await FilmEngine.create(codes, filmEngineConfig(plan, quality.fps, quality.width));
   }
 
   return {

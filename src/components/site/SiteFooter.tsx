@@ -9,19 +9,12 @@ type SiteFooterProps = {
   variant?: "default" | "marketing";
 };
 
-const CODE_LINKS = [
+const EXPLANATION_LINKS = [
+  { label: "Smart tutor", href: "/smart-tutor" },
+  { label: "Video explainer", href: "/video" },
   { label: "System design", href: "/system-design" },
-  { label: "Debugger", href: "/bug-analyzer" },
-  { label: "Repo-Scan", href: "/repo-scan" },
   { label: "Vibe coder", href: "/vibe-coder" },
-] as const;
-
-const EDUCATION_LINKS = [
-  { label: "Voice", href: "/smart-tutor/voice-tutor" },
-  { label: "Physics", href: "/smart-tutor/physics-tutor" },
   { label: "Browser", href: "/browser" },
-  { label: "Video", href: "/video" },
-  { label: "Course creator", href: "/course-creator" },
 ] as const;
 
 function SocialIcon({
@@ -42,7 +35,7 @@ function SocialIcon({
       rel="noopener noreferrer"
       aria-label={label}
       className={cn(
-        "inline-flex size-10 items-center justify-center rounded-xl border transition",
+        "inline-flex size-9 items-center justify-center rounded-lg border transition",
         className,
       )}
     >
@@ -78,34 +71,40 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
   }
 
   const linkClass = cn(
-    "text-[15px] transition-colors",
+    "text-[13px] transition-colors",
     dark
       ? "text-white/55 hover:text-white"
-      : "text-[#475569] hover:text-[#1a2b3c]",
+      : "text-[#71717a] hover:text-[#16161a]",
   );
   const socialClass = dark
-    ? "border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
-    : "border-[#d5e0ea] bg-white text-[#3d5166] hover:bg-[#f4f7fb] hover:text-[#1a2b3c]";
+    ? "border-[#2a2a2e] bg-[#16161a] text-white/70 hover:bg-white/10 hover:text-white"
+    : "border-[#ececee] bg-white text-[#71717a] hover:bg-[#fafafa] hover:text-[#16161a]";
 
   return (
     <footer
       className={cn(
         "border-t",
-        dark ? "border-white/10 bg-black" : "border-[#e5eaf0] bg-[#f4f6f8]",
+        dark
+          ? "border-[#2a2a2e] bg-[#111113]"
+          : "border-[#ececee] bg-[#f4f4f6]",
       )}
     >
       <div className="mx-auto max-w-6xl px-6 py-14 md:px-8 md:py-16 lg:px-12">
-        <div className="grid gap-12 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,0.8fr))] md:gap-10">
+        <div className="grid gap-12 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1.6fr)_minmax(0,0.8fr)] md:gap-10">
           <div className="max-w-sm">
-            <BrandMark onDark={dark} size="md" />
+            <BrandMark
+              onDark={dark}
+              size="md"
+              className={cn(!dark && "[&>span]:text-[#16161a]")}
+            />
             <p
               className={cn(
-                "mt-4 font-[family-name:var(--font-inter)] text-[16px] leading-7",
-                dark ? "text-white/55" : "text-[#3d5166]",
+                "mt-4 text-[14px] leading-7",
+                dark ? "text-white/55" : "text-[#3f3f46]",
               )}
             >
-              Visual AI for learning systems and code. Ask a question and watch
-              every step get drawn.
+              Visualize everything. Ask a question and watch every step get
+              drawn.
             </p>
             <div className="mt-6 flex items-center gap-2.5">
               <SocialIcon
@@ -156,14 +155,14 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
           <div>
             <p
               className={cn(
-                "text-[12px] font-semibold tracking-[0.08em] uppercase",
-                dark ? "text-white/35" : "text-[#94a3b8]",
+                "text-[11px] font-medium tracking-[0.08em] uppercase",
+                dark ? "text-white/35" : "text-[#71717a]",
               )}
             >
-              Code
+              Explanations
             </p>
-            <ul className="mt-4 space-y-3">
-              {CODE_LINKS.map((link) => (
+            <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3">
+              {EXPLANATION_LINKS.map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className={linkClass}>
                     {link.label}
@@ -176,28 +175,8 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
           <div>
             <p
               className={cn(
-                "text-[12px] font-semibold tracking-[0.08em] uppercase",
-                dark ? "text-white/35" : "text-[#94a3b8]",
-              )}
-            >
-              Education
-            </p>
-            <ul className="mt-4 space-y-3">
-              {EDUCATION_LINKS.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} className={linkClass}>
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <p
-              className={cn(
-                "text-[12px] font-semibold tracking-[0.08em] uppercase",
-                dark ? "text-white/35" : "text-[#94a3b8]",
+                "text-[11px] font-medium tracking-[0.08em] uppercase",
+                dark ? "text-white/35" : "text-[#71717a]",
               )}
             >
               Product
@@ -220,13 +199,13 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
         <div
           className={cn(
             "mt-12 flex flex-col gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between",
-            dark ? "border-white/10" : "border-[#e5eaf0]",
+            dark ? "border-[#2a2a2e]" : "border-[#ececee]",
           )}
         >
           <p
             className={cn(
               "text-[13px]",
-              dark ? "text-white/35" : "text-[#94a3b8]",
+              dark ? "text-white/35" : "text-[#71717a]",
             )}
           >
             © {new Date().getFullYear()} SeeThrough
@@ -234,7 +213,7 @@ export function SiteFooter({ variant = "default" }: SiteFooterProps) {
           <p
             className={cn(
               "text-[13px]",
-              dark ? "text-white/35" : "text-[#94a3b8]",
+              dark ? "text-white/35" : "text-[#71717a]",
             )}
           >
             Draws the explanation so you can see the steps.

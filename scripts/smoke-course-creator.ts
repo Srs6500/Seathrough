@@ -7,7 +7,8 @@ import {
 } from "../src/lib/course-creator/script";
 import { getMode } from "../src/modes/registry";
 
-assert.equal(getMode("course-creator")?.href, "/course-creator");
+assert.equal(getMode("course-creator")?.href, "/video");
+assert.equal(getMode("course-creator")?.enabled, false);
 
 assert.throws(() => coerceLessonScript({}), (err: Error) => {
   assert.equal(err.message, INCOMPLETE_SCRIPT);
