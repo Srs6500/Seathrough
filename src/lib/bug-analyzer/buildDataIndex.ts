@@ -6,8 +6,11 @@ import {
   type ArchitectureReport,
 } from "@/lib/bug-analyzer/analyzeLogicalGaps";
 import { analyzeNextRepo, type RepoAnalysis } from "@/lib/bug-analyzer/analyzeRepo";
+import { featureNameFromRoute } from "@/lib/bug-analyzer/featureName";
 import { getLlmConfig } from "@/lib/env";
 import type { RepoSourceFile } from "@/lib/data-flow/repoFiles";
+
+export { featureNameFromRoute };
 
 /** Compact knowledge record for a symbol (function / component / page / …). */
 export const knowledgeRecordSchema = z.object({
@@ -237,13 +240,6 @@ function routeSegments(route: string): string[] {
         !part.startsWith("(") &&
         !part.startsWith("@"),
     );
-}
-
-/** Human name for a route. `/smart-tutor` → Smart Tutor. `/` → Home. */
-export function featureNameFromRoute(route: string): string {
-  const segs = routeSegments(route);
-  if (segs.length === 0) return "Home";
-  return titleCaseWords(segs[segs.length - 1] || "page");
 }
 
 function isAuthRoute(route: string): boolean {

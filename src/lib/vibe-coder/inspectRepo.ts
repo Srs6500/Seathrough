@@ -58,7 +58,7 @@ export async function buildInspectReport(input: {
     .filter(([, pagesUsing]) => pagesUsing.size > 0)
     .map(([name, pagesUsing]) => ({
       name,
-      kind: name.startsWith("font-") ? "type" : "color",
+      kind: name.startsWith("font-") ? ("type" as const) : ("color" as const),
       pages: [...pagesUsing],
     }))
     .slice(0, 24);

@@ -169,12 +169,14 @@ export function scenarioPath(
     ids.push(current);
     const item = byId.get(current);
     if (!item) break;
-    current =
+    const next =
       item.kind === "decision"
         ? scenario === "failure"
           ? item.noTo
           : item.yesTo
         : item.next;
+    if (!next) break;
+    current = next;
   }
   return ids;
 }

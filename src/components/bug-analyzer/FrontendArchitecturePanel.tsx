@@ -210,13 +210,14 @@ export function FrontendArchitecturePanel({
         return;
       }
     }
-    if (!focusRequest.pagePath) return;
+    const pagePath = focusRequest.pagePath;
+    if (!pagePath) return;
     const page = scan.nodes.find(
       (node) =>
         node.kind === "page" &&
-        (node.span.path === focusRequest.pagePath ||
-          focusRequest.pagePath?.endsWith(node.span.path) ||
-          node.span.path.endsWith(focusRequest.pagePath)),
+        (node.span.path === pagePath ||
+          pagePath.endsWith(node.span.path) ||
+          node.span.path.endsWith(pagePath)),
     );
     if (!page) return;
     setLevel("page");

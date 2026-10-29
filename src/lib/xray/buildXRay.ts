@@ -2,13 +2,13 @@ import type {
   ArchitectureReport,
   LogicalFinding,
 } from "@/lib/bug-analyzer/analyzeLogicalGaps";
-import {
-  featureNameFromRoute,
-  type DataIndex,
-  type FeatureFlow,
-  type FlowNode,
-  type KnowledgeRecord,
+import type {
+  DataIndex,
+  FeatureFlow,
+  FlowNode,
+  KnowledgeRecord,
 } from "@/lib/bug-analyzer/buildDataIndex";
+import { featureNameFromRoute } from "@/lib/bug-analyzer/featureName";
 import type {
   FrontendArchFinding,
   FrontendArchScanResult,
