@@ -656,7 +656,7 @@ export function ExplainVideo() {
             />
           ) : null}
 
-          {showStage && phase !== "prompt" ? (
+          {showStage ? (
             <div className="w-full max-w-[min(100%,calc((100dvh-8rem)*16/9))] overflow-hidden rounded-lg border border-[#ececee] bg-white">
               <div className="relative aspect-video w-full bg-[#16161a]">
                 <canvas
