@@ -95,6 +95,18 @@ const MARKETING_MENUS = [
         icon: "/debugger.png",
         hint: "Map frontend pages and inspect backend bugs.",
       },
+      {
+        label: "Repo-Scan",
+        href: "/repo-scan",
+        icon: "/debugger.png",
+        hint: "Connect a GitHub repo and see its tree-sitter parse.",
+      },
+      {
+        label: "Vibe coder",
+        href: "/vibe-coder",
+        icon: "/debugger.png",
+        hint: "Understand what you built, starting with the database.",
+      },
     ],
   },
   {

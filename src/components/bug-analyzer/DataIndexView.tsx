@@ -34,6 +34,8 @@ type Props = {
   /** Controlled view mode (used when embedded in Debugger shell). */
   mode?: DataIndexViewMode;
   onModeChange?: (mode: DataIndexViewMode) => void;
+  /** Open this architecture finding when the token changes. */
+  focusRequest?: { findingId: string; token: number } | null;
 };
 
 type ViewMode = DataIndexViewMode;
@@ -471,6 +473,7 @@ export function DataIndexView({
   embedded = false,
   mode: modeProp,
   onModeChange,
+  focusRequest,
 }: Props) {
   const hasArchitecture = Boolean(index?.architecture);
   const [internalMode, setInternalMode] = useState<ViewMode>("analyzer");
@@ -482,11 +485,16 @@ export function DataIndexView({
   const [focusFindingId, setFocusFindingId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (focusRequest?.findingId) {
+      setFocusFindingId(focusRequest.findingId);
+      setMode("analyzer");
+      return;
+    }
     if (index?.architecture) setMode("analyzer");
     else if (index?.features?.length) setMode("explorer");
     setFocusFindingId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when index identity changes
-  }, [index?.architecture, index?.features?.length, index?.indexHash]);
+  }, [index?.architecture, index?.features?.length, index?.indexHash, focusRequest?.token]);
 
   function openFindingInAnalyzer(findingId: string) {
     setFocusFindingId(findingId);

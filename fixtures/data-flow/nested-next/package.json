@@ -1,0 +1,5 @@
+{
+  "name": "nested-next-fixture",
+  "private": true,
+  "workspaces": ["apps/*"]
+}

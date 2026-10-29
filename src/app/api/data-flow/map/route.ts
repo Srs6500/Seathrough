@@ -2,7 +2,7 @@ import { getUserFromRequest } from "@/lib/auth/requestUser";
 import { buildFlowFromQuestion } from "@/lib/data-flow/flowFromQuestion";
 import { isGithubAppConfigured } from "@/lib/data-flow/githubApp";
 import { resolveRepoAccess } from "@/lib/data-flow/installations";
-import { buildNextIndex } from "@/lib/data-flow/nextIndex";
+import { indexRepo } from "@/lib/data-flow/indexRepo";
 import { parseGithubRepoInput } from "@/lib/data-flow/parseRepoUrl";
 import { fetchRepoSourceFiles } from "@/lib/data-flow/repoFiles";
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     return Response.json(
       {
         error:
-          "Enter a GitHub repo link or owner/repo (TypeScript + Next.js only).",
+          "Enter a GitHub repo link or owner/repo.",
       },
       { status: 400 },
     );
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       fullName: access.repo.fullName,
       ref: body.ref?.trim() || parsed.ref || access.repo.defaultBranch,
     });
-    const index = buildNextIndex(fetched.files);
+    const index = indexRepo(fetched.files);
     const map = buildFlowFromQuestion({
       index,
       question,

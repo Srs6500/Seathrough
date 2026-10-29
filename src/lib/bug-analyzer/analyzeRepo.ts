@@ -1,6 +1,6 @@
-import { buildNextIndex } from "@/lib/data-flow/nextIndex";
+import { indexRepo, primaryFramework } from "@/lib/data-flow/indexRepo";
 import type { RepoSourceFile } from "@/lib/data-flow/repoFiles";
-import type { FlowNodeKind } from "@/lib/data-flow/types";
+import type { FlowNodeKind, IndexedFramework } from "@/lib/data-flow/types";
 
 export type AnalyzedFunction = {
   name: string;
@@ -31,7 +31,7 @@ export type RepoAnalysis = {
   fullName: string;
   ref: string;
   frameworkOk: boolean;
-  framework: "nextjs-ts" | "unknown";
+  framework: IndexedFramework;
   fileCount: number;
   truncated: boolean;
   warnings: string[];
@@ -155,7 +155,7 @@ function summarizeFile(
   exportCount: number,
 ): string {
   if (role === "api") return `API route handler (${exportCount} export${exportCount === 1 ? "" : "s"})`;
-  if (role === "page") return "Next.js page";
+  if (role === "page") return "App page";
   if (role === "component") return `UI component (${exportCount} export${exportCount === 1 ? "" : "s"})`;
   if (role === "database") return "Database / data access";
   if (role === "lib") return `Library module (${exportCount} export${exportCount === 1 ? "" : "s"})`;
@@ -173,7 +173,7 @@ export function analyzeNextRepo(input: {
   truncated: boolean;
 }): RepoAnalysis {
   const { fullName, ref, files, truncated } = input;
-  const index = buildNextIndex(files);
+  const index = indexRepo(files);
   const byPath = new Map(files.map((f) => [f.path, f]));
 
   const allFunctions: AnalyzedFunction[] = [];
@@ -200,12 +200,13 @@ export function analyzeNextRepo(input: {
     };
   });
 
-  // Dedupe API by path
+  // Dedupe handlers that share a file and a route. Distinct routes stay separate.
   const apiByPath = new Map<string, AnalyzedApiRoute>();
   for (const route of apiRoutes) {
-    const prev = apiByPath.get(route.path);
+    const key = `${route.path}:${route.route}`;
+    const prev = apiByPath.get(key);
     if (!prev) {
-      apiByPath.set(route.path, route);
+      apiByPath.set(key, route);
       continue;
     }
     prev.methods = [...new Set([...prev.methods, ...route.methods])];
@@ -287,7 +288,7 @@ export function analyzeNextRepo(input: {
     fullName,
     ref,
     frameworkOk: index.frameworkOk,
-    framework: index.frameworkOk ? "nextjs-ts" : "unknown",
+    framework: primaryFramework(index),
     fileCount: files.length,
     truncated,
     warnings: index.warnings,

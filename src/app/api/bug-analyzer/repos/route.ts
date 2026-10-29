@@ -20,9 +20,13 @@ export const GET = withSeethroughDebug(async (request) => {
     );
   }
 
-  const query = new URL(request.url).searchParams.get("q") ?? "";
+  const params = new URL(request.url).searchParams;
+  const query = params.get("q") ?? "";
+  const fresh = params.get("fresh") === "1" || params.get("fresh") === "true";
   try {
-    const repos = await listReposWithStackForUser(user.id, query);
+    const repos = await listReposWithStackForUser(user.id, query, 100, {
+      fresh,
+    });
     return Response.json({ repos });
   } catch (error) {
     const message =

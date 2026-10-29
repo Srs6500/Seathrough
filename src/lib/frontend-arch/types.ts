@@ -1,4 +1,8 @@
-import type { FlowEdge, FlowNode } from "@/lib/data-flow/types";
+import type {
+  FlowEdge,
+  FlowNode,
+  IndexedFramework,
+} from "@/lib/data-flow/types";
 
 export type FrontendArchSeverity = "error" | "warning" | "info";
 export type FrontendArchVerification = "confirmed" | "suspected";
@@ -59,7 +63,7 @@ export const FRONTEND_ARCH_CHECKS = [
 export type FrontendArchScanResult = {
   fullName: string;
   ref: string;
-  framework: "nextjs-ts";
+  framework: IndexedFramework;
   fileCount: number;
   truncated: boolean;
   /** True when 0 findings should not be read as “the app is clean”. */

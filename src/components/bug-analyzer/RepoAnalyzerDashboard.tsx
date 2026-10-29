@@ -19,8 +19,8 @@ type DetailTab = "overview" | "evidence" | "code" | "fix" | "related";
 
 const LAYER_ORDER = ["frontend", "api", "service", "external"] as const;
 const LAYER_TITLE: Record<(typeof LAYER_ORDER)[number], string> = {
-  frontend: "Frontend (Next.js)",
-  api: "API Routes (Next.js)",
+  frontend: "Frontend",
+  api: "API routes",
   service: "Services / Logic",
   external: "External Services",
 };

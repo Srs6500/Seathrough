@@ -78,7 +78,7 @@ export const dataIndexSchema = z.object({
   elements: z.array(dataIndexElementSchema).max(80).optional(),
   records: z.array(knowledgeRecordSchema).max(120).optional(),
   pages: z.array(pageSummarySchema).max(40).optional(),
-  features: z.array(featureFlowSchema).max(24).optional(),
+  features: z.array(featureFlowSchema).max(80).optional(),
 });
 
 export type KnowledgeRecord = z.infer<typeof knowledgeRecordSchema>;
@@ -182,16 +182,114 @@ function purposeFromName(
   return label;
 }
 
-function featureBucket(text: string): string {
-  const t = text.toLowerCase();
-  if (/auth|login|signin|sign-in|signup|register|session|password/i.test(t))
-    return "Authentication";
-  if (/bill|payment|checkout|stripe|invoice|subscription|pricing/i.test(t))
-    return "Billing";
-  if (/dashboard|home|overview|analytics/i.test(t)) return "Dashboard";
-  if (/settings|profile|account/i.test(t)) return "Settings";
-  if (/user|member|team/i.test(t)) return "Users";
-  return "Application";
+const AUTH_SEGMENTS = new Set([
+  "login",
+  "signin",
+  "sign-in",
+  "log-in",
+  "signup",
+  "sign-up",
+  "register",
+  "session",
+  "callback",
+  "password",
+  "auth",
+  "logout",
+  "log-out",
+  "forgot-password",
+  "reset-password",
+  "magic-link",
+  "oauth",
+]);
+
+const WEAK_SEGMENTS = new Set([
+  "api",
+  "app",
+  "v1",
+  "v2",
+  "v3",
+  "public",
+  "internal",
+  "index",
+  "new",
+  "edit",
+  "page",
+]);
+
+function titleCaseWords(value: string): string {
+  return displayName(value)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function routeSegments(route: string): string[] {
+  return route
+    .split("/")
+    .map((part) => part.trim().toLowerCase())
+    .filter(
+      (part) =>
+        part &&
+        part !== "api" &&
+        !part.startsWith(":") &&
+        !part.startsWith("{") &&
+        !part.startsWith("(") &&
+        !part.startsWith("@"),
+    );
+}
+
+/** Human name for a route. `/smart-tutor` → Smart Tutor. `/` → Home. */
+export function featureNameFromRoute(route: string): string {
+  const segs = routeSegments(route);
+  if (segs.length === 0) return "Home";
+  return titleCaseWords(segs[segs.length - 1] || "page");
+}
+
+function isAuthRoute(route: string): boolean {
+  return routeSegments(route).some((seg) => AUTH_SEGMENTS.has(seg));
+}
+
+function slugRoute(route: string): string {
+  const slug = route
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "home";
+}
+
+function uniqueFeatureId(base: string, used: Set<string>): string {
+  const root = base || "feature";
+  let id = root;
+  let n = 2;
+  while (used.has(id)) {
+    id = `${root}-${n}`;
+    n += 1;
+  }
+  used.add(id);
+  return id;
+}
+
+function collectApiPaths(content: string): string[] {
+  const out: string[] = [];
+  const re = /[`'"](\/api\/[^`'"]+)[`'"]/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(content))) {
+    const route = match[1]!.split("?")[0]!.replace(/\/$/, "");
+    if (route && !out.includes(route)) out.push(route);
+  }
+  return out;
+}
+
+function apiPathsMatch(mentioned: string, route: string): boolean {
+  const a = mentioned.replace(/\/$/, "");
+  const b = route.replace(/\/$/, "");
+  return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+}
+
+function sharesSegment(a: string, b: string): boolean {
+  const left = new Set(routeSegments(a).filter((seg) => !WEAK_SEGMENTS.has(seg)));
+  return routeSegments(b).some((seg) => !WEAK_SEGMENTS.has(seg) && left.has(seg));
 }
 
 function collectImports(content: string): string[] {
@@ -525,7 +623,22 @@ export function scanStructure(input: {
     };
   });
 
-  const features = buildFeatureFlows(filtered, pages, input.analysis);
+  const pageList =
+    input.scope === "file" && input.focusPath
+      ? pages.filter(
+          (page) =>
+            page.file === input.focusPath ||
+            filtered.some(
+              (record) => record.type === "page" && record.file === page.file,
+            ),
+        )
+      : pages;
+  const features = buildFeatureFlows(
+    filtered,
+    pageList,
+    input.analysis,
+    contentByPath,
+  );
   const indexHash = hashText(
     filtered.map((r) => `${r.id}:${r.source_hash}`).join("|"),
   );
@@ -533,171 +646,314 @@ export function scanStructure(input: {
   return { records: filtered, pages, features, indexHash };
 }
 
+type FeatureCluster = {
+  id: string;
+  name: string;
+  auth: boolean;
+  pages: PageSummary[];
+  apis: RepoAnalysis["apiRoutes"];
+  nodes: FlowNode[];
+};
+
+function serviceNode(name: string, records: KnowledgeRecord[]): FlowNode | null {
+  const record =
+    records.find((item) => item.name === name) ||
+    records.find((item) => stem(item.file) === name);
+  if (!record && !name) return null;
+  const rawStem = record ? stem(record.file) : name;
+  const pretty = /service/i.test(rawStem)
+    ? titleCaseWords(rawStem)
+    : `${titleCaseWords(rawStem)} Service`;
+  return {
+    id: `svc:${rawStem}:${record?.file || ""}`,
+    label: pretty,
+    kind: "service",
+    file: record?.file,
+  };
+}
+
+function nodesForPage(page: PageSummary, records: KnowledgeRecord[]): FlowNode[] {
+  const nodes: FlowNode[] = [
+    {
+      id: `page:${page.route}:${page.file || ""}`,
+      label: routeLabel(page.route),
+      kind: "page",
+      file: page.file,
+    },
+  ];
+  for (const compName of page.components.slice(0, 4)) {
+    const record = records.find(
+      (item) => item.name === compName && item.type === "component",
+    );
+    nodes.push({
+      id: `comp:${compName}:${record?.file || ""}`,
+      label: compName,
+      kind: "component",
+      file: record?.file,
+    });
+  }
+  for (const fnName of page.functions.slice(0, 4)) {
+    const record = records.find((item) => item.name === fnName);
+    const kind =
+      record?.type === "hook"
+        ? "hook"
+        : record?.type === "service"
+          ? "service"
+          : record?.type === "api"
+            ? "api"
+            : "function";
+    nodes.push({
+      id: `fn:${fnName}:${record?.file || ""}`,
+      label: fnName.includes("(") ? fnName : `${fnName}()`,
+      kind,
+      file: record?.file,
+    });
+  }
+  for (const svc of page.related_services.slice(0, 2)) {
+    const node = serviceNode(svc, records);
+    if (node) nodes.push(node);
+  }
+  return nodes;
+}
+
+function apiRouteKey(route: RepoAnalysis["apiRoutes"][number]): string {
+  return `${route.path}:${route.route}`;
+}
+
+function apiFlowNode(route: RepoAnalysis["apiRoutes"][number]): FlowNode {
+  return {
+    id: `api:${apiRouteKey(route)}`,
+    label: `${featureNameFromRoute(route.route)} API`,
+    kind: "api",
+    file: route.path,
+  };
+}
+
+function capFeatureNodes(nodes: FlowNode[]): FlowNode[] {
+  const seen = new Set<string>();
+  const unique: FlowNode[] = [];
+  for (const node of nodes) {
+    const key = `${node.kind}:${node.file || ""}:${node.label}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(node);
+  }
+  const pages = unique.filter((node) => node.kind === "page").slice(0, 4);
+  const apis = unique.filter((node) => node.kind === "api").slice(0, 4);
+  const rest = unique.filter((node) => node.kind !== "page" && node.kind !== "api");
+  const room = Math.max(0, 12 - pages.length - apis.length);
+  return [...pages, ...rest.slice(0, room), ...apis];
+}
+
+function clusterFiles(
+  cluster: FeatureCluster,
+  records: KnowledgeRecord[],
+): string[] {
+  const files = new Set<string>();
+  for (const node of cluster.nodes) {
+    if (node.file) files.add(node.file);
+  }
+  for (const page of cluster.pages) {
+    if (page.file) files.add(page.file);
+    for (const name of page.components) {
+      const record = records.find(
+        (item) => item.name === name && item.type === "component" && item.file,
+      );
+      if (record?.file) files.add(record.file);
+    }
+  }
+  return [...files];
+}
+
+function mentionedApiRoutes(
+  files: string[],
+  contentByPath: Map<string, string>,
+): string[] {
+  const routes: string[] = [];
+  for (const file of files) {
+    for (const route of collectApiPaths(contentByPath.get(file) || "")) {
+      if (!routes.includes(route)) routes.push(route);
+    }
+  }
+  return routes;
+}
+
+function authClusterName(routes: string[]): string {
+  const segs = new Set(routes.flatMap(routeSegments));
+  const signsIn = [...segs].some((seg) =>
+    /^(login|signin|sign-in|log-in)$/.test(seg),
+  );
+  const signsUp = [...segs].some((seg) =>
+    /^(signup|sign-up|register)$/.test(seg),
+  );
+  if (signsIn && signsUp) return "Login & Signup";
+  if (routes.length === 1) return featureNameFromRoute(routes[0] || "/");
+  if (signsUp) return "Signup";
+  if (signsIn) return "Login";
+  return "Authentication";
+}
+
+function explainCluster(cluster: FeatureCluster): string {
+  const routes = cluster.pages.map((page) => page.route);
+  const apis = cluster.apis.map((route) => route.route);
+  if (cluster.pages.length === 0) {
+    return `${cluster.name} is an API with no matching screen in this scan${
+      apis.length ? ` (${apis.join(", ")})` : ""
+    }.`;
+  }
+  const summary = cluster.pages[0]?.summary?.trim();
+  if (cluster.pages.length === 1) {
+    const lead = summary
+      ? `${cluster.name}: ${summary.charAt(0).toLowerCase()}${summary.slice(1)}`
+      : `${cluster.name} is the ${routes[0]} screen.`;
+    return apis.length ? `${lead} It connects to ${apis.join(", ")}.` : lead;
+  }
+  const joined = routes.join(", ");
+  return apis.length
+    ? `${cluster.name} covers ${joined} and connects to ${apis.join(", ")}.`
+    : `${cluster.name} covers ${joined} as one capability.`;
+}
+
+/**
+ * One card per user-reachable capability.
+ * Pages stay separate unless they are the same auth flow.
+ * APIs join a page when the route token or a fetch() path matches,
+ * and otherwise become their own cards.
+ */
 function buildFeatureFlows(
   records: KnowledgeRecord[],
   pages: PageSummary[],
   analysis: RepoAnalysis,
+  contentByPath: Map<string, string>,
 ): FeatureFlow[] {
-  const buckets = new Map<string, PageSummary[]>();
+  const usedIds = new Set<string>();
+  const clusters: FeatureCluster[] = [];
+
   for (const page of pages) {
-    const bucket = featureBucket(
-      `${page.route} ${page.purpose} ${page.components.join(" ")}`,
-    );
-    const list = buckets.get(bucket) || [];
-    list.push(page);
-    buckets.set(bucket, list);
+    const route = page.route || "/";
+    clusters.push({
+      id: uniqueFeatureId(slugRoute(route), usedIds),
+      name: featureNameFromRoute(route),
+      auth: isAuthRoute(route),
+      pages: [page],
+      apis: [],
+      nodes: nodesForPage(page, records),
+    });
   }
 
-  // If few pages, also bucket by services/components
-  if (buckets.size === 0 || (pages.length === 0 && records.length > 0)) {
-    for (const rec of records) {
-      const bucket = featureBucket(`${rec.name} ${rec.file} ${rec.purpose}`);
-      if (!buckets.has(bucket)) buckets.set(bucket, []);
+  const authClusters = clusters.filter((cluster) => cluster.auth);
+  if (authClusters.length > 1) {
+    const [primary, ...rest] = authClusters;
+    if (primary) {
+      for (const extra of rest) {
+        primary.pages.push(...extra.pages);
+        primary.nodes.push(...extra.nodes);
+        const index = clusters.indexOf(extra);
+        if (index >= 0) clusters.splice(index, 1);
+      }
+      const routes = primary.pages.map((page) => page.route || "/");
+      primary.name = authClusterName(routes);
+      usedIds.delete(primary.id);
+      primary.id = uniqueFeatureId(
+        primary.name === "Login & Signup"
+          ? "login-and-signup"
+          : slugRoute(routes[0] || "/auth"),
+        usedIds,
+      );
     }
+  }
+
+  const claimed = new Set<string>();
+  for (const route of analysis.apiRoutes) {
+    const host = clusters.find((cluster) => {
+      if (
+        cluster.auth &&
+        isAuthRoute(route.route) &&
+        cluster.pages.length > 0
+      ) {
+        return true;
+      }
+      if (cluster.pages.some((page) => sharesSegment(page.route, route.route))) {
+        return true;
+      }
+      const mentioned = mentionedApiRoutes(
+        clusterFiles(cluster, records),
+        contentByPath,
+      );
+      return mentioned.some((path) => apiPathsMatch(path, route.route));
+    });
+    if (!host) continue;
+    host.apis.push(route);
+    host.nodes.push(apiFlowNode(route));
+    claimed.add(apiRouteKey(route));
+  }
+
+  const looseAuth: RepoAnalysis["apiRoutes"] = [];
+  for (const route of analysis.apiRoutes) {
+    if (claimed.has(apiRouteKey(route))) continue;
+    if (isAuthRoute(route.route)) {
+      looseAuth.push(route);
+      continue;
+    }
+    const name = `${featureNameFromRoute(route.route)} API`;
+    clusters.push({
+      id: uniqueFeatureId(slugRoute(route.route), usedIds),
+      name,
+      auth: false,
+      pages: [],
+      apis: [route],
+      nodes: [apiFlowNode(route)],
+    });
+  }
+  if (looseAuth.length > 0) {
+    const name =
+      looseAuth.length > 1
+        ? authClusterName(looseAuth.map((route) => route.route))
+        : `${featureNameFromRoute(looseAuth[0]!.route)} API`;
+    clusters.push({
+      id: uniqueFeatureId("auth-api", usedIds),
+      name: looseAuth.length > 1 && name === "Home" ? "Authentication" : name,
+      auth: true,
+      pages: [],
+      apis: looseAuth,
+      nodes: looseAuth.map(apiFlowNode),
+    });
   }
 
   const features: FeatureFlow[] = [];
-  for (const [name, pageList] of buckets) {
-    const page = pageList[0];
-    const nodes: FlowNode[] = [];
-
-    if (page) {
-      nodes.push({
-        id: `page:${page.route}`,
-        label: routeLabel(page.route),
-        kind: "page",
-        file: page.file,
-      });
-      const compName = page.components[0];
-      if (compName) {
-        const crec = records.find((r) => r.name === compName);
-        nodes.push({
-          id: `comp:${compName}`,
-          label: compName,
-          kind: "component",
-          file: crec?.file,
-        });
-      }
-      const fnName =
-        page.functions.find((f) =>
-          records.some((r) => r.name === f && r.type === "function"),
-        ) || page.functions[0];
-      if (fnName) {
-        const frec = records.find((r) => r.name === fnName);
-        nodes.push({
-          id: `fn:${fnName}`,
-          label: fnName.includes("(") ? fnName : `${fnName}()`,
-          kind: frec?.type === "hook" ? "hook" : "function",
-          file: frec?.file,
-        });
-      }
-      const svc =
-        page.related_services[0] ||
-        records.find(
-          (r) =>
-            r.type === "service" &&
-            (page.functions.includes(r.name) ||
-              page.components.some((c) => r.used_by.includes(c))),
-        )?.name;
-      if (svc) {
-        const srec =
-          records.find((r) => r.name === svc) ||
-          records.find((r) => stem(r.file) === svc);
-        const rawStem = srec ? stem(srec.file) : String(svc);
-        const pretty =
-          /auth/i.test(rawStem)
-            ? "Authentication Service"
-            : /user/i.test(rawStem)
-              ? "Users Service"
-              : /bill|pay|stripe/i.test(rawStem)
-                ? "Billing Service"
-                : /service/i.test(rawStem)
-                  ? displayName(rawStem)
-                  : `${displayName(rawStem)} Service`;
-        nodes.push({
-          id: `svc:${svc}`,
-          label: pretty,
-          kind: "service",
-          file: srec?.file,
-        });
-      }
-    } else {
-      // Feature with no page — pick top records in bucket
-      const inBucket = records.filter(
-        (r) => featureBucket(`${r.name} ${r.file}`) === name,
-      );
-      for (const kind of [
-        "page",
-        "component",
-        "function",
-        "service",
-      ] as const) {
-        const hit = inBucket.find((r) => r.type === kind);
-        if (hit) {
-          nodes.push({
-            id: hit.id,
-            label:
-              hit.type === "function" || hit.type === "hook"
-                ? `${hit.name.replace(/\(\)$/, "")}()`
-                : hit.type === "service"
-                  ? `${displayName(stem(hit.file))} Service`
-                  : hit.name,
-            kind: hit.type,
-            file: hit.file,
-          });
-        }
-      }
-    }
-
+  for (const cluster of clusters) {
+    const nodes = capFeatureNodes(cluster.nodes);
     if (nodes.length === 0) continue;
-
-    const explanation = page
-      ? `This flow ${page.summary.charAt(0).toLowerCase()}${page.summary.slice(1)}`
-      : `${name} connects ${nodes.map((n) => n.label).join(" → ")}.`;
-
     features.push({
-      id: name.toLowerCase().replace(/\s+/g, "-"),
-      name,
-      title: `${name} flow`,
-      nodes: nodes.slice(0, 8),
-      explanation,
+      id: cluster.id,
+      name: cluster.name,
+      title: cluster.name,
+      nodes,
+      explanation: explainCluster(cluster),
     });
   }
 
-  // Prefer Authentication / Dashboard / Billing order when present
-  const order = [
-    "Authentication",
-    "Dashboard",
-    "Billing",
-    "Settings",
-    "Users",
-    "Application",
-  ];
-  features.sort(
-    (a, b) =>
-      (order.indexOf(a.name) === -1 ? 99 : order.indexOf(a.name)) -
-      (order.indexOf(b.name) === -1 ? 99 : order.indexOf(b.name)),
-  );
+  features.sort((a, b) => a.name.localeCompare(b.name));
+  return features.slice(0, 80);
+}
 
-  if (features.length === 0 && analysis.pages[0]) {
-    const p = analysis.pages[0];
-    features.push({
-      id: "application",
-      name: "Application",
-      title: "Application flow",
-      nodes: [
-        {
-          id: "page",
-          label: routeLabel(p.route),
-          kind: "page",
-          file: p.path,
-        },
-      ],
-      explanation: "Indexed page structure for this repository.",
-    });
-  }
-
-  return features.slice(0, 12);
+/** Keep the scanned feature list. AI may rewrite copy for ids it recognizes. */
+function overlayFeatureCopy(
+  base: FeatureFlow[],
+  polished: FeatureFlow[] | undefined,
+): FeatureFlow[] {
+  if (!polished?.length) return base;
+  const byId = new Map(polished.map((feature) => [feature.id, feature]));
+  return base.map((feature) => {
+    const next = byId.get(feature.id);
+    if (!next) return feature;
+    return {
+      ...feature,
+      name: next.name.trim() || feature.name,
+      title: next.title.trim() || feature.title,
+      explanation: next.explanation.trim() || feature.explanation,
+    };
+  });
 }
 
 function extractJson(raw: string): unknown {
@@ -744,9 +1000,9 @@ Return ONLY JSON with this shape:
 Rules:
 - Prefer the seed records; do not invent files that are not listed.
 - purpose/summary/explanation: short, concrete intent (like the mock: Login Page → LoginForm → loginUser() → Authentication Service).
-- features: application capabilities (Authentication, Dashboard, Billing, …) each with a vertical flow of 3–5 nodes.
+- features: keep every seed feature id. Rewrite only name, title, and explanation. Do not merge, drop, or invent features, and do not invent files. Copy each feature's nodes from the seed.
 - Keep confidence high|medium|low. Preserve source_hash from seed when possible.
-- Max 60 records, 20 pages, 10 features.`,
+- Max 60 records, 40 pages, 80 features.`,
         },
         {
           role: "user",
@@ -758,7 +1014,7 @@ Rules:
               seed: {
                 records: index.records.slice(0, 40),
                 pages: index.pages.slice(0, 16),
-                features: index.features.slice(0, 8),
+                features: index.features.slice(0, 40),
               },
               snippets: snippets.slice(0, 20),
             },
@@ -774,9 +1030,7 @@ Rules:
       ? parsed.records
       : index.records) as KnowledgeRecord[];
     const pages = (parsed.pages?.length ? parsed.pages : index.pages) as PageSummary[];
-    const features = (parsed.features?.length
-      ? parsed.features
-      : index.features) as FeatureFlow[];
+    const features = overlayFeatureCopy(index.features, parsed.features);
     const elements =
       parsed.elements && parsed.elements.length > 0
         ? parsed.elements
@@ -837,13 +1091,16 @@ export function buildAnalysisAndIndex(input: {
     input.fullName.split("/")[1] || input.fullName || "repository";
 
   const elements = elementsFromRecords(scanned.records);
+  const inventoryPartial =
+    input.truncated ||
+    (scanned.records.length === 0 && scanned.features.length === 0);
   const index: DataIndex = {
     fullName: input.fullName,
     ref: input.ref,
     scope: input.scope,
     focusPath: input.focusPath,
     source: "heuristic",
-    status: scanned.records.length > 0 ? "indexed" : "partial",
+    status: inventoryPartial ? "partial" : "indexed",
     appName,
     elements:
       elements.length > 0

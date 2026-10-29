@@ -152,14 +152,14 @@ function detectDeps(files: RepoSourceFile[]): {
   hasStoragePackage: boolean;
   packages: string[];
 } {
-  const pkgFile = files.find(
+  const pkgFiles = files.filter(
     (f) => f.path === "package.json" || f.path.endsWith("/package.json"),
   );
   const packages: string[] = [];
   let hasDbPackage = false;
   let hasAuthPackage = false;
   let hasStoragePackage = false;
-  if (pkgFile) {
+  for (const pkgFile of pkgFiles) {
     try {
       const json = JSON.parse(pkgFile.content) as {
         dependencies?: Record<string, string>;
@@ -167,21 +167,27 @@ function detectDeps(files: RepoSourceFile[]): {
       };
       const deps = { ...json.dependencies, ...json.devDependencies };
       packages.push(...Object.keys(deps));
-      hasDbPackage = Object.keys(deps).some((k) =>
-        /prisma|drizzle|mongoose|pg|mysql|sqlite|supabase|firebase|typeorm|sequelize|mongodb/i.test(
-          k,
-        ),
-      );
-      hasAuthPackage = Object.keys(deps).some((k) =>
-        /next-auth|auth\.js|clerk|supabase|firebase-auth|lucia|better-auth|passport/i.test(
-          k,
-        ),
-      );
-      hasStoragePackage = Object.keys(deps).some((k) =>
-        /s3|uploadthing|cloudinary|firebase-storage|@aws-sdk\/client-s3/i.test(
-          k,
-        ),
-      );
+      hasDbPackage =
+        hasDbPackage ||
+        Object.keys(deps).some((k) =>
+          /prisma|drizzle|mongoose|pg|mysql|sqlite|supabase|firebase|typeorm|sequelize|mongodb/i.test(
+            k,
+          ),
+        );
+      hasAuthPackage =
+        hasAuthPackage ||
+        Object.keys(deps).some((k) =>
+          /next-auth|auth\.js|clerk|supabase|firebase-auth|lucia|better-auth|passport/i.test(
+            k,
+          ),
+        );
+      hasStoragePackage =
+        hasStoragePackage ||
+        Object.keys(deps).some((k) =>
+          /s3|uploadthing|cloudinary|firebase-storage|@aws-sdk\/client-s3/i.test(
+            k,
+          ),
+        );
     } catch {
       /* ignore */
     }

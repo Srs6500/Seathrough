@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     // 75 is the Next default; marketing screenshots request 92.
     qualities: [75, 92],
   },
-  transpilePackages: ["@excalidraw/excalidraw"],
+  transpilePackages: ["@excalidraw/excalidraw", "@mantine/core", "@mantine/hooks"],
   // Keep tesseract off the Turbopack graph — its worker_threads script
   // must load from a real filesystem path, not the virtual /ROOT remap.
   serverExternalPackages: [

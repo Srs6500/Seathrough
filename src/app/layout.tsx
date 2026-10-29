@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, IBM_Plex_Mono, Inter, Newsreader } from "next/font/google";
 import localFont from "next/font/local";
 import { AuthProvider } from "@/components/AuthProvider";
+import { GithubInstallReturn } from "@/components/vibe-coder/GithubInstallReturn";
 import { QuestionAccessProvider } from "@/components/usage/QuestionAccess";
 import { PageTransition } from "@/components/site/PageTransition";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -72,6 +73,7 @@ export default function RootLayout({
         <AuthProvider>
           <QuestionAccessProvider>
             <TooltipProvider delayDuration={200}>
+              <GithubInstallReturn />
               <PageTransition>{children}</PageTransition>
             </TooltipProvider>
           </QuestionAccessProvider>

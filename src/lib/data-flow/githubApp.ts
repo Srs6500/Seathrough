@@ -6,6 +6,7 @@ export type GithubRepoOption = {
   fullName: string;
   private: boolean;
   defaultBranch: string;
+  language?: string | null;
 };
 
 export function isGithubAppConfigured(): boolean {
@@ -23,6 +24,124 @@ export function githubAppInstallUrl(state?: string): string {
   const url = new URL(`https://github.com/apps/${cfg.slug}/installations/new`);
   if (state) url.searchParams.set("state", state);
   return url.toString();
+}
+
+export function githubAppOAuthUrl(redirectUri: string, state: string): string | null {
+  const cfg = getGithubAppConfig();
+  if (!cfg.clientId) return null;
+  const url = new URL("https://github.com/login/oauth/authorize");
+  url.searchParams.set("client_id", cfg.clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("state", state);
+  return url.toString();
+}
+
+export async function exchangeGithubOAuthCode(
+  code: string,
+  redirectUri: string,
+): Promise<string> {
+  const cfg = getGithubAppConfig();
+  if (!cfg.clientId || !cfg.clientSecret) {
+    throw new Error("GitHub App OAuth is not configured.");
+  }
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "Seethrough-data-flow",
+    },
+    body: JSON.stringify({
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      code,
+      redirect_uri: redirectUri,
+    }),
+  });
+  const body = (await response.json()) as {
+    access_token?: string;
+    error?: string;
+    error_description?: string;
+  };
+  if (!body.access_token) {
+    throw new Error(body.error_description || body.error || "GitHub OAuth failed.");
+  }
+  return body.access_token;
+}
+
+type GithubInstallationRow = {
+  id?: number;
+  account?: { login?: string; type?: string };
+};
+
+function collectInstallationIds(
+  rows: GithubInstallationRow[],
+  allowed: Set<string>,
+): number[] {
+  const ids: number[] = [];
+  for (const item of rows) {
+    const login = item.account?.login?.toLowerCase();
+    const id = Number(item.id);
+    if (login && allowed.has(login) && Number.isFinite(id) && id > 0) {
+      ids.push(id);
+    }
+  }
+  return ids;
+}
+
+export async function listInstallationsForUserToken(
+  userToken: string,
+): Promise<number[]> {
+  const found = await findInstallationsForOAuthUser(userToken);
+  return found.ids;
+}
+
+export async function findInstallationsForOAuthUser(
+  userToken: string,
+): Promise<{ login: string; ids: number[] }> {
+  const me = await githubFetch<{ login?: string }>("/user", { token: userToken });
+  const login = (me.login || "").trim();
+  const orgs = await githubFetch<Array<{ login?: string }>>(
+    "/user/orgs?per_page=100",
+    { token: userToken },
+  ).catch(() => []);
+  const allowed = new Set(
+    [login, ...orgs.map((org) => org.login)]
+      .filter((name): name is string => Boolean(name))
+      .map((name) => name.toLowerCase()),
+  );
+  if (allowed.size === 0) return { login, ids: [] };
+
+  const ids: number[] = [];
+  let page = 1;
+  while (page <= 5) {
+    const body = await githubFetch<{ installations?: GithubInstallationRow[] }>(
+      `/user/installations?per_page=100&page=${page}`,
+      { token: userToken },
+    ).catch(() => ({ installations: [] }));
+    const batch = body.installations ?? [];
+    ids.push(...collectInstallationIds(batch, allowed));
+    if (batch.length < 100) break;
+    page += 1;
+  }
+
+  if (ids.length === 0) {
+    let appPage = 1;
+    while (appPage <= 10) {
+      const batch = await githubFetch<GithubInstallationRow[]>(
+        `/app/installations?per_page=100&page=${appPage}`,
+        { token: appJwt() },
+      );
+      const rows = Array.isArray(batch) ? batch : [];
+      ids.push(...collectInstallationIds(rows, allowed));
+      if (rows.length < 100) break;
+      appPage += 1;
+    }
+  }
+
+  const unique = [...new Set(ids)];
+  const personal = unique.filter((id) => id > 0);
+  return { login, ids: personal };
 }
 
 export function githubAppStatus() {
@@ -86,7 +205,13 @@ async function githubFetch<T>(
     headers,
   });
   if (!response.ok) {
-    throw new Error(`GitHub API ${response.status} for ${path}`);
+    const raw = await response.text().catch(() => "");
+    const hint = raw.replace(/\s+/g, " ").replace(/Bearer\s+\S+/gi, "Bearer").slice(0, 120);
+    throw new Error(
+      hint
+        ? `GitHub API ${response.status} for ${path}. ${hint}`
+        : `GitHub API ${response.status} for ${path}`,
+    );
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
@@ -101,19 +226,44 @@ export async function getInstallation(installationId: number): Promise<{
   });
 }
 
+type CachedToken = { token: string; expiresAt: number };
+const installationTokens = new Map<number, CachedToken>();
+
+type CachedRepoList = { repos: GithubRepoOption[]; expiresAt: number };
+const installationRepos = new Map<number, CachedRepoList>();
+const REPO_LIST_TTL_MS = 60_000;
+
 export async function createInstallationToken(
   installationId: number,
 ): Promise<string> {
-  const body = await githubFetch<{ token: string }>(
+  const hit = installationTokens.get(installationId);
+  if (hit && hit.expiresAt > Date.now() + 60_000) {
+    return hit.token;
+  }
+  const body = await githubFetch<{ token: string; expires_at?: string }>(
     `/app/installations/${installationId}/access_tokens`,
     { method: "POST", token: appJwt() },
   );
+  const expiresAt = body.expires_at
+    ? Date.parse(body.expires_at)
+    : Date.now() + 50 * 60 * 1000;
+  installationTokens.set(installationId, {
+    token: body.token,
+    expiresAt: Number.isFinite(expiresAt) ? expiresAt : Date.now() + 50 * 60 * 1000,
+  });
   return body.token;
 }
 
 export async function listInstallationRepos(
   installationId: number,
+  options?: { fresh?: boolean },
 ): Promise<GithubRepoOption[]> {
+  if (!options?.fresh) {
+    const hit = installationRepos.get(installationId);
+    if (hit && hit.expiresAt > Date.now()) {
+      return hit.repos;
+    }
+  }
   const token = await createInstallationToken(installationId);
   const repos: GithubRepoOption[] = [];
   let page = 1;
@@ -124,6 +274,7 @@ export async function listInstallationRepos(
         full_name: string;
         private: boolean;
         default_branch: string;
+        language?: string | null;
       }>;
     }>(`/installation/repositories?per_page=100&page=${page}`, { token });
     for (const repo of batch.repositories ?? []) {
@@ -132,11 +283,16 @@ export async function listInstallationRepos(
         fullName: repo.full_name,
         private: repo.private,
         defaultBranch: repo.default_branch,
+        language: repo.language ?? null,
       });
     }
     if ((batch.repositories?.length ?? 0) < 100) break;
     page += 1;
   }
+  installationRepos.set(installationId, {
+    repos,
+    expiresAt: Date.now() + REPO_LIST_TTL_MS,
+  });
   return repos;
 }
 

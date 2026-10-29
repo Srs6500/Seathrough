@@ -1,10 +1,16 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { access, mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import {
+  detectPackageManager,
+  devCommand,
+  findDevApp,
+  looksReady,
+} from "@/lib/bug-analyzer/detectDevApp";
 import { injectInspector } from "@/lib/bug-analyzer/inspectorInject";
 
 export type LocalRunStatus =
@@ -23,6 +29,8 @@ export type LocalRunState = {
   previewUrl: string | null;
   error: string | null;
   dir: string | null;
+  appRoot: string | null;
+  kind: string | null;
   logs: string[];
   updatedAt: string;
 };
@@ -54,6 +62,8 @@ function publicState(run: InternalRun): LocalRunState {
     previewUrl: run.previewUrl,
     error: run.error,
     dir: run.dir,
+    appRoot: run.appRoot ?? null,
+    kind: run.kind ?? null,
     logs: run.logs.slice(-60),
     updatedAt: run.updatedAt,
   };
@@ -63,8 +73,12 @@ function touch(run: InternalRun, patch: Partial<InternalRun>) {
   Object.assign(run, patch, { updatedAt: new Date().toISOString() });
 }
 
+function stripAnsi(text: string): string {
+  return text.replace(/\u001b\[[0-9;]*m/g, "");
+}
+
 function pushLog(run: InternalRun, line: string) {
-  for (const part of line.replace(/\r/g, "").split("\n")) {
+  for (const part of stripAnsi(line).replace(/\r/g, "").split("\n")) {
     const trimmed = part.trimEnd();
     if (!trimmed) continue;
     run.logs.push(trimmed);
@@ -134,68 +148,6 @@ async function downloadTarball(input: {
   );
 }
 
-async function detectPm(dir: string): Promise<{
-  install: { command: string; args: string[] };
-  dev: (port: number) => { command: string; args: string[] };
-}> {
-  const has = async (name: string) => {
-    try {
-      await access(path.join(dir, name));
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  if (await has("pnpm-lock.yaml")) {
-    return {
-      install: { command: "pnpm", args: ["install"] },
-      dev: (port) => ({
-        command: "pnpm",
-        args: [
-          "exec",
-          "next",
-          "dev",
-          "--port",
-          String(port),
-          "--hostname",
-          "127.0.0.1",
-        ],
-      }),
-    };
-  }
-  if (await has("yarn.lock")) {
-    return {
-      install: { command: "yarn", args: ["install"] },
-      dev: (port) => ({
-        command: "yarn",
-        args: [
-          "next",
-          "dev",
-          "--port",
-          String(port),
-          "--hostname",
-          "127.0.0.1",
-        ],
-      }),
-    };
-  }
-  return {
-    install: { command: "npm", args: ["install", "--no-fund", "--no-audit"] },
-    dev: (port) => ({
-      command: "npx",
-      args: [
-        "next",
-        "dev",
-        "--port",
-        String(port),
-        "--hostname",
-        "127.0.0.1",
-      ],
-    }),
-  };
-}
-
 function runCommand(
   command: string,
   args: string[],
@@ -244,11 +196,12 @@ export async function stopLocalRun(
   return publicState(run);
 }
 
-/** Download, install, and start `next dev` for a GitHub repo on localhost. */
+/** Download, install, and start the repo's frontend on localhost. */
 export async function startLocalRun(input: {
   fullName: string;
   token?: string;
   ref: string;
+  injectInspector?: boolean;
 }): Promise<LocalRunState> {
   if (!isLocalRunEnabled()) {
     throw new Error("Local run is disabled in this environment.");
@@ -278,6 +231,8 @@ export async function startLocalRun(input: {
     previewUrl: null,
     error: null,
     dir: null,
+    appRoot: null,
+    kind: null,
     logs: [],
     updatedAt: new Date().toISOString(),
     child: null,
@@ -310,41 +265,53 @@ export async function startLocalRun(input: {
         (chunk) => pushLog(run, chunk),
       );
 
-      try {
-        await access(path.join(work, "package.json"));
-      } catch {
-        throw new Error("No package.json in this repository — cannot run.");
-      }
-
-      try {
-        const injected = await injectInspector(work);
-        pushLog(run, injected);
-      } catch (error) {
-        pushLog(
-          run,
-          `Inspector inject skipped: ${
-            error instanceof Error ? error.message : "unknown error"
-          }`,
+      const app = await findDevApp(work);
+      if (!app) {
+        throw new Error(
+          "No Node frontend was found. Need a package.json with Next, Vite, or a dev script.",
         );
       }
+      touch(run, { appRoot: app.relativeRoot, kind: app.kind });
+      pushLog(
+        run,
+        `App at ${app.relativeRoot === "." ? "repo root" : app.relativeRoot} (${app.kind}).`,
+      );
 
-      const pm = await detectPm(work);
+      if (input.injectInspector !== false) {
+        try {
+          const injected = await injectInspector(app.appRoot);
+          pushLog(run, injected);
+        } catch (error) {
+          pushLog(
+            run,
+            `Inspector inject skipped: ${
+              error instanceof Error ? error.message : "unknown error"
+            }`,
+          );
+        }
+      }
+
+      const pm = await detectPackageManager(app.installRoot);
       touch(run, { status: "installing" });
-      pushLog(run, `Installing dependencies with ${pm.install.command}…`);
-      await runCommand(pm.install.command, pm.install.args, work, (chunk) =>
-        pushLog(run, chunk),
+      pushLog(run, `Installing dependencies with ${pm.name} in ${path.relative(work, app.installRoot) || "."}…`);
+      await runCommand(
+        pm.install.command,
+        pm.install.args,
+        app.installRoot,
+        (chunk) => pushLog(run, chunk),
       );
 
       const port = await freePort(3100);
-      const dev = pm.dev(port);
+      const dev = devCommand(app.kind, pm, port, app.script);
       touch(run, { status: "starting", port });
-      pushLog(run, `Starting dev server on http://127.0.0.1:${port}…`);
+      pushLog(run, `Starting ${app.kind} on http://127.0.0.1:${port}…`);
 
       const child = spawn(dev.command, dev.args, {
-        cwd: work,
+        cwd: app.appRoot,
         env: {
           ...process.env,
           PORT: String(port),
+          HOST: "127.0.0.1",
           HOSTNAME: "127.0.0.1",
           FORCE_COLOR: "0",
           BROWSER: "none",
@@ -368,12 +335,12 @@ export async function startLocalRun(input: {
       child.stdout.on("data", (buf: Buffer) => {
         const text = buf.toString("utf8");
         pushLog(run, text);
-        if (/ready|started server|local:/i.test(text)) markReady();
+        if (looksReady(text)) markReady();
       });
       child.stderr.on("data", (buf: Buffer) => {
         const text = buf.toString("utf8");
         pushLog(run, text);
-        if (/ready|started server|local:/i.test(text)) markReady();
+        if (looksReady(text)) markReady();
       });
       child.on("error", (error) => {
         touch(run, {

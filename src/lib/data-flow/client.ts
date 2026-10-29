@@ -36,7 +36,11 @@ export async function fetchGithubStatus(
 /** Open the GitHub App install flow in this window. */
 export function startGithubConnect(
   accessToken: string,
-  returnTo: "/data-flow" | "/bug-analyzer" = "/data-flow",
+  returnTo:
+    | "/data-flow"
+    | "/bug-analyzer"
+    | "/repo-scan"
+    | "/vibe-coder" = "/data-flow",
 ): void {
   const url = new URL("/api/data-flow/github/connect", window.location.origin);
   url.searchParams.set("token", accessToken);

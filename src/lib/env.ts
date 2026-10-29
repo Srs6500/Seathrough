@@ -268,7 +268,7 @@ function canLoadPrivateKey(pem: string): { ok: true } | { ok: false; error: stri
   }
 }
 
-/** GitHub App for /data-flow and /bug-analyzer Connect GitHub. Optional. */
+/** GitHub App for /data-flow, /bug-analyzer, and /repo-scan Connect GitHub. Optional. */
 export function getGithubAppConfig(): {
   appId: string;
   privateKey: string;

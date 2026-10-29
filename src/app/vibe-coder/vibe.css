@@ -1,0 +1,155 @@
+html.vibe-coder-page,
+html.vibe-coder-page body {
+  height: auto;
+  min-height: 100%;
+  background: #f3efe4;
+}
+
+html.vibe-coder-page:has(#vibe-root.vibe-onboard),
+html.vibe-coder-page:has(#vibe-root.vibe-onboard) body,
+#vibe-root.vibe-onboard {
+  background: #f6f6f7;
+  color: #111;
+}
+
+#vibe-root {
+  --vibe-paper: #f3efe4;
+  --vibe-wash: #e8e2d2;
+  --vibe-ink: #1b2116;
+  --vibe-muted: #5d6654;
+  --vibe-rule: #c9c2ae;
+  --vibe-leaf: #2f5d3a;
+  --vibe-leaf-soft: #d7e4d6;
+  --vibe-clay: #9c4a2a;
+  --vibe-clay-soft: #f0ddd4;
+  --vibe-gold: #8a6a28;
+  --vibe-gold-soft: #efe4c4;
+  isolation: isolate;
+  min-height: 100dvh;
+  background: var(--vibe-paper);
+  color: var(--vibe-ink);
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+}
+
+#vibe-root .vibe-display {
+  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+#vibe-root button,
+#vibe-root input,
+#vibe-root textarea {
+  font: inherit;
+}
+
+#vibe-root a {
+  color: inherit;
+}
+
+html.vibe-coder-page:has(#vibe-root.vibe-dashboard),
+html.vibe-coder-page:has(#vibe-root.vibe-dashboard) body {
+  height: 100%;
+  max-height: 100dvh;
+  overflow: hidden;
+  background: #f4f4f6;
+  color: #16161a;
+}
+
+#vibe-root.vibe-dashboard {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: #f4f4f6;
+  color: #16161a;
+}
+
+#vibe-root.vibe-dashboard .schema-inspector {
+  position: relative;
+  z-index: 20;
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  border-left: 1px solid #ececee;
+  background: #fff;
+  padding: 20px 20px 28px;
+}
+
+#vibe-root.vibe-dashboard .react-flow {
+  width: 100%;
+  height: 100%;
+}
+
+#vibe-root.vibe-dashboard .react-flow__attribution {
+  display: none;
+}
+
+#vibe-root.vibe-dashboard .backend-node {
+  width: 220px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #e5f3ff;
+  color: #004f99;
+  box-shadow: 0 1px 2px rgba(185, 185, 185, 0.45);
+}
+
+#vibe-root.vibe-dashboard .backend-node-action {
+  border-radius: 16px;
+}
+
+#vibe-root.vibe-dashboard .backend-node-decision {
+  border-radius: 18px;
+  background: #f5faff;
+  border-style: dashed;
+  border-color: #cedbe5;
+}
+
+#vibe-root.vibe-dashboard .backend-node-database {
+  border-radius: 50% / 22%;
+  background: #edf4ff;
+}
+
+#vibe-root.vibe-dashboard .backend-node-service {
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
+#vibe-root.vibe-dashboard .backend-node-kind {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+#vibe-root.vibe-dashboard .backend-node-label {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+#vibe-root.vibe-dashboard .backend-node.is-active {
+  border-color: #6d5efc;
+  box-shadow: 0 0 0 3px rgba(109, 94, 252, 0.22);
+}
+
+#vibe-root.vibe-dashboard .backend-node.is-done {
+  opacity: 0.72;
+}
+
+#vibe-root.vibe-dashboard .fe-live-frame {
+  background: #fff;
+}
+
+#vibe-root.vibe-dashboard .fe-live-log {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

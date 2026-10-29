@@ -78,9 +78,11 @@ export async function explainDebugError(
 export async function listBugAnalyzerRepos(
   accessToken: string,
   query: string,
+  options?: { fresh?: boolean },
 ): Promise<RepoWithStack[]> {
   const url = new URL("/api/bug-analyzer/repos", window.location.origin);
   if (query.trim()) url.searchParams.set("q", query.trim());
+  if (options?.fresh) url.searchParams.set("fresh", "1");
   const response = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
@@ -90,6 +92,30 @@ export async function listBugAnalyzerRepos(
       error?: string;
     } | null;
     throw new Error(body?.error || `Repo list failed (${response.status}).`);
+  }
+  const body = (await response.json()) as { repos: RepoWithStack[] };
+  return body.repos ?? [];
+}
+
+export async function enrichBugAnalyzerRepoStacks(
+  accessToken: string,
+  fullNames: string[],
+): Promise<RepoWithStack[]> {
+  if (fullNames.length === 0) return [];
+  const response = await fetch("/api/bug-analyzer/repos/stacks", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fullNames }),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(body?.error || `Stack label failed (${response.status}).`);
   }
   const body = (await response.json()) as { repos: RepoWithStack[] };
   return body.repos ?? [];

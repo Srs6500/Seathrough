@@ -36,6 +36,8 @@ type Props = {
   onNeedAuth: () => void;
   fullName: string;
   defaultBranch?: string;
+  /** Open a page or finding when the token changes. */
+  focusRequest?: { pagePath?: string; findingId?: string; token: number } | null;
 };
 
 type Level = "overview" | "page";
@@ -62,6 +64,7 @@ export function FrontendArchitecturePanel({
   onNeedAuth,
   fullName,
   defaultBranch,
+  focusRequest,
 }: Props) {
   const cached = getCachedFrontendArchScan(fullName, defaultBranch);
   const [busy, setBusy] = useState(false);
@@ -149,16 +152,18 @@ export function FrontendArchitecturePanel({
 
   const pageCards = useMemo(() => {
     if (!scan) return [];
-    return enrichNodes(
-      scan.nodes.filter((n) => n.kind === "page"),
-      scan.findings,
-      scan,
-    ).sort((a, b) => {
+    const pages = scan.nodes.filter((n) => n.kind === "page");
+    const source =
+      pages.length > 0
+        ? pages
+        : scan.nodes.filter((n) => n.kind === "api" || n.kind === "component");
+    return enrichNodes(source, scan.findings, scan).sort((a, b) => {
       const rank = { error: 0, warning: 1, healthy: 2 };
       const d = rank[a.health] - rank[b.health];
       return d !== 0 ? d : a.title.localeCompare(b.title);
     });
   }, [scan]);
+  const overviewIsPages = pageCards.some((card) => card.kind === "page");
 
   const findingsForSidebar = useMemo(() => {
     if (!scan) return [];
@@ -189,6 +194,35 @@ export function FrontendArchitecturePanel({
       setSelectedFindingId(hit?.id ?? null);
     }
   }
+
+  useEffect(() => {
+    if (!scan || !focusRequest?.token) return;
+    if (focusRequest.findingId) {
+      const finding = scan.findings.find((item) => item.id === focusRequest.findingId);
+      if (finding) {
+        setSelectedFindingId(finding.id);
+        setFocusNodeId(finding.nodeId ?? null);
+        const page = relatedPageForFinding(scan, finding);
+        if (page) {
+          setLevel("page");
+          setActivePageId(page.id);
+        }
+        return;
+      }
+    }
+    if (!focusRequest.pagePath) return;
+    const page = scan.nodes.find(
+      (node) =>
+        node.kind === "page" &&
+        (node.span.path === focusRequest.pagePath ||
+          focusRequest.pagePath?.endsWith(node.span.path) ||
+          node.span.path.endsWith(focusRequest.pagePath)),
+    );
+    if (!page) return;
+    setLevel("page");
+    setActivePageId(page.id);
+    setFocusNodeId(page.id);
+  }, [focusRequest?.token, focusRequest?.findingId, focusRequest?.pagePath, scan]);
 
   function openFinding(f: FrontendArchFinding) {
     setSelectedFindingId(f.id);
@@ -316,13 +350,30 @@ export function FrontendArchitecturePanel({
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                   <div className="shrink-0 px-4 pb-2 pt-3">
                     <p className="text-sm font-medium text-[#475569]">
-                      Pages in this app
+                      {overviewIsPages
+                        ? "Pages in this app"
+                        : pageCards.length
+                          ? "Routes in this app"
+                          : "Nothing to map yet"}
                     </p>
                     <p className="mt-0.5 text-sm text-[#94a3b8]">
-                      Open a page to see its components, APIs, and connections.
+                      {overviewIsPages
+                        ? "Open a page to see its components, APIs, and connections."
+                        : pageCards.length
+                          ? "Open a route to see handlers found in this stack."
+                          : scan.warnings[0] ||
+                            "No pages or API routes were indexed in the downloaded files."}
                     </p>
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+                    {pageCards.length === 0 ? (
+                      <div className="rounded-xl border border-[#e5eef4] bg-white px-4 py-8 text-center">
+                        <p className="text-sm leading-6 text-[#5a7388]">
+                          {scan.warnings.slice(0, 2).join(" ") ||
+                            "Detected stack is listed, but this view only maps Next.js, React, Express, FastAPI, and Go routes."}
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                       {pageCards.map((page) => (
                         <button

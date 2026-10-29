@@ -4,6 +4,7 @@ import {
   BookOpen,
   Box,
   Camera,
+  Clapperboard,
   Code2,
   Compass,
   HeartPulse,
@@ -12,6 +13,8 @@ import {
   Mic,
   Monitor,
   Bug,
+  ScanSearch,
+  Map,
   GitBranch,
   Network,
   PenLine,
@@ -90,6 +93,16 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     hint: "Scan frontend UI health or inspect backend bugs in a connected repo.",
     tone: "ink",
   },
+  "repo-scan": {
+    icon: ScanSearch,
+    hint: "Connect a GitHub repo and see its tree-sitter parse.",
+    tone: "ink",
+  },
+  "vibe-coder": {
+    icon: Map,
+    hint: "Connect a repo. Start with the database, then walk the rest of the app.",
+    tone: "teal",
+  },
   "scene-explain": {
     icon: Atom,
     hint: "Ask for osmosis, orbits, anything — a 3D scene builds and explains it.",
@@ -123,6 +136,11 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
   "explain-video": {
     icon: Film,
     hint: "Type a topic. Watch a short explainer film.",
+    tone: "ink",
+  },
+  "course-creator": {
+    icon: Clapperboard,
+    hint: "Describe a lesson. Get a shooting script with voice and picture.",
     tone: "ink",
   },
 };

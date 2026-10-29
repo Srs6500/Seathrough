@@ -1,4 +1,10 @@
 import {
+  fetchPriorityScore,
+  inferAppsFromPaths,
+  isManifestPath,
+  preferredRoots,
+} from "@/lib/data-flow/discoverApps";
+import {
   getPublicRawText,
   getRepoBlobText,
   getRepoMeta,
@@ -29,12 +35,7 @@ function shouldInclude(path: string, size: number | undefined): boolean {
   if (IGNORE_DIR.test(path)) return false;
   const base = path.split("/").pop() ?? path;
   if (IGNORE_FILE.test(base)) return false;
-  // Manifests needed for framework detection (Next/TS)
-  const isManifest =
-    base === "package.json" ||
-    base === "tsconfig.json" ||
-    base === "jsconfig.json";
-  if (!isManifest && !SOURCE_EXT.test(path)) return false;
+  if (!isManifestPath(path) && !SOURCE_EXT.test(path)) return false;
   if (typeof size === "number" && size > MAX_FILE_BYTES) return false;
   return true;
 }
@@ -98,25 +99,20 @@ export async function fetchRepoSourceFiles(input: {
   });
 
   const fileCap = Math.min(Math.max(input.maxFiles ?? MAX_FILES, 40), 400);
+  const blobPaths = tree.tree
+    .filter((entry) => entry.type === "blob" && entry.path)
+    .map((entry) => entry.path);
+  const roots = preferredRoots(inferAppsFromPaths(blobPaths));
   const candidates = tree.tree
     .filter(
       (entry) =>
         entry.type === "blob" && shouldInclude(entry.path, entry.size),
     )
     .sort((a, b) => {
-      // Prefer UI-ish paths first so cards stay useful when we hit the cap.
-      const score = (path: string) => {
-        let s = 0;
-        const base = path.split("/").pop() ?? path;
-        if (base === "package.json" || base === "tsconfig.json") s += 20;
-        if (/(^|\/)(src|app|pages|components|ui|views|screens|modules)\//i.test(path))
-          s += 3;
-        if (/\.(tsx|jsx|vue|svelte)$/i.test(path)) s += 2;
-        if (/(login|auth|search|form|nav|dashboard|checkout|profile)/i.test(path))
-          s += 2;
-        return s;
-      };
-      return score(b.path) - score(a.path) || a.path.localeCompare(b.path);
+      return (
+        fetchPriorityScore(b.path, roots) - fetchPriorityScore(a.path, roots) ||
+        a.path.localeCompare(b.path)
+      );
     })
     .slice(0, fileCap);
 

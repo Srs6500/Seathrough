@@ -1,3 +1,4 @@
+import { primaryFramework } from "@/lib/data-flow/indexRepo";
 import type { RepoIndex } from "@/lib/data-flow/types";
 import type { FlowEdge, FlowMapResult, FlowNode } from "@/lib/data-flow/types";
 
@@ -90,7 +91,7 @@ export function buildFlowFromQuestion(input: {
     return {
       fullName,
       ref,
-      framework: "nextjs-ts",
+      framework: primaryFramework(index),
       question,
       fileCount,
       truncated,
@@ -127,6 +128,10 @@ export function buildFlowFromQuestion(input: {
   if (selected.size === 0) {
     const page = index.symbols.find((s) => s.kind === "page");
     if (page) selected.add(page.id);
+    else {
+      const api = index.symbols.find((s) => s.kind === "api");
+      if (api) selected.add(api.id);
+    }
   }
 
   // Expand along edges (BFS, depth 3)
@@ -262,7 +267,7 @@ export function buildFlowFromQuestion(input: {
   const warnings = [...index.warnings];
   if (nodes.length === 0) {
     warnings.push(
-      "No matching Next.js pages, components, or API routes for that question.",
+      "No matching pages, components, or API routes for that question.",
     );
   }
   const guessCount = edges.filter((e) => e.certainty === "guess").length;
@@ -275,7 +280,7 @@ export function buildFlowFromQuestion(input: {
   return {
     fullName,
     ref,
-    framework: "nextjs-ts",
+    framework: primaryFramework(index),
     question,
     fileCount,
     truncated,

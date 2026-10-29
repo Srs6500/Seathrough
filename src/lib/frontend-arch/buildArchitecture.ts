@@ -1,4 +1,4 @@
-import { buildNextIndex } from "@/lib/data-flow/nextIndex";
+import { indexRepo, primaryFramework } from "@/lib/data-flow/indexRepo";
 import type { RepoSourceFile } from "@/lib/data-flow/repoFiles";
 import type { FlowEdge, FlowNode } from "@/lib/data-flow/types";
 import { findStaticFrontendProblems } from "@/lib/frontend-arch/staticProblems";
@@ -21,7 +21,7 @@ export function buildFrontendArchitecture(input: {
   truncated: boolean;
 }): FrontendArchScanResult {
   const { files, fullName, ref, truncated } = input;
-  const index = buildNextIndex(files);
+  const index = indexRepo(files);
 
   const checks = FRONTEND_ARCH_CHECKS.map((c) => ({
     id: c.id,
@@ -34,7 +34,7 @@ export function buildFrontendArchitecture(input: {
     return {
       fullName,
       ref,
-      framework: "nextjs-ts",
+      framework: primaryFramework(index),
       fileCount: files.length,
       truncated,
       incomplete: true,
@@ -57,6 +57,7 @@ export function buildFrontendArchitecture(input: {
 
   const symbolById = new Map(index.symbols.map((s) => [s.id, s]));
   const pages = index.symbols.filter((s) => s.kind === "page");
+  const apis = index.symbols.filter((s) => s.kind === "api");
 
   // Outgoing adjacency (directed) — for page → child expansion
   const out = new Map<string, string[]>();
@@ -68,6 +69,13 @@ export function buildFrontendArchitecture(input: {
   const keep = new Set<string>();
   for (const page of pages) {
     keep.add(page.id);
+  }
+  if (pages.length === 0) {
+    for (const api of apis.slice(0, 40)) keep.add(api.id);
+    for (const s of index.symbols) {
+      if (keep.size >= MAX_TOTAL_NODES) break;
+      if (s.kind === "component") keep.add(s.id);
+    }
   }
 
   // Fair share: each page gets its own neighborhood so large repos stay navigable
@@ -161,7 +169,7 @@ export function buildFrontendArchitecture(input: {
   return {
     fullName,
     ref,
-    framework: "nextjs-ts",
+    framework: primaryFramework(index),
     fileCount: files.length,
     truncated,
     incomplete: truncated,

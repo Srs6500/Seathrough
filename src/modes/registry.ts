@@ -1,9 +1,12 @@
 import { automaticDrawingMode } from "@/modules/automatic-drawing/mode";
 import { browserExperienceMode } from "@/modules/browser-experience/mode";
+import { courseCreatorMode } from "@/modules/course-creator/mode";
 import { explainVideoMode } from "@/modules/explain-video/mode";
 import { aiTutorMode } from "@/modules/ai-tutor/mode";
 import { aiTutorV2Mode } from "@/modules/ai-tutor-v2/mode";
 import { bugAnalyzerMode } from "@/modules/bug-analyzer/mode";
+import { repoScanMode } from "@/modules/repo-scan/mode";
+import { vibeCoderMode } from "@/modules/vibe-coder/mode";
 import { dataFlowMode } from "@/modules/data-flow/mode";
 import { dashboardMode } from "@/modules/dashboard/mode";
 import { drawEngineMode } from "@/modules/draw-engine/mode";
@@ -34,6 +37,8 @@ const ALL_MODES: ModeDefinition[] = [
   systemDesignMode,
   dataFlowMode,
   bugAnalyzerMode,
+  repoScanMode,
+  vibeCoderMode,
   sceneExplainMode,
   screenshotExplainMode,
   leetcodeMode,
@@ -41,6 +46,7 @@ const ALL_MODES: ModeDefinition[] = [
   automaticDrawingMode,
   drawEngineMode,
   explainVideoMode,
+  courseCreatorMode,
 ];
 
 function byOrder(a: ModeDefinition, b: ModeDefinition) {

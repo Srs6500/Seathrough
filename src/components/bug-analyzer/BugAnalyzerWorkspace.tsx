@@ -15,11 +15,16 @@ import {
   type DataIndexViewMode,
 } from "@/components/bug-analyzer/DataIndexView";
 import { FrontendArchitecturePanel } from "@/components/bug-analyzer/FrontendArchitecturePanel";
+import {
+  XRayPanel,
+  type XRayExploreTarget,
+} from "@/components/bug-analyzer/XRayPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import {
   buildRepoDataIndex,
+  enrichBugAnalyzerRepoStacks,
   listBugAnalyzerRepos,
   type DataIndex,
   type RepoWithStack,
@@ -32,13 +37,22 @@ import {
 
 const REPOS_PER_PAGE = 10;
 
-type DebuggerTab = "frontend" | "backend";
+type DebuggerTab = "features" | "frontend" | "backend";
 
 export function BugAnalyzerWorkspace() {
   const { accessToken, loading: authLoading } = useAuth();
-  const { openAuth } = useQuestionAccess();
+  const { openAuth, beginQuestion, cancelQuestion } = useQuestionAccess();
   const [status, setStatus] = useState<GithubConnectionStatus | null>(null);
-  const [debuggerTab, setDebuggerTab] = useState<DebuggerTab>("frontend");
+  const [debuggerTab, setDebuggerTab] = useState<DebuggerTab>("features");
+  const [backendFocus, setBackendFocus] = useState<{
+    findingId: string;
+    token: number;
+  } | null>(null);
+  const [frontendFocus, setFrontendFocus] = useState<{
+    pagePath?: string;
+    findingId?: string;
+    token: number;
+  } | null>(null);
   const [backendMode, setBackendMode] =
     useState<DataIndexViewMode>("analyzer");
   const [busy, setBusy] = useState(false);
@@ -93,7 +107,9 @@ export function BugAnalyzerWorkspace() {
     let cancelled = false;
     setLoadingRepos(true);
     setListError(null);
-    void listBugAnalyzerRepos(accessToken, "")
+    void listBugAnalyzerRepos(accessToken, "", {
+      fresh: reposEpoch > 0,
+    })
       .then((next) => {
         if (!cancelled) setRepos(next);
       })
@@ -148,6 +164,40 @@ export function BugAnalyzerWorkspace() {
   useEffect(() => {
     setRepoPage(0);
   }, [query, repoFilter]);
+
+  const pageKey = pagedRepos.map((repo) => repo.id).join(",");
+
+  useEffect(() => {
+    if (!accessToken || pagedRepos.length === 0) return;
+    const names = pagedRepos.map((repo) => repo.fullName);
+    let cancelled = false;
+    void enrichBugAnalyzerRepoStacks(accessToken, names)
+      .then((labeled) => {
+        if (cancelled || labeled.length === 0) return;
+        const byId = new Map(labeled.map((repo) => [repo.id, repo]));
+        setRepos((current) =>
+          current.map((repo) => {
+            const next = byId.get(repo.id);
+            if (!next) return repo;
+            if (
+              next.stackLabel === repo.stackLabel &&
+              next.badge === repo.badge
+            ) {
+              return repo;
+            }
+            return { ...repo, stackLabel: next.stackLabel, badge: next.badge };
+          }),
+        );
+      })
+      .catch(() => {
+        // Keep language labels if the cheap stack pass fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // pageKey is the visible set; labels update in place without retriggering.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, pageKey]);
 
   function onConnect() {
     if (authLoading) return;
@@ -204,6 +254,27 @@ export function BugAnalyzerWorkspace() {
     setDataIndex(null);
     setDataError(null);
     setDataLoading(false);
+    setBackendFocus(null);
+    setFrontendFocus(null);
+    setDebuggerTab("features");
+  }
+
+  function exploreFeature(target: XRayExploreTarget) {
+    const token = Date.now();
+    if (target.tab === "frontend") {
+      setFrontendFocus({
+        pagePath: target.pagePath,
+        findingId: target.findingId,
+        token,
+      });
+      setDebuggerTab("frontend");
+      return;
+    }
+    if (target.findingId) {
+      setBackendFocus({ findingId: target.findingId, token });
+    }
+    setBackendMode("analyzer");
+    setDebuggerTab("backend");
   }
 
   if (!connected) {
@@ -277,29 +348,39 @@ export function BugAnalyzerWorkspace() {
               role="group"
               aria-label="Debugger view"
             >
-              <button
-                type="button"
-                onClick={() => setDebuggerTab("frontend")}
-                className={
-                  debuggerTab === "frontend"
-                    ? "rounded-md bg-[#17324a] px-3 py-1.5 text-sm font-medium text-white"
-                    : "rounded-md px-3 py-1.5 text-sm font-medium text-[#5a7388]"
-                }
-              >
-                Frontend
-              </button>
-              <button
-                type="button"
-                onClick={() => setDebuggerTab("backend")}
-                className={
-                  debuggerTab === "backend"
-                    ? "rounded-md bg-[#17324a] px-3 py-1.5 text-sm font-medium text-white"
-                    : "rounded-md px-3 py-1.5 text-sm font-medium text-[#5a7388]"
-                }
-              >
-                Backend
-              </button>
+              {(
+                [
+                  ["features", "Features"],
+                  ["frontend", "Frontend"],
+                  ["backend", "Backend"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setDebuggerTab(id)}
+                  className={
+                    debuggerTab === id
+                      ? "rounded-md bg-[#17324a] px-3 py-1.5 text-sm font-medium text-white"
+                      : "rounded-md px-3 py-1.5 text-sm font-medium text-[#5a7388]"
+                  }
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {debuggerTab === "features" ? (
+              <p className="min-w-0 truncate text-sm text-[#7a93a8]">
+                {dataLoading && !dataIndex
+                  ? "Scanning entire repository…"
+                  : dataIndex?.status === "partial"
+                    ? "Partial inventory"
+                    : dataIndex?.features?.length
+                      ? `${dataIndex.features.length} features`
+                      : "Feature cards"}
+              </p>
+            ) : null}
 
             {debuggerTab === "backend" ? (
               <>
@@ -353,7 +434,7 @@ export function BugAnalyzerWorkspace() {
 
             <div className="min-w-0 flex-1" />
 
-            {debuggerTab === "backend" ? (
+            {debuggerTab === "backend" || debuggerTab === "features" ? (
               <button
                 type="button"
                 onClick={() => selected && void buildData(selected)}
@@ -371,7 +452,28 @@ export function BugAnalyzerWorkspace() {
           </div>
         </header>
 
-        {/* Keep panels mounted so Frontend ↔ Backend does not remount/rescan */}
+        {/* Keep panels mounted so switching tabs does not remount or rescan */}
+        <div
+          className={
+            debuggerTab === "features"
+              ? "flex min-h-0 flex-1 flex-col"
+              : "hidden"
+          }
+        >
+          <XRayPanel
+            accessToken={accessToken}
+            onNeedAuth={() => openAuth("login")}
+            beginQuestion={beginQuestion}
+            cancelQuestion={cancelQuestion}
+            index={dataIndex}
+            loading={dataLoading}
+            error={dataError}
+            fullName={selected.fullName}
+            defaultBranch={selected.defaultBranch}
+            onRebuild={() => void buildData(selected)}
+            onExplore={exploreFeature}
+          />
+        </div>
         <div
           className={
             debuggerTab === "frontend"
@@ -384,6 +486,7 @@ export function BugAnalyzerWorkspace() {
             onNeedAuth={() => openAuth("login")}
             fullName={selected.fullName}
             defaultBranch={selected.defaultBranch}
+            focusRequest={frontendFocus}
           />
         </div>
         <div
@@ -402,6 +505,7 @@ export function BugAnalyzerWorkspace() {
             embedded
             mode={backendMode}
             onModeChange={setBackendMode}
+            focusRequest={backendFocus}
           />
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { nearestPackageRoot } from "@/lib/data-flow/discoverApps";
 import type { RepoSourceFile } from "@/lib/data-flow/repoFiles";
 import type {
   IndexedEdge,
@@ -88,41 +89,41 @@ function detectFramework(files: RepoSourceFile[]): {
   warnings: string[];
 } {
   const warnings: string[] = [];
-  const pkg = files.find((f) => f.path === "package.json" || f.path.endsWith("/package.json"));
+  const pkgs = files.filter(
+    (f) => f.path === "package.json" || f.path.endsWith("/package.json"),
+  );
   let hasNext = false;
   let hasTs = false;
-  if (pkg) {
+  for (const pkg of pkgs) {
     try {
       const json = JSON.parse(pkg.content) as {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       };
       const deps = { ...json.dependencies, ...json.devDependencies };
-      hasNext = Boolean(deps.next);
-      hasTs = Boolean(
-        deps.typescript ||
-          files.some((f) => f.path.endsWith("tsconfig.json")),
-      );
+      if (deps.next) hasNext = true;
+      if (deps.typescript) hasTs = true;
     } catch {
-      warnings.push("Could not parse package.json.");
+      warnings.push(`Could not parse ${pkg.path}.`);
     }
+  }
+  if (!hasTs) {
+    hasTs = files.some((f) => f.path.endsWith("tsconfig.json"));
   }
   const hasApp =
     files.some((f) => /(^|\/)app\/.*page\.(tsx|jsx|ts|js)$/.test(f.path)) ||
+    files.some((f) => /(^|\/)app\/page\.(tsx|jsx|ts|js)$/.test(f.path)) ||
     files.some((f) => /(^|\/)pages\/.+\.(tsx|jsx)$/.test(f.path));
   if (!hasNext && !hasApp) {
-    return {
-      ok: false,
-      warnings: [
-        "This looks unlike a Next.js app (no next dependency or app/pages routes). Only TypeScript + Next.js is supported for now.",
-      ],
-    };
+    return { ok: false, warnings: [] };
   }
   if (!hasTs && !files.some((f) => /\.tsx?$/.test(f.path))) {
     warnings.push("Little TypeScript found; results may be incomplete.");
   }
   if (!hasNext && hasApp) {
-    warnings.push("Treating as Next.js from app/pages layout (next not seen in scanned package.json).");
+    warnings.push(
+      "Treating as Next.js from app/pages layout (next not seen in scanned package.json).",
+    );
   }
   return { ok: true, warnings };
 }
@@ -184,9 +185,18 @@ export function resolveImportPath(
   }
   let abs: string;
   if (spec.startsWith("@/")) {
-    // Prefer src/ then root
     const rest = spec.slice(2);
-    const candidates = [`src/${rest}`, rest, `app/${rest}`];
+    const pkgRoot = nearestPackageRoot(fromPath, pathSet);
+    const prefixed = (rel: string) =>
+      pkgRoot ? `${pkgRoot}/${rel}` : rel;
+    const candidates = [
+      prefixed(`src/${rest}`),
+      prefixed(rest),
+      prefixed(`app/${rest}`),
+      `src/${rest}`,
+      rest,
+      `app/${rest}`,
+    ];
     abs = candidates[0]!;
     for (const c of candidates) {
       const hit = matchFile(c, pathSet);
@@ -509,5 +519,6 @@ export function buildNextIndex(files: RepoSourceFile[]): RepoIndex {
     warnings: framework.warnings,
     symbols,
     edges,
+    frameworks: ["nextjs"],
   };
 }

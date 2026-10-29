@@ -1,0 +1,14 @@
+# Repo-Scan parser (backend/tree-sitter.py)
+#   python3 -m pip install -r backend/requirements-tree-sitter.txt
+tree-sitter>=0.23.0
+tree-sitter-javascript>=0.23.0
+tree-sitter-typescript>=0.23.0
+tree-sitter-python>=0.23.0
+tree-sitter-go>=0.23.0
+tree-sitter-java>=0.23.0
+tree-sitter-html>=0.23.0
+tree-sitter-css>=0.23.0
+tree-sitter-php>=0.23.0
+tree-sitter-ruby>=0.23.0
+tree-sitter-rust>=0.23.0
+networkx>=3.2

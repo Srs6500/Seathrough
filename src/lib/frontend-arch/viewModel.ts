@@ -16,7 +16,7 @@ function shortPath(path: string): string {
   return path
     .replace(/^src\//, "")
     .replace(/\/page\.(tsx|jsx|ts|js)$/, "")
-    .replace(/\.(tsx|jsx|ts|js)$/, "");
+    .replace(/\.(tsx|jsx|ts|js|py|go)$/, "");
 }
 
 export function healthByNodeId(

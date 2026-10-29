@@ -1,0 +1,7 @@
+{
+  "name": "express-app-fixture",
+  "private": true,
+  "dependencies": {
+    "express": "4.21.0"
+  }
+}

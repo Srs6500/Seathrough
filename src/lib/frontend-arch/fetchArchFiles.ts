@@ -1,4 +1,10 @@
 import {
+  fetchPriorityScore,
+  inferAppsFromPaths,
+  isManifestPath,
+  preferredRoots,
+} from "@/lib/data-flow/discoverApps";
+import {
   getPublicRawText,
   getRepoBlobText,
   getRepoMeta,
@@ -9,7 +15,7 @@ import { resolveImportPath } from "@/lib/data-flow/nextIndex";
 import type { RepoSourceFile } from "@/lib/data-flow/repoFiles";
 
 const SOURCE_EXT =
-  /\.(tsx?|jsx?|mjs|cjs|vue|svelte)$/i;
+  /\.(tsx?|jsx?|mjs|cjs|vue|svelte|py|go)$/i;
 
 const IGNORE_DIR =
   /(^|\/)(node_modules|\.git|\.next|dist|build|out|coverage|\.turbo|\.vercel|vendor|__pycache__|\.cache)(\/|$)/i;
@@ -27,38 +33,28 @@ function shouldInclude(path: string, size: number | undefined): boolean {
   if (IGNORE_DIR.test(path)) return false;
   const base = path.split("/").pop() ?? path;
   if (IGNORE_FILE.test(base)) return false;
-  const isManifest =
-    base === "package.json" ||
-    base === "tsconfig.json" ||
-    base === "jsconfig.json";
-  if (!isManifest && !SOURCE_EXT.test(path)) return false;
+  if (!isManifestPath(path) && !SOURCE_EXT.test(path)) return false;
   if (typeof size === "number" && size > MAX_FILE_BYTES) return false;
   return true;
 }
 
 function isSeedPath(path: string): boolean {
   const base = path.split("/").pop() ?? path;
-  if (base === "package.json" || base === "tsconfig.json") return true;
+  if (isManifestPath(path)) return true;
+  if (/(^|\/)vite\.config\.(ts|js|mts|mjs)$/.test(path)) return true;
   if (/(^|\/)app\/.*\/page\.(tsx|jsx|ts|js)$/.test(path)) return true;
   if (/(^|\/)app\/page\.(tsx|jsx|ts|js)$/.test(path)) return true;
   if (/(^|\/)pages\/(?!api\/).+\.(tsx|jsx)$/.test(path)) return true;
   if (/(^|\/)app\/.*\/route\.(ts|js)$/.test(path)) return true;
   if (/(^|\/)modules\/[^/]+\/(index|mode)\.(ts|tsx)$/.test(path)) return true;
   if (/(^|\/)components\/.+\.(tsx|jsx)$/.test(path)) return true;
+  if (/(^|\/)src\/App\.(tsx|jsx)$/.test(path)) return true;
+  if (/(^|\/)(main|app|server)\.py$/.test(path)) return true;
+  if (/(^|\/)(routers|api|handlers)\//.test(path) && /\.(py|go)$/.test(path)) {
+    return true;
+  }
+  if (/(^|\/)cmd\/.+\/main\.go$/.test(path) || base === "main.go") return true;
   return false;
-}
-
-function seedScore(path: string): number {
-  let s = 0;
-  const base = path.split("/").pop() ?? path;
-  if (base === "package.json") s += 50;
-  if (base === "tsconfig.json") s += 40;
-  if (/\/page\.(tsx|jsx)$/.test(path)) s += 30;
-  if (/\/route\.(ts|js)$/.test(path)) s += 20;
-  if (/(^|\/)modules\//.test(path)) s += 18;
-  if (/(^|\/)components\//.test(path)) s += 12;
-  if (/\.(tsx|jsx)$/.test(path)) s += 4;
-  return s;
 }
 
 function extractImportSpecs(content: string): string[] {
@@ -147,13 +143,19 @@ export async function fetchFrontendArchSourceFiles(input: {
 
   const pathSet = new Set(blobs.map((b) => b.path));
   const byPath = new Map(blobs.map((b) => [b.path, b]));
+  const roots = preferredRoots(inferAppsFromPaths([...pathSet]));
 
   const seedPaths = [
     ...blobs.filter((b) => isSeedPath(b.path)).map((b) => b.path),
     // Always pad with highest-scoring remaining paths so libs get a start
     ...blobs
       .slice()
-      .sort((a, b) => seedScore(b.path) - seedScore(a.path))
+      .sort(
+        (a, b) =>
+          fetchPriorityScore(b.path, roots) -
+            fetchPriorityScore(a.path, roots) ||
+          a.path.localeCompare(b.path),
+      )
       .map((b) => b.path),
   ];
   const uniqueSeed: string[] = [];

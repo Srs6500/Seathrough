@@ -35,10 +35,18 @@ export type FlowEdge = {
   reason: string;
 };
 
+export type IndexedFramework =
+  | "nextjs-ts"
+  | "react"
+  | "express"
+  | "fastapi"
+  | "go"
+  | "unknown";
+
 export type FlowMapResult = {
   fullName: string;
   ref: string;
-  framework: "nextjs-ts";
+  framework: IndexedFramework;
   question: string;
   fileCount: number;
   truncated: boolean;
@@ -76,4 +84,5 @@ export type RepoIndex = {
   warnings: string[];
   symbols: IndexedSymbol[];
   edges: IndexedEdge[];
+  frameworks?: string[];
 };

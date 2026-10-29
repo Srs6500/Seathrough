@@ -12,6 +12,8 @@ type SiteFooterProps = {
 const CODE_LINKS = [
   { label: "System design", href: "/system-design" },
   { label: "Debugger", href: "/bug-analyzer" },
+  { label: "Repo-Scan", href: "/repo-scan" },
+  { label: "Vibe coder", href: "/vibe-coder" },
 ] as const;
 
 const EDUCATION_LINKS = [
@@ -19,6 +21,7 @@ const EDUCATION_LINKS = [
   { label: "Physics", href: "/smart-tutor/physics-tutor" },
   { label: "Browser", href: "/browser" },
   { label: "Video", href: "/video" },
+  { label: "Course creator", href: "/course-creator" },
 ] as const;
 
 function SocialIcon({

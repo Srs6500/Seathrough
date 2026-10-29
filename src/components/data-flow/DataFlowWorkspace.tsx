@@ -172,8 +172,9 @@ export function DataFlowWorkspace() {
                   Data flow
                 </h1>
                 <p className="mt-1 text-sm text-[#5a7388]">
-                  TypeScript + Next.js repos for now. We read the code (no
-                  install/run) and map pages → components → API → database.
+                  Nested Next.js apps, plus React, Express, FastAPI, and Go
+                  routes. We read the code (no install/run) and map pages →
+                  components → API → database.
                 </p>
               </div>
 

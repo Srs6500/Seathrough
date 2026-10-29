@@ -21,9 +21,12 @@ export type ModeId =
   | "browser-experience"
   | "data-flow"
   | "bug-analyzer"
+  | "repo-scan"
+  | "vibe-coder"
   | "automatic-drawing"
   | "draw-engine"
-  | "explain-video";
+  | "explain-video"
+  | "course-creator";
 
 export type ModeKind = "learning" | "tool";
 

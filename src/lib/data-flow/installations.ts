@@ -60,11 +60,16 @@ export async function userHasGithubConnection(userId: string): Promise<boolean> 
 
 export async function listReposForUser(
   userId: string,
+  options?: { fresh?: boolean },
 ): Promise<GithubRepoOption[]> {
   const installs = await listInstallationsForUser(userId);
+  const batches = await Promise.all(
+    installs.map((install) =>
+      listInstallationRepos(install.installationId, options),
+    ),
+  );
   const byId = new Map<number, GithubRepoOption>();
-  for (const install of installs) {
-    const repos = await listInstallationRepos(install.installationId);
+  for (const repos of batches) {
     for (const repo of repos) byId.set(repo.id, repo);
   }
   return [...byId.values()].sort((a, b) =>
@@ -89,7 +94,12 @@ export async function searchReposForUser(
     .slice(0, limit);
 }
 
-const ALLOWED_RETURN_TO = new Set(["/data-flow", "/bug-analyzer"]);
+const ALLOWED_RETURN_TO = new Set([
+  "/data-flow",
+  "/bug-analyzer",
+  "/repo-scan",
+  "/vibe-coder",
+]);
 
 export function sanitizeReturnTo(raw: string | null | undefined): string {
   if (!raw) return "/data-flow";

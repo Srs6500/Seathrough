@@ -36,6 +36,25 @@ assert.ok(analysis.functions.some((f) => f.name === "POST" || f.name === "Checko
 assert.ok(analysis.files.some((f) => f.path.includes("route.ts")));
 assert.ok(analysis.pages.some((p) => p.route.includes("checkout")));
 
+const nested = analyzeNextRepo({
+  fullName: "acme/nested",
+  ref: "main",
+  files: loadFixture(join(process.cwd(), "fixtures/data-flow/nested-next")),
+  truncated: false,
+});
+assert.equal(nested.frameworkOk, true);
+assert.ok(nested.pages.some((p) => p.route.includes("checkout")));
+assert.ok(nested.apiRoutes.some((r) => r.route.includes("orders")));
+
+const fastapi = analyzeNextRepo({
+  fullName: "acme/fastapi",
+  ref: "main",
+  files: loadFixture(join(process.cwd(), "fixtures/data-flow/fastapi-app")),
+  truncated: false,
+});
+assert.equal(fastapi.framework, "fastapi");
+assert.ok(fastapi.apiRoutes.some((r) => r.route === "/health"));
+
 console.log("smoke-bug-analyzer: ok", {
   apiRoutes: analysis.apiRoutes.map((r) => r.route),
   functions: analysis.functions.map((f) => f.name),
