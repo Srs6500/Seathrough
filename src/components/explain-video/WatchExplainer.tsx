@@ -26,7 +26,7 @@ export function WatchExplainer({ video }: { video: SavedLessonVideo }) {
           </span>
         </div>
         <Button asChild type="button" variant="outline" size="sm" className={INSPECT_CHIP}>
-          <Link href="/video">Make your own</Link>
+          <Link href="/smart-tutor">Try Smart tutor</Link>
         </Button>
       </header>
 

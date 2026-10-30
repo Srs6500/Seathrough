@@ -87,12 +87,6 @@ const EXPLANATION_FEATURES = [
     hint: "Talk through a topic. Diagrams and physics figures appear when they help.",
   },
   {
-    label: "Video explainer",
-    href: "/video",
-    icon: "/video.png",
-    hint: "Type an idea. Get a visual explanation worth sharing.",
-  },
-  {
     label: "System design",
     href: "/system-design",
     icon: "/systemd.png",

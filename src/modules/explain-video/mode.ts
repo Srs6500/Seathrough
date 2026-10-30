@@ -1,6 +1,6 @@
 import type { ModeDefinition } from "@/modes/types";
 
-/** Prompt in, a canvas-rendered explanation film out. */
+/** Prompt in, a canvas-rendered explanation film out. Retired: /video redirects to Smart tutor. */
 export const explainVideoMode: ModeDefinition = {
   id: "explain-video",
   href: "/video",
@@ -10,7 +10,7 @@ export const explainVideoMode: ModeDefinition = {
   kind: "learning",
   group: "studio",
   order: 1.25,
-  enabled: true,
+  enabled: false,
   badge: "new",
   usesWhiteboard: false,
   metaTitle: "Video explainer | SeeThrough",

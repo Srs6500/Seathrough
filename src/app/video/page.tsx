@@ -1,12 +1,6 @@
-import type { Metadata } from "next";
-import { ExplainVideo } from "@/components/explain-video/ExplainVideo";
-import { explainVideoMode } from "@/modules/explain-video/mode";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: explainVideoMode.metaTitle,
-  description: explainVideoMode.metaDescription,
-};
-
+/** Video explainer is retired; lesson videos live in Smart tutor. Keep old URLs from landing on a dead product. */
 export default function VideoPage() {
-  return <ExplainVideo />;
+  redirect("/smart-tutor");
 }

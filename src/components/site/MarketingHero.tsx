@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Pause, Play } from "lucide-react";
+import { useStudioAccess } from "@/components/site/StudioAccess";
 import { useTheme } from "@/components/site/ThemeProvider";
 import { cn } from "@/lib/utils";
 
@@ -11,20 +12,23 @@ const HERO_VIDEOS = [
   {
     src: "/system-design-demo.mp4",
     label: "System design",
-    title: "Maps the architecture",
-    description: "Ask for a system and watch the design stay on one board.",
+    title: "Draws the architecture",
+    description:
+      "Ask for a system. Every diagram stays on one board, down to what happens when it fails.",
   },
   {
     src: "/magnetic-pole-basics.mp4",
-    label: "Video explainer",
-    title: "Renders the concept",
-    description: "Type an idea. Get a visual explanation worth sharing.",
+    label: "Lesson video",
+    title: "Turns a lesson into a film",
+    description:
+      "Choose video in Smart tutor and the lesson comes back as a short narrated clip.",
   },
   {
     src: "/demovid.mp4",
     label: "AI tutor",
     title: "Draws while it teaches",
-    description: "The tutor talks, sketches the idea, then checks you got it.",
+    description:
+      "It talks you through the idea, sketches as it goes, then checks you got it.",
   },
 ] as const;
 
@@ -56,7 +60,10 @@ function DemoCard({
       setPaused(true);
       return;
     }
-    void video.play().then(() => setPaused(false)).catch(() => undefined);
+    void video
+      .play()
+      .then(() => setPaused(false))
+      .catch(() => undefined);
   }, [active]);
 
   function togglePlayback() {
@@ -75,9 +82,7 @@ function DemoCard({
     <div
       className={cn(
         "w-full overflow-hidden rounded-lg border",
-        dark
-          ? "border-[#2a2a2e] bg-[#111113]"
-          : "border-[#ececee] bg-white",
+        dark ? "border-[#2a2a2e] bg-[#111113]" : "border-[#ececee] bg-white",
       )}
     >
       <div
@@ -318,32 +323,50 @@ function HeroDemoSlideshow({ dark }: { dark: boolean }) {
 }
 
 export function MarketingHero() {
+  const { openStudio } = useStudioAccess();
   const { theme } = useTheme();
   const dark = theme === "dark";
 
   return (
     <section className="relative flex flex-1 flex-col overflow-hidden">
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 pt-16 pb-14 md:px-10 md:pt-20 md:pb-20 lg:px-12">
-        <div className="max-w-4xl text-left">
-          <h1
-            className={cn(
-              "marketing-rise marketing-rise-1 text-[2.5rem] leading-[1.08] font-medium tracking-[-0.03em] sm:text-[3.25rem] md:text-[3.75rem]",
-              dark ? "text-white" : "text-[#16161a]",
-            )}
-          >
-            Visualize everything
-          </h1>
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
+          <div className="max-w-4xl text-left">
+            <h1
+              className={cn(
+                "marketing-rise marketing-rise-1 text-[2.5rem] leading-[1.08] font-medium tracking-[-0.03em] sm:text-[3.25rem] md:text-[3.75rem]",
+                dark ? "text-white" : "text-[#16161a]",
+              )}
+            >
+              See how anything works
+            </h1>
 
-          <p
-            className={cn(
-              "marketing-rise marketing-rise-2 mt-5 max-w-xl text-[16px] leading-relaxed sm:text-[17px]",
-              dark ? "text-[#a1a1aa]" : "text-[#3f3f46]",
-            )}
-          >
-            AI tutor walks you through ideas on a live board. System design maps
-            architecture as you ask. Vibe coder turns a repo into clickable
-            diagrams you can follow.
-          </p>
+            <p
+              className={cn(
+                "marketing-rise marketing-rise-2 mt-5 max-w-xl text-[16px] leading-relaxed sm:text-[17px]",
+                dark ? "text-[#a1a1aa]" : "text-[#3f3f46]",
+              )}
+            >
+              Ask about a topic, a system, or your own code. SeeThrough answers
+              by drawing it: a lesson on a whiteboard, an architecture on one
+              board, or a map of your repo you can click through.
+            </p>
+          </div>
+
+          <div className="marketing-rise marketing-rise-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => openStudio("/smart-tutor")}
+              className={cn(
+                "inline-flex h-10 items-center rounded-lg px-4 text-[14px] font-medium outline-none transition",
+                dark
+                  ? "bg-white text-[#111] hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white/40"
+                  : "bg-[#16161a] text-white hover:bg-[#2a2a2e] focus-visible:ring-2 focus-visible:ring-[#5b4fd4]/40",
+              )}
+            >
+              Smart Tutor
+            </button>
+          </div>
         </div>
 
         <div className="marketing-rise marketing-rise-3 mt-14 w-full sm:mt-16">

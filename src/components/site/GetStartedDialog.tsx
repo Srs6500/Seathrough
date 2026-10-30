@@ -19,12 +19,6 @@ const START_OPTIONS = [
     icon: "/teacher.png",
   },
   {
-    href: "/video",
-    label: "Video explainer",
-    hint: "Type an idea. Get a visual explanation worth sharing.",
-    icon: "/video.png",
-  },
-  {
     href: "/system-design",
     label: "System design",
     hint: "Architecture drawn on one board as you ask.",

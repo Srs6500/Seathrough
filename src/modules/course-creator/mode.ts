@@ -1,9 +1,9 @@
 import type { ModeDefinition } from "@/modes/types";
 
-/** Course creator — folded into Video explainer. */
+/** Course creator — retired. */
 export const courseCreatorMode: ModeDefinition = {
   id: "course-creator",
-  href: "/video",
+  href: "/smart-tutor",
   navLabel: "Course creator",
   title: "Course creator",
   description:

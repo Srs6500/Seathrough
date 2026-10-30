@@ -11,7 +11,6 @@ type SiteFooterProps = {
 
 const EXPLANATION_LINKS = [
   { label: "Smart tutor", href: "/smart-tutor" },
-  { label: "Video explainer", href: "/video" },
   { label: "System design", href: "/system-design" },
   { label: "Vibe coder", href: "/vibe-coder" },
   { label: "Browser", href: "/browser" },
