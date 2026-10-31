@@ -51,6 +51,7 @@ export const visionExtractAdapter: ImageExtractAdapter = {
       {
         model: config.model,
         temperature: 0.1,
+        max_tokens: config.maxTokens,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },

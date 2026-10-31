@@ -6,6 +6,7 @@
 
 import { requestVoiceTutorListen } from "@/lib/voice-tutor/client";
 import { listenUntilSilence, MIC_CONSTRAINTS } from "@/lib/voice-tutor/listenLoop";
+import { keytermQuery } from "@/lib/voice-tutor/sttParams";
 
 export type StreamListenOptions = {
   /** Deepgram word-gap before UtteranceEnd (ms). Min useful ~1000. */
@@ -22,7 +23,17 @@ export type StreamListenOptions = {
    * after the utterance — the session owns mic lifetime.
    */
   mediaStream?: MediaStream;
+  /** Subject words to bias STT toward (topic, focus options). */
+  keyterms?: readonly string[];
 };
+
+/**
+ * Streaming uploads fail outright on some setups (HTTP/1.1 localhost, Safari).
+ * After repeated failures skip straight to batch so each turn doesn't lose
+ * its first moments of speech to a doomed live attempt.
+ */
+const LIVE_FAILURES_BEFORE_BATCH = 2;
+let liveFailures = 0;
 
 type LiveEvent =
   | { type: "partial"; transcript?: string }
@@ -131,7 +142,7 @@ async function streamListenLive(
     },
   });
 
-  const url = `/api/voice-tutor/listen-live?utterance_end_ms=${utteranceEndMs}&endpointing=${endpointingMs}`;
+  const url = `/api/voice-tutor/listen-live?utterance_end_ms=${utteranceEndMs}&endpointing=${endpointingMs}${keytermQuery(options.keyterms)}`;
   const timeoutId = window.setTimeout(() => stopAll(), maxMs);
 
   const onAbort = () => stopAll();
@@ -210,7 +221,11 @@ async function streamListenBatchFallback(
   });
   if (!blob || options.signal?.aborted) return null;
   try {
-    const transcript = await requestVoiceTutorListen(blob, options.signal);
+    const transcript = await requestVoiceTutorListen(
+      blob,
+      options.signal,
+      options.keyterms,
+    );
     const text = transcript.trim();
     if (text) options.onPartial?.(text);
     return text || null;
@@ -226,8 +241,13 @@ export async function streamListenUntilUtterance(
   options: StreamListenOptions = {},
 ): Promise<string | null> {
   if (options.signal?.aborted) return null;
+  if (liveFailures >= LIVE_FAILURES_BEFORE_BATCH) {
+    return streamListenBatchFallback(options);
+  }
   try {
-    return await streamListenLive(options);
+    const transcript = await streamListenLive(options);
+    liveFailures = 0;
+    return transcript;
   } catch (error) {
     if (
       options.signal?.aborted ||
@@ -235,6 +255,7 @@ export async function streamListenUntilUtterance(
     ) {
       return null;
     }
+    liveFailures += 1;
     return streamListenBatchFallback(options);
   }
 }

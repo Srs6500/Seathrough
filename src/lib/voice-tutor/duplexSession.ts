@@ -61,6 +61,8 @@ export type DuplexSessionOptions = DuplexSessionHandlers & {
   /** Disable wake gating (always active listen). Default true = enabled. */
   wakeWordEnabled?: boolean;
   wakePhrases?: readonly string[];
+  /** Subject words (topic, focus options) to bias STT on each listen. */
+  getKeyterms?: () => readonly string[];
 };
 
 export class VoiceDuplexSession {
@@ -294,6 +296,7 @@ export class VoiceDuplexSession {
               utteranceEndMs: listenAfterBarge ? 1200 : 2500,
               endpointingMs: listenAfterBarge ? 500 : 750,
               maxMs: 20000,
+              keyterms: this.handlers.getKeyterms?.(),
               onPartial: (partial) => this.handlers.onPartial?.(partial),
             });
           } catch {
@@ -396,6 +399,7 @@ export class VoiceDuplexSession {
               utteranceEndMs: 1100,
               endpointingMs: 500,
               maxMs: 12000,
+              keyterms: ["SeeThrough", ...this.wakePhrases],
               onPartial: (partial) => {
                 const hit = matchesWakePhrase(partial, this.wakePhrases);
                 if (hit.matched) {

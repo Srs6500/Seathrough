@@ -1,4 +1,5 @@
 import type { ChatMessage, TurnResponse, VoiceLessonPlan } from "@/lib/voice-tutor/sessionTypes";
+import { keytermQuery } from "@/lib/voice-tutor/sttParams";
 
 export async function requestVoiceTurn(input: {
   mode: "greet" | "chat" | "plan";
@@ -91,8 +92,10 @@ export async function requestVoiceTutorSpeak(
 export async function requestVoiceTutorListen(
   audio: Blob,
   signal?: AbortSignal,
+  keyterms?: readonly string[],
 ): Promise<string> {
-  const res = await fetch("/api/voice-tutor/listen", {
+  const query = keytermQuery(keyterms).replace(/^&/, "?");
+  const res = await fetch(`/api/voice-tutor/listen${query}`, {
     method: "POST",
     headers: {
       "Content-Type": audio.type || "audio/webm",

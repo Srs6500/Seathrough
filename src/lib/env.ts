@@ -22,7 +22,8 @@ const GROQ_MODEL_REPLACEMENTS: Record<string, string> = {
   "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
   "llama-3.1-8b-instant": "openai/gpt-oss-20b",
   "llama-3.1-70b-versatile": "openai/gpt-oss-120b",
-  "meta-llama/llama-4-scout-17b-16e-instruct": "qwen/qwen3.6-27b",
+  "meta-llama/llama-4-scout-17b-16e-instruct": "qwen/qwen3.8-27b",
+  "qwen/qwen3.6-27b": "qwen/qwen3.8-27b",
 };
 
 const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
@@ -64,6 +65,19 @@ export function getLlmConfig() {
 }
 
 /**
+ * Image → Three.js coder. Needs a strong code model: on Groq, default to
+ * gpt-oss-120b even when GROQ_MODEL is a smaller chat model.
+ */
+export function getModel3dCodeConfig() {
+  const base = getLlmConfig();
+  const override = optional("MODEL3D_CODE_MODEL");
+  if (base.provider === "groq") {
+    return { ...base, model: resolveGroqModel(override ?? "openai/gpt-oss-120b") };
+  }
+  return { ...base, model: override ?? base.model };
+}
+
+/**
  * Film writer for /video. Optional EXPLAIN_VIDEO_* vars point it at any OpenAI-compatible
  * endpoint (a stronger code model) without changing the rest of the app; otherwise it uses
  * the app's LLM. `tokensPerMinute` is the per-request ceiling (prompt + output) to stay under,
@@ -96,7 +110,7 @@ export function getExplainVideoLlmConfig() {
 /**
  * Multimodal / vision model for screenshot extraction.
  * Prefers OpenAI when configured; otherwise Groq vision (Qwen 3.6).
- * Note: meta-llama/llama-4-scout-17b-16e-instruct was shut down on Groq 2026-07-17.
+ * Note: llama-4-scout and qwen3.6-27b are retired on Groq — mapped to qwen3.8-27b.
  */
 export function getVisionLlmConfig() {
   const openaiKey = optional("OPENAI_API_KEY");
@@ -106,14 +120,20 @@ export function getVisionLlmConfig() {
       apiKey: openaiKey,
       model: optional("OPENAI_VISION_MODEL") ?? optional("OPENAI_MODEL") ?? "gpt-4.1",
       baseURL: undefined as string | undefined,
+      maxTokens: 4000,
     };
   }
 
   return {
     provider: "groq" as const,
     apiKey: required("GROQ_API_KEY"),
-    model: optional("GROQ_VISION_MODEL") ?? "qwen/qwen3.6-27b",
+    model: resolveGroqModel(optional("GROQ_VISION_MODEL") ?? "qwen/qwen3.8-27b"),
     baseURL: "https://api.groq.com/openai/v1",
+    /**
+     * Groq on-demand caps qwen vision at 1000 output tokens/minute and rejects
+     * any request whose max_tokens (or default) reserves more.
+     */
+    maxTokens: 900,
   };
 }
 
@@ -121,7 +141,22 @@ export function getDeepgramConfig() {
   return {
     apiKey: required("DEEPGRAM_API_KEY"),
     model: optional("DEEPGRAM_TTS_MODEL") ?? "aura-2-thalia-en",
-    sttModel: optional("DEEPGRAM_STT_MODEL") ?? "nova-2",
+    sttModel: optional("DEEPGRAM_STT_MODEL") ?? "nova-3",
+  };
+}
+
+/** Tripo key; also accepts the lowercase `TRIPO_api_key` spelling. */
+function tripoApiKey(): string | undefined {
+  return optional("TRIPO_API_KEY") ?? optional("TRIPO_api_key");
+}
+
+/** Tripo3D (image → 3D model). Optional: 3D falls back to the flat image without it. */
+export function getTripoConfig() {
+  const apiKey = tripoApiKey();
+  if (!apiKey) throw new Error("Missing required environment variable: TRIPO_API_KEY");
+  return {
+    apiKey,
+    baseURL: optional("TRIPO_BASE_URL") ?? "https://openapi.tripo3d.ai/v3",
   };
 }
 
@@ -338,6 +373,7 @@ export function envPresence() {
     IMAGE_REFERENCE_ENABLED: !imageReferenceExplicitOff,
     GITHUB_APP: getGithubAppConfig().configured,
     DEEPGRAM_API_KEY: Boolean(optional("DEEPGRAM_API_KEY")),
+    TRIPO_API_KEY: Boolean(tripoApiKey()),
     NEXT_PUBLIC_SUPABASE_URL: Boolean(optional("NEXT_PUBLIC_SUPABASE_URL")),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Boolean(optional("NEXT_PUBLIC_SUPABASE_ANON_KEY")),
     SUPABASE_SERVICE_ROLE_KEY: Boolean(optional("SUPABASE_SERVICE_ROLE_KEY")),

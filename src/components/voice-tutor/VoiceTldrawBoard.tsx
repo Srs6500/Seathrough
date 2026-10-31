@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { applyExperimentScene } from "@/components/experiment/applyScene";
 import {
   sketchSpecFromRaw,
@@ -125,7 +126,12 @@ export function VoiceTldrawBoard({ draw, className }: VoiceTldrawBoardProps) {
         ) : null}
         {status ? (
           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/70">
-            <p className="text-[13px] text-muted">{status}</p>
+            <p className="flex items-center gap-2 text-[13px] text-muted">
+              {status.endsWith("…") ? (
+                <Loader2 className="size-4 animate-spin text-[#5b4fd4]" aria-hidden />
+              ) : null}
+              {status}
+            </p>
           </div>
         ) : null}
       </div>

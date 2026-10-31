@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingDots } from "@/components/voice-tutor/LoadingDots";
 import { cn } from "@/lib/utils";
 
 export type VoiceOrbState =
@@ -56,6 +57,12 @@ export function VoiceOrb({
             state === "error" && "opacity-90",
           )}
         >
+          {state === "thinking" || state === "connecting" ? (
+            <span
+              aria-hidden
+              className="absolute size-[4.5rem] animate-spin rounded-full border-2 border-[#1b6ca8]/15 border-t-[#1b6ca8]/70 md:size-20"
+            />
+          ) : null}
           <span
             className={cn(
               "absolute size-16 rounded-full blur-xl transition-opacity",
@@ -82,6 +89,14 @@ export function VoiceOrb({
         {showLabel ? (
           <p className="mt-1 text-[11px] text-muted" aria-live="polite">
             {STATE_LABEL[state]}
+          </p>
+        ) : state === "thinking" ? (
+          <p
+            className="mt-2 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#1b6ca8] shadow-sm"
+            role="status"
+          >
+            <LoadingDots />
+            Thinking
           </p>
         ) : null}
       </div>

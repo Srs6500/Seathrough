@@ -385,7 +385,8 @@ async function draftBoardDiagram(
       })) as Record<string, unknown>;
       const spec = sketchSpecFromRaw({ ...raw, boxes: raw.boxes ?? raw.nodes });
       if (!spec) continue;
-      if (forced && spec.layout !== forced) continue;
+      // Retry: a valid diagram in another layout beats no diagram at all.
+      if (forced && spec.layout !== forced && attempt === 0) continue;
       if (spec.layout === "compare" && (spec.columns?.length ?? 0) < 2) continue;
       const sentencey = spec.boxes.some(
         (b) => b.label.split(/\s+/).length > 6 || /^(it|its|first|second|third)\b/i.test(b.label),
@@ -1318,7 +1319,13 @@ ${
         showOnBoard: false,
       };
     }
-    if (isTopicSwitchAway(userText, parent, options)) {
+    // Free-form answers ("black holes", "how rockets fly") are a focus within
+    // the parent — only an explicit "let's switch / I want to learn X instead"
+    // abandons it. Otherwise the original request was silently forgotten.
+    if (
+      looksLikeTopicNudge(userText) &&
+      isTopicSwitchAway(userText, parent, options)
+    ) {
       const next = extractTopicFromNudge(userText);
       return buildClarifyForTopic(next, input.avoidedFocusOptions);
     }
@@ -1378,6 +1385,16 @@ ${
         return normalizePlanTeachFirst(functionsVoicePlan());
       }
       const clean = cleanTopicLabel(topic);
+      // What the student said while choosing (level, goal, angle) — pitch the
+      // lesson to it instead of planning from the bare focus label.
+      const studentSaid = input.messages
+        .filter((m) => m.role === "user")
+        .slice(-4)
+        .map((m) => m.text.trim())
+        .filter(Boolean);
+      const learnerBlock = studentSaid.length
+        ? `\n\nWhat I said while picking this (use it for my level, goal, and the angle I care about — do NOT change the topic):\n${studentSaid.map((t) => `- ${t}`).join("\n")}`
+        : "";
       const physicsBlock = looksLikePhysicsAsk(clean)
         ? `\n${formatPhysicsVoiceContextBlock(buildPhysicsTutorContext(clean))}\n`
         : "";
@@ -1438,18 +1455,27 @@ diagramKind routing (gutter figure — never overlaps the passage):
 - auto: let the server choose (preferred default).
 Never invent a physics field diagram for non-physics subjects.
 ${physicsBlock}${research}${annotationFewShotBlock()}`,
-        user: `Teach me about: ${clean}`,
+        user: `Teach me about: ${clean}${learnerBlock}`,
       }).catch((error: unknown) => {
         console.warn("[voice-tutor/brain] draft failed, retrying", error);
         return {};
       });
 
       const diagram = await diagramPromise;
+      // The student's Diagram toggle outranks the model's "none" (it picks
+      // none for most verbal topics, which left the board diagram-less).
+      const diagramKind = (kind: LessonDraft["diagramKind"]) =>
+        input.diagrams === false ? "none" : kind === "none" ? "auto" : kind;
       const draft = draftRaw as LessonDraft;
       if (draftIsUsable(draft)) {
         return withSources(
           normalizePlanTeachFirst(
-            planFromDraft({ ...draft, topic: draft.topic || clean, diagram }),
+            planFromDraft({
+              ...draft,
+              topic: draft.topic || clean,
+              diagram,
+              diagramKind: diagramKind(draft.diagramKind),
+            }),
           ),
         );
       }
@@ -1460,13 +1486,18 @@ ${physicsBlock}${research}${annotationFewShotBlock()}`,
         system: `Return JSON only: { "topic", "definition", "keyConcepts", "example", "highlight", "rememberTip", "checkAsk" }.
 definition = 2-3 sentences of what it IS. keyConcepts = 3 short teaching sentences. example = one concrete case, 3-5 sentences. For World War II include years, sides, and why it mattered. Never use "here's what X is about".
 ${research}`,
-        user: clean,
+        user: `${clean}${learnerBlock}`,
       });
       const retry = retryRaw as LessonDraft;
       if (draftIsUsable(retry)) {
         return withSources(
           normalizePlanTeachFirst(
-            planFromDraft({ ...retry, topic: retry.topic || clean, diagram }),
+            planFromDraft({
+              ...retry,
+              topic: retry.topic || clean,
+              diagram,
+              diagramKind: diagramKind(retry.diagramKind),
+            }),
           ),
         );
       }
@@ -1557,7 +1588,8 @@ Rules:
 - Never repeat the student's words verbatim. Extract the topic/intent and respond naturally.
 - topic / parentTopic must be the clean concept name only (e.g. "astrophysics"), NEVER phrases like "I want to learn…".
 - say must never paste the student's raw transcript; if naming the topic, use the clean concept only.
-- NEVER pull subjects or names from earlier chat history into a new topic.`,
+- NEVER pull subjects or names from earlier chat history into a new topic.
+- Exception: if the Tutor's last turn asked what they want to learn / which part, the Student's reply answers THAT question. Combine it with what the Student already said (e.g. Student: "physics" → Tutor: "which part?" → Student: "the space stuff" → topic "astrophysics"). Do not drop the earlier subject.`,
       user: `${historyBlock ? `Recent turns:\n${historyBlock}\n\n` : ""}Student: ${userText}`,
     })) as {
       clarity?: string;

@@ -13,6 +13,7 @@ import {
   type GutterDiagram,
 } from "@/components/voice-tutor/DiagramGutter";
 import { LivingPassage } from "@/components/voice-tutor/LivingPassage";
+import { LessonSkeleton } from "@/components/voice-tutor/LoadingDots";
 import {
   isTldrawDraw,
   VoiceTldrawBoard,
@@ -73,6 +74,8 @@ type LessonStageProps = {
   showDiagram?: boolean;
   /** Video explainer panel (shown above the passage). */
   video?: ReactNode;
+  /** Lesson is being planned — show a placeholder passage with this label. */
+  preparing?: string | null;
   className?: string;
 };
 
@@ -107,6 +110,7 @@ export function LessonStage({
   showText = true,
   showDiagram = true,
   video,
+  preparing,
   className,
 }: LessonStageProps) {
   const scrollRef = useRef<HTMLElement>(null);
@@ -251,7 +255,11 @@ export function LessonStage({
         <div className="mb-5 h-5 shrink-0" />
       )}
 
-      {!hasPedagogy ? (
+      {!hasPedagogy && preparing ? (
+        <div className="flex flex-1 flex-col items-center justify-center pb-36">
+          <LessonSkeleton label={preparing} />
+        </div>
+      ) : !hasPedagogy ? (
         <div className="flex flex-1 flex-col items-center justify-center pb-36">
           <p className="max-w-sm text-center text-[15px] leading-6 text-[#71717a]">
             Say what you want to learn. The tutor writes it, draws when a
@@ -297,6 +305,10 @@ export function LessonStage({
             ) : null}
 
             {video ? <div className="mb-8">{video}</div> : null}
+
+            {preparing && stanzas.length === 0 ? (
+              <LessonSkeleton label={preparing} />
+            ) : null}
 
             {showText ? (
               <>

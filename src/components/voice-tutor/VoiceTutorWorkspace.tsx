@@ -6,8 +6,22 @@ import {
   useRef,
   useState,
 } from "react";
-import { FileDown, Mic, MicOff, PanelLeft, Pause, Play } from "lucide-react";
+import {
+  FileDown,
+  ImagePlus,
+  Loader2,
+  Mic,
+  MicOff,
+  PanelLeft,
+  Pause,
+  Play,
+} from "lucide-react";
 import { HistoryRail } from "@/components/voice-tutor/HistoryRail";
+import {
+  ImageChoiceDialog,
+  LessonMediaCard,
+  type LessonMedia,
+} from "@/components/voice-tutor/ImageLesson";
 import {
   LessonStage,
   type LessonSection,
@@ -55,6 +69,17 @@ import {
 } from "@/lib/voice-tutor/duplexSession";
 import { matchesWakePhrase } from "@/lib/voice-tutor/wakeWord";
 import { toUserFacingError } from "@/lib/errors/userFacing";
+import { MAX_SCENE_REPAIR_ATTEMPTS } from "@/lib/scene-explain/types";
+import {
+  buildThreeModel,
+  identifyLessonImage,
+  repairThreeModel,
+  model3dFileUrl,
+  prepareLessonImage,
+  startModel3d,
+  waitForModel3d,
+  type ImageIdentity,
+} from "@/lib/voice-tutor/imageLesson";
 import {
   deleteHistorySession,
   getHistorySession,
@@ -257,6 +282,18 @@ export function VoiceTutorWorkspace() {
     Array<{ title: string; scene: DrawScene }>
   >([]);
   const [pendingTopic, setPendingTopic] = useState<string | null>(null);
+  /** Student's picture (or its 3D model) pinned above the lesson. */
+  const [media, setMedia] = useState<LessonMedia | null>(null);
+  /** Picked / dropped image waiting for "3D or as is". */
+  const [pendingImage, setPendingImage] = useState<{ file: File; url: string } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const mediaAbortRef = useRef<AbortController | null>(null);
+  const mediaUrlRef = useRef<string | null>(null);
+  /** Tripo is still building — hold student speech until the model is ready. */
+  const modelBuildingRef = useRef(false);
+  /** One repair at a time — the viewer can report the same crash twice. */
+  const sceneRepairingRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   /** Teach with: text / diagram / video (any mix, remembered per browser). */
   const formats = useTeachFormats();
   const formatsRef = useRef(formats);
@@ -275,6 +312,9 @@ export function VoiceTutorWorkspace() {
   const [sessionLabel, setSessionLabel] = useState("New conversation");
   const [textFallback, setTextFallback] = useState("");
   const [busy, setBusy] = useState(false);
+  /** Lesson plan is being written — the stage shows a placeholder. */
+  const [preparingLesson, setPreparingLesson] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   /** X pause — voice + transcript halt until user resumes. */
   const [lessonPaused, setLessonPaused] = useState(false);
   const [boardHaltWriting, setBoardHaltWriting] = useState(false);
@@ -439,6 +479,8 @@ export function VoiceTutorWorkspace() {
     () => () => {
       videoJobRef.current?.cancel();
       earlyVideoRef.current?.cancel();
+      mediaAbortRef.current?.abort();
+      if (mediaUrlRef.current) URL.revokeObjectURL(mediaUrlRef.current);
     },
     [],
   );
@@ -722,11 +764,9 @@ export function VoiceTutorWorkspace() {
       text,
       at: Date.now(),
     };
-    setMessages((prev) => {
-      const next = [...prev, msg];
-      messagesRef.current = next;
-      return next;
-    });
+    // Update the ref now — the next turn request may fire before React renders.
+    messagesRef.current = [...messagesRef.current, msg];
+    setMessages(messagesRef.current);
     return msg;
   }, []);
 
@@ -1249,6 +1289,16 @@ export function VoiceTutorWorkspace() {
 
     const phasePeek = phaseRef.current;
 
+    if (modelBuildingRef.current) {
+      flashUserHeard(text);
+      const played = await speak(
+        "Hang on — your 3D model is still building. I'll ask what you want to know as soon as it's ready.",
+        { log: false },
+      );
+      if (played && micOnRef.current) startListenLoopRef.current();
+      return;
+    }
+
     if (looksLikeVoiceInjection(text)) {
       flashUserHeard(text);
       pushMessage("user", text);
@@ -1614,29 +1664,34 @@ export function VoiceTutorWorkspace() {
           await speak(spokenLine, { allowBarge: false });
           alreadySpoken = true;
           if (lessonPausedRef.current) return;
+          setPreparingLesson(`Preparing your lesson on ${topicClean}…`);
           // One soft retry if the first plan call flakes.
-          for (let attempt = 0; attempt < 2 && !nextPlan; attempt += 1) {
-            if (lessonPausedRef.current) return;
-            try {
-              const planned = await requestVoiceTurn({
-                mode: "plan",
-                userText: turn.topic,
-                topic: turn.topic,
-                messages: messagesRef.current,
-                diagrams: formatsRef.current.diagram,
-                signal: turnAc.signal,
-              });
-              nextPlan = planned.plan ?? null;
-            } catch (err) {
-              // Pause aborts the signal; barge during clarify no longer does.
-              if (
-                (err as Error).name === "AbortError" ||
-                turnAc.signal.aborted ||
-                lessonPausedRef.current
-              ) {
-                return;
+          try {
+            for (let attempt = 0; attempt < 2 && !nextPlan; attempt += 1) {
+              if (lessonPausedRef.current) return;
+              try {
+                const planned = await requestVoiceTurn({
+                  mode: "plan",
+                  userText: turn.topic,
+                  topic: turn.topic,
+                  messages: messagesRef.current,
+                  diagrams: formatsRef.current.diagram,
+                  signal: turnAc.signal,
+                });
+                nextPlan = planned.plan ?? null;
+              } catch (err) {
+                // Pause aborts the signal; barge during clarify no longer does.
+                if (
+                  (err as Error).name === "AbortError" ||
+                  turnAc.signal.aborted ||
+                  lessonPausedRef.current
+                ) {
+                  return;
+                }
               }
             }
+          } finally {
+            setPreparingLesson(null);
           }
         }
         if (nextPlan) {
@@ -1721,6 +1776,16 @@ export function VoiceTutorWorkspace() {
 
   // Continuous duplex voice session — owns mic for the page lifetime.
   useEffect(() => {
+    // Thinking pause cut the student off ("I want to learn about…") — hold the
+    // fragment and prepend it to the next utterance instead of dropping it.
+    const fragment = { text: "", at: 0 };
+    const FRAGMENT_TTL_MS = 15_000;
+    const withFragment = (text: string) => {
+      if (!fragment.text || Date.now() - fragment.at > FRAGMENT_TTL_MS) {
+        return text;
+      }
+      return `${fragment.text} ${text}`.trim();
+    };
     const duplex = new VoiceDuplexSession({
       positiveSpeechThreshold: 0.55,
       bargeThreshold: 0.14,
@@ -1728,25 +1793,36 @@ export function VoiceTutorWorkspace() {
       bargeHoldMs: 80,
       wakeWordEnabled: true,
       idleTimeoutMs: 45_000,
+      getKeyterms: () => [
+        "SeeThrough",
+        ...(planRef.current?.topic ? [planRef.current.topic] : []),
+        ...(pendingTopicRef.current ? [pendingTopicRef.current] : []),
+        ...focusOptionsRef.current,
+      ],
       onPartial: (partial) => {
         // In wake mode, only surface text that looks like a wake attempt.
         if (duplex.isWakeMode) {
           const hit = matchesWakePhrase(partial);
           if (!hit.matched && !/\b(hey|tutor|see)\b/i.test(partial)) return;
         }
-        const shown = displayHeardTranscript(partial);
+        const shown = displayHeardTranscript(
+          duplex.isWakeMode ? partial : withFragment(partial),
+        );
         if (shown) setUserHeard(shown);
       },
       onFinal: async (transcript, meta) => {
-        const cleaned = sanitizeVoiceTranscript(transcript);
+        const cleaned = sanitizeVoiceTranscript(withFragment(transcript));
         if (!cleaned) {
           duplex.startListening();
           return;
         }
         if (!meta.afterBarge && looksIncompleteUtterance(cleaned)) {
+          fragment.text = cleaned;
+          fragment.at = Date.now();
           duplex.startListening();
           return;
         }
+        fragment.text = "";
         postBargeListenRef.current = false;
         if (bargeIdleResumeTimerRef.current) {
           window.clearTimeout(bargeIdleResumeTimerRef.current);
@@ -1801,6 +1877,9 @@ export function VoiceTutorWorkspace() {
       return;
     }
 
+    // Mic after End starts a clean session; the ended one stays in History.
+    if (phase === "ended") newSession();
+
     setOrbState("connecting");
     const duplex = duplexRef.current;
     const ok = duplex ? await duplex.acquireMic() : await ensureMicPermission();
@@ -1838,6 +1917,214 @@ export function VoiceTutorWorkspace() {
     startListenLoop();
   }
 
+  /** Swap the pinned picture/model, freeing the old object URL. */
+  function replaceMedia(next: LessonMedia | null) {
+    const nextUrl = next?.imageUrl ?? null;
+    if (mediaUrlRef.current && mediaUrlRef.current !== nextUrl) {
+      URL.revokeObjectURL(mediaUrlRef.current);
+    }
+    mediaUrlRef.current = nextUrl;
+    setMedia(next);
+  }
+
+  function clearLessonMedia() {
+    mediaAbortRef.current?.abort();
+    mediaAbortRef.current = null;
+    modelBuildingRef.current = false;
+    replaceMedia(null);
+  }
+
+  async function handleImageFile(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("That file isn't an image. Try a JPEG or PNG.");
+      return;
+    }
+    const prepared = await prepareLessonImage(file);
+    if (pendingImage) URL.revokeObjectURL(pendingImage.url);
+    setPendingImage({ file: prepared, url: URL.createObjectURL(prepared) });
+  }
+
+  function cancelPendingImage() {
+    if (pendingImage) URL.revokeObjectURL(pendingImage.url);
+    setPendingImage(null);
+  }
+
+  /**
+   * Picture → "what do you want to know about it?" using the normal clarify
+   * flow, so the answer plans a lesson on that part of the subject.
+   */
+  async function startImageTopic(identity: ImageIdentity, intro: string) {
+    const subject = cleanTopicLabel(identity.subject);
+    const opts =
+      identity.focusOptions.length > 0
+        ? identity.focusOptions
+        : [`parts of the ${subject}`, `how the ${subject} works`];
+    // Logged as the student's context so the lesson planner knows what they shared.
+    pushMessage(
+      "user",
+      `I shared a picture of ${subject}. ${identity.description}`.trim(),
+    );
+    rememberOfferedFocus(subject, opts);
+    setFocusOptions(opts);
+    focusOptionsRef.current = opts;
+    setPendingTopic(subject);
+    pendingTopicRef.current = subject;
+    lastParentRef.current = subject;
+    setPhase("clarify_focus");
+    if (!micOnRef.current) {
+      const ok = await duplexRef.current?.acquireMic();
+      if (ok) {
+        setMicOn(true);
+        micOnRef.current = true;
+      }
+    }
+    const played = await speak(`${intro} ${casualFocusSay(subject, opts)}`);
+    if (played && micOnRef.current) startListenLoopRef.current();
+    else if (!micOnRef.current) setOrbState("idle");
+  }
+
+  async function chooseImageMode(mode: "image" | "model3d") {
+    const pick = pendingImage;
+    if (!pick) return;
+    setPendingImage(null);
+    if (phaseRef.current === "ended") newSession();
+
+    // A new picture replaces whatever lesson was running.
+    turnAbortRef.current?.abort();
+    stopPlayback();
+    clearLessonBoard();
+    setPlan(null);
+    planRef.current = null;
+    cancelLessonVideo();
+    setError(null);
+    mediaAbortRef.current?.abort();
+    const ac = new AbortController();
+    mediaAbortRef.current = ac;
+    replaceMedia(
+      mode === "image"
+        ? { kind: "image", imageUrl: pick.url }
+        : { kind: "model3d", imageUrl: pick.url, progress: 0 },
+    );
+
+    setOrbState("thinking");
+    try {
+      if (mode === "image") {
+        const identity = await identifyLessonImage(pick.file, ac.signal);
+        if (ac.signal.aborted) return;
+        setMedia((m) => (m ? { ...m, subject: identity.subject } : m));
+        await startImageTopic(
+          identity,
+          `Got it — let's learn about the ${cleanTopicLabel(identity.subject)}.`,
+        );
+        return;
+      }
+
+      modelBuildingRef.current = true;
+      void speak(
+        "Nice picture. I'm turning it into a 3D model — give me a moment.",
+        { allowBarge: false },
+      );
+      let identity: ImageIdentity;
+      try {
+        // Tripo first (best fidelity) when its key has credits…
+        const taskId = await startModel3d(pick.file, ac.signal);
+        await waitForModel3d(taskId, {
+          signal: ac.signal,
+          onProgress: (progress) =>
+            setMedia((m) => (m?.kind === "model3d" ? { ...m, progress } : m)),
+        });
+        identity = await identifyLessonImage(pick.file, ac.signal);
+        if (ac.signal.aborted) return;
+        setMedia((m) =>
+          m?.kind === "model3d"
+            ? { ...m, subject: identity.subject, modelUrl: model3dFileUrl(taskId) }
+            : m,
+        );
+      } catch (tripoErr) {
+        if (ac.signal.aborted || (tripoErr as Error).name === "AbortError") return;
+        // …otherwise the free path: the AI writes a Three.js model of it.
+        setMedia((m) => (m?.kind === "model3d" ? { ...m, progress: undefined } : m));
+        const three = await buildThreeModel(pick.file, ac.signal);
+        if (ac.signal.aborted) return;
+        identity = three;
+        setMedia((m) =>
+          m?.kind === "model3d"
+            ? {
+                ...m,
+                subject: three.subject,
+                scene: { title: three.title, brief: three.brief, code: three.code, attempt: 0 },
+              }
+            : m,
+        );
+      }
+      modelBuildingRef.current = false;
+      await startImageTopic(
+        identity,
+        `Your 3D model of the ${cleanTopicLabel(identity.subject)} is ready — drag it to spin it around.`,
+      );
+    } catch (err) {
+      modelBuildingRef.current = false;
+      if (ac.signal.aborted || (err as Error).name === "AbortError") return;
+      const message = (err as Error).message || "Couldn't use that image.";
+      if (mode === "model3d") {
+        // 3D failed — keep going with the flat picture instead of dead-ending.
+        setMedia((m) => (m?.kind === "model3d" ? { ...m, error: message } : m));
+        try {
+          const identity = await identifyLessonImage(pick.file, ac.signal);
+          if (ac.signal.aborted) return;
+          setMedia((m) => (m ? { ...m, subject: identity.subject } : m));
+          await startImageTopic(
+            identity,
+            "I couldn't build the 3D model, so let's use your picture.",
+          );
+          return;
+        } catch {
+          /* fall through to the error below */
+        }
+      }
+      setMedia((m) => (m?.kind === "image" ? { ...m, error: message } : m));
+      setError(message);
+      setOrbState("idle");
+    }
+  }
+
+  /** Generated model crashed in the sandbox — ask the repair agent, max 3 tries. */
+  async function repairSceneMedia(error: string) {
+    const current = media;
+    if (current?.kind !== "model3d" || !current.scene || current.error) return;
+    if (sceneRepairingRef.current) return;
+    const scene = current.scene;
+    if (scene.attempt >= MAX_SCENE_REPAIR_ATTEMPTS) {
+      setMedia((m) =>
+        m?.kind === "model3d"
+          ? { ...m, error: "The 3D model wouldn't render — here's your picture instead." }
+          : m,
+      );
+      return;
+    }
+    const signal = mediaAbortRef.current?.signal;
+    sceneRepairingRef.current = true;
+    try {
+      const code = await repairThreeModel({ ...scene, error, attempt: scene.attempt + 1 });
+      if (signal?.aborted) return;
+      setMedia((m) =>
+        m?.kind === "model3d" && m.scene === scene
+          ? { ...m, scene: { ...scene, code, attempt: scene.attempt + 1 } }
+          : m,
+      );
+    } catch {
+      if (signal?.aborted) return;
+      setMedia((m) =>
+        m?.kind === "model3d" && m.scene === scene
+          ? { ...m, error: "The 3D model wouldn't render — here's your picture instead." }
+          : m,
+      );
+    } finally {
+      sceneRepairingRef.current = false;
+    }
+  }
+
   function endSession() {
     stopPlayback();
     stopListening();
@@ -1850,6 +2137,8 @@ export function VoiceTutorWorkspace() {
     skipCurrentBeatOnResumeRef.current = false;
     setMicOn(false);
     micOnRef.current = false;
+    // Mute the engine too — otherwise its idle timer can reopen a hidden wake loop.
+    duplexRef.current?.setStudentMuted(true);
     setPhase("ended");
     setOrbState("idle");
     persist({ ended: true });
@@ -1872,6 +2161,7 @@ export function VoiceTutorWorkspace() {
     lessonPausedRef.current = false;
     setLessonPaused(false);
     setBoardHaltWriting(false);
+    clearLessonMedia();
     setSessionId(uid("vs"));
     setSessionLabel("New conversation");
     setMessages([]);
@@ -1899,6 +2189,7 @@ export function VoiceTutorWorkspace() {
     setError(null);
     setMicOn(false);
     micOnRef.current = false;
+    duplexRef.current?.setStudentMuted(true);
     setPhase("idle");
     setOrbState("idle");
   }
@@ -1910,6 +2201,7 @@ export function VoiceTutorWorkspace() {
     stopListening();
     setMicOn(false);
     micOnRef.current = false;
+    duplexRef.current?.setStudentMuted(true);
     setSessionId(found.id);
     setSessionLabel(found.label);
     setMessages(found.messages);
@@ -1927,6 +2219,8 @@ export function VoiceTutorWorkspace() {
   }
 
   async function downloadPdf() {
+    if (exportingPdf) return;
+    setExportingPdf(true);
     try {
       await exportVoiceSessionPdf({
         label: sessionLabel,
@@ -1938,13 +2232,47 @@ export function VoiceTutorWorkspace() {
       });
     } catch (err) {
       setError(toUserFacingError(err, "Couldn't export the PDF."));
+    } finally {
+      setExportingPdf(false);
     }
   }
 
   const showPdf = phase === "ended" || messages.length > 2;
 
   return (
-    <div className="fixed inset-0 flex bg-[#f4f4f6] font-[family-name:var(--font-geist)] text-[#16161a]">
+    <div
+      className="fixed inset-0 flex bg-[#f4f4f6] font-[family-name:var(--font-geist)] text-[#16161a]"
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setDragOver(false);
+        }
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        setDragOver(false);
+        void handleImageFile(event.dataTransfer.files[0]);
+      }}
+    >
+      {dragOver ? (
+        <div className="pointer-events-none fixed inset-3 z-40 grid place-items-center rounded-2xl border-2 border-dashed border-[#16161a]/40 bg-white/70">
+          <p className="text-[15px] font-medium text-[#16161a]">
+            Drop a picture to learn about it
+          </p>
+        </div>
+      ) : null}
+      {pendingImage ? (
+        <ImageChoiceDialog
+          imageUrl={pendingImage.url}
+          onChoose={(mode) => void chooseImageMode(mode)}
+          onCancel={cancelPendingImage}
+        />
+      ) : null}
       {historyOpen ? (
         <div className="hidden h-full w-[min(18rem,34vw)] shrink-0 border-r border-[#ececee] bg-white md:block">
           <HistoryRail
@@ -1985,12 +2313,17 @@ export function VoiceTutorWorkspace() {
               type="button"
               variant="outline"
               size="sm"
-              disabled={!showPdf}
+              disabled={!showPdf || exportingPdf}
               aria-label="Export the session as PDF"
+              aria-busy={exportingPdf}
               className={cn("gap-1.5 disabled:opacity-40", INSPECT_CHIP)}
               onClick={() => void downloadPdf()}
             >
-              <FileDown className="size-3.5" />
+              {exportingPdf ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <FileDown className="size-3.5" />
+              )}
               PDF
             </Button>
             <StudyMenu
@@ -2014,9 +2347,23 @@ export function VoiceTutorWorkspace() {
             sources={plan?.sources}
             showText={formats.text}
             showDiagram={formats.diagram}
+            preparing={preparingLesson}
             video={
-              videoJob && formats.video ? (
-                <LessonVideoPanel key={videoJob.topic} job={videoJob} />
+              media || (videoJob && formats.video) ? (
+                <>
+                  {media ? (
+                    <LessonMediaCard
+                      media={media}
+                      onClose={clearLessonMedia}
+                      onSceneError={(message) => void repairSceneMedia(message)}
+                    />
+                  ) : null}
+                  {videoJob && formats.video ? (
+                    <div className={media ? "mt-6" : undefined}>
+                      <LessonVideoPanel key={videoJob.topic} job={videoJob} />
+                    </div>
+                  ) : null}
+                </>
               ) : undefined
             }
           />
@@ -2054,11 +2401,34 @@ export function VoiceTutorWorkspace() {
                 <input
                   value={textFallback}
                   onChange={(event) => setTextFallback(event.target.value)}
-                  placeholder="Type if needed"
+                  placeholder={
+                    phase === "ended"
+                      ? "Lesson ended — tap the mic to start a new one"
+                      : "Type if needed"
+                  }
                   disabled={busy || phase === "ended"}
                   className="h-9 w-full bg-transparent px-2 text-[13px] text-[#16161a] outline-none placeholder:text-[#71717a] disabled:opacity-50"
                 />
               </form>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  void handleImageFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                aria-label="Add a picture to learn about"
+                title="Add a picture (or drop one anywhere)"
+                onClick={() => imageInputRef.current?.click()}
+                className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#f4f4f6] text-[#16161a] transition hover:bg-[#ececee]"
+              >
+                <ImagePlus className="size-4" />
+              </button>
               <button
                 type="button"
                 aria-label={micOn ? "Turn microphone off (pause)" : "Turn microphone on"}

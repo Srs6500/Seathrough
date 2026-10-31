@@ -62,16 +62,32 @@ function sketchFromPlannerDiagram(
   };
 }
 
-/** Last resort: key points as a short flow, clipped at word boundaries. */
+/**
+ * "Computing power lets AI process data quickly." →
+ * { label: "Computing power", detail: "lets AI process data quickly" }
+ */
+function conceptBox(sentence: string, i: number) {
+  const t = sentence
+    .replace(/^(first|second|third|fourth)[:,]\s*/i, "")
+    .replace(/[.!]+$/, "")
+    .trim();
+  const split = t.match(
+    /^(.{3,40}?)(?:\s*[:—–]\s*|\s+(?=(?:is|are|was|were|means|lets|let|helps|help|makes|make|decides?|shows?|gives?|turns?|uses?|drives?|causes?|controls?|allows?)\b))(.+)$/i,
+  );
+  const head = split?.[1]?.trim();
+  if (head && head.split(/\s+/).length <= 5) {
+    return { id: `box_${i + 1}`, label: head, detail: clipWords(split![2]!.trim(), 60) };
+  }
+  return { id: `box_${i + 1}`, label: clipWords(t, 40) };
+}
+
+/** Last resort: key concepts as a hub around the topic. */
 function sketchFromKeyPoints(
   topic: string,
   keyPoints: string[],
 ): DrawScene | null {
   const boxes = keyPoints
-    .map((label, i) => ({
-      id: `box_${i + 1}`,
-      label: clipWords(label.replace(/^(first|second|third|fourth)[:,]\s*/i, ""), 60),
-    }))
+    .map(conceptBox)
     .filter((b) => b.label.length > 0)
     .slice(0, 4);
   if (boxes.length === 1 && topic.trim()) {
@@ -81,7 +97,7 @@ function sketchFromKeyPoints(
   return {
     kind: "tldraw_sketch",
     title: topic.slice(0, 48),
-    spec: { layout: "flow", boxes },
+    spec: { layout: "hub", center: topic.trim().slice(0, 32), boxes },
     highlightIds: boxes[0] ? [boxes[0].id] : [],
   };
 }
@@ -180,9 +196,9 @@ export function attachVoiceDiagrams(plan: VoiceLessonPlan): VoiceLessonPlan {
     draw = sketchFromPlannerDiagram(next.topic, beat.draw?.spec?.diagram);
   }
   if (!draw && (policy === "auto" || policy === "tldraw_sketch")) {
-    // Only short labels — a box of half a sentence is worse than no diagram.
+    // Concept sentences become "label + detail" boxes (see conceptBox).
     const keys = (beat.board?.keyPoints ?? []).filter(
-      (k) => k && k.split(/\s+/).length <= 6 && !/^highlight\.?$/i.test(k.trim()),
+      (k) => k && k.split(/\s+/).length <= 20 && !/^highlight\.?$/i.test(k.trim()),
     );
     draw = sketchFromKeyPoints(next.topic, keys);
   }

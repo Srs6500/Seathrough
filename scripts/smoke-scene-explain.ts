@@ -124,7 +124,7 @@ __update = function(dt, time) { ball.position.x = Math.sin(time); };
   assert.equal(groqModelOrReplacement(""), "openai/gpt-oss-120b");
   assert.equal(
     groqModelOrReplacement("qwen/qwen3.6-27b"),
-    "qwen/qwen3.6-27b",
+    "qwen/qwen3.8-27b",
   );
 }
 

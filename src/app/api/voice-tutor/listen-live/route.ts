@@ -1,5 +1,6 @@
 import { envPresence, getDeepgramConfig } from "@/lib/env";
 import { toUserFacingError } from "@/lib/errors/userFacing";
+import { applyDeepgramListenParams } from "@/lib/voice-tutor/sttParams";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,9 +50,11 @@ export async function POST(request: Request) {
   );
 
   const dgUrl = new URL("wss://api.deepgram.com/v1/listen");
-  dgUrl.searchParams.set("model", sttModel);
-  dgUrl.searchParams.set("smart_format", "true");
-  dgUrl.searchParams.set("punctuate", "true");
+  applyDeepgramListenParams(
+    dgUrl,
+    sttModel,
+    reqUrl.searchParams.getAll("keyterm"),
+  );
   dgUrl.searchParams.set("interim_results", "true");
   dgUrl.searchParams.set("utterance_end_ms", String(utteranceEndMs));
   dgUrl.searchParams.set("endpointing", String(endpointing));
