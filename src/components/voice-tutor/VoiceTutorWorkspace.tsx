@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -36,6 +37,7 @@ import {
   useTeachFormats,
   type TeachFormats,
 } from "@/components/voice-tutor/TeachFormatPicker";
+import { WhiteboardBoard } from "@/components/voice-tutor/WhiteboardBoard";
 import { BrandMark } from "@/components/lms/BrandMark";
 import { StudyMenu } from "@/components/modes/ModeNav";
 import { Button } from "@/components/ui/button";
@@ -61,8 +63,14 @@ import {
   spokenTopicLockSay,
 } from "@/lib/voice-tutor/intakeShared";
 import {
+  requestLessonImages,
   requestVoiceTurn,
+  requestWhiteboard,
 } from "@/lib/voice-tutor/client";
+import type { TeachingImage } from "@/lib/voice-tutor/images/types";
+import { draftsFromBeats } from "@/lib/voice-tutor/whiteboard/fromBeats";
+import { layoutWhiteboard } from "@/lib/voice-tutor/whiteboard/layout";
+import type { WhiteboardSession } from "@/lib/voice-tutor/whiteboard/schema";
 import {
   VoiceDuplexSession,
   ensureMicPermission,
@@ -303,6 +311,23 @@ export function VoiceTutorWorkspace() {
   const videoOnlyLessonRef = useRef(false);
   /** Video-only: job started at topic lock, adopted by beginTeaching. */
   const earlyVideoRef = useRef<LessonVideoJob | null>(null);
+  /** Whiteboard lesson JSON (laid-out items) for the current plan. */
+  const [whiteboard, setWhiteboard] = useState<WhiteboardSession | null>(null);
+  const [whiteboardPreparing, setWhiteboardPreparing] = useState<string | null>(null);
+  const whiteboardAbortRef = useRef<AbortController | null>(null);
+  /** Plan the current / in-flight whiteboard belongs to. */
+  const whiteboardPlanRef = useRef<VoiceLessonPlan | null>(null);
+  /** Credible-source pictures for the text lesson, keyed by beat id. */
+  const [figures, setFigures] = useState<Record<string, TeachingImage>>({});
+  const figuresAbortRef = useRef<AbortController | null>(null);
+  /** Rough spoken length of each beat (~2.6 words/s) — paces the pen to the voice. */
+  const beatSpeechMs = useMemo(
+    () =>
+      (plan?.beats ?? []).map(
+        (beat) => 400 + (beat.say.trim().split(/\s+/).length / 2.6) * 1000,
+      ),
+    [plan],
+  );
   const [focusOptions, setFocusOptions] = useState<string[]>([]);
   /** Topic rounds used (1st topic + switches). Max 3 including the first. */
   const [topicCycles, setTopicCycles] = useState(0);
@@ -376,27 +401,6 @@ export function VoiceTutorWorkspace() {
   const postBargeListenRef = useRef(false);
   const OVER_LIMIT_SAY =
     "You've changed topics more than three times. Pick a subtopic and we'll start — or end the lesson and begin a new one if you want something else.";
-
-  /** Offline clarify fallback — content-ish, never theory/apps/general shells. */
-  function forceClarifyTurn(topicRaw: string): TurnResponse {
-    const parent = cleanTopicLabel(
-      extractTopicFromNudge(topicRaw) || topicRaw.trim(),
-    );
-    const focusOptions = [
-      `${parent} mechanisms`,
-      `${parent} landmark ideas`,
-      `hands-on ${parent}`,
-      `${parent} big picture`,
-    ];
-    return {
-      say: casualFocusSay(parent, focusOptions),
-      action: "clarify_focus",
-      parentTopic: parent,
-      topic: parent,
-      focusOptions,
-      showOnBoard: false,
-    };
-  }
 
   function rememberOfferedFocus(parent: string, options: string[]) {
     const key = cleanTopicLabel(parent).toLowerCase();
@@ -738,15 +742,77 @@ export function VoiceTutorWorkspace() {
       videoJobRef.current = null;
       setVideoJob(null);
     }
+    // Text turned on mid-lesson: fetch its pictures if we haven't.
+    if (next.text && !formatsRef.current.text) loadLessonFigures(lesson);
+    // Whiteboard turned on mid-lesson: build it; it catches up to the current beat.
+    if (next.whiteboard && whiteboardPlanRef.current !== lesson) {
+      void loadWhiteboard(lesson);
+    }
     // Leaving video-only mid-lesson: start the written/drawn lesson now.
-    if (videoOnlyLessonRef.current && (next.text || next.diagram)) {
+    if (videoOnlyLessonRef.current && (next.text || next.diagram || next.whiteboard)) {
       videoOnlyLessonRef.current = false;
       if (beatIndexRef.current < 0) void deliverBeat(lesson, 0);
     }
   }
 
+  /**
+   * Fetch the whiteboard JSON for a plan. Falls back to laying out the plan's
+   * own board content, so a whiteboard lesson never ends up with a blank board.
+   */
+  async function loadWhiteboard(lesson: VoiceLessonPlan): Promise<void> {
+    whiteboardAbortRef.current?.abort();
+    const controller = new AbortController();
+    whiteboardAbortRef.current = controller;
+    whiteboardPlanRef.current = lesson;
+    setWhiteboard(null);
+    setWhiteboardPreparing(`Setting up the whiteboard for ${lesson.topic}…`);
+    let session: WhiteboardSession;
+    try {
+      session = await requestWhiteboard(lesson, controller.signal);
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      console.warn("[whiteboard] falling back to lesson board content", err);
+      session = layoutWhiteboard({
+        topic: lesson.topic,
+        drafts: draftsFromBeats(lesson),
+        beatOrder: lesson.beats.map((b) => b.id),
+      });
+    }
+    if (controller.signal.aborted || whiteboardPlanRef.current !== lesson) return;
+    setWhiteboard(session);
+    setWhiteboardPreparing(null);
+  }
+
+  /** Look up pictures for the text lesson in the background (never blocks teaching). */
+  function loadLessonFigures(lesson: VoiceLessonPlan) {
+    figuresAbortRef.current?.abort();
+    const controller = new AbortController();
+    figuresAbortRef.current = controller;
+    setFigures({});
+    requestLessonImages(lesson, controller.signal)
+      .then((found) => {
+        if (controller.signal.aborted || planRef.current !== lesson) return;
+        setFigures(Object.fromEntries(found.map((f) => [f.beatId, f.image])));
+      })
+      .catch(() => {
+        /* no pictures this time — the lesson works without them */
+      });
+  }
+
+  function clearWhiteboard() {
+    whiteboardAbortRef.current?.abort();
+    whiteboardAbortRef.current = null;
+    whiteboardPlanRef.current = null;
+    setWhiteboard(null);
+    setWhiteboardPreparing(null);
+  }
+
   function clearLessonBoard() {
     cancelLessonVideo();
+    clearWhiteboard();
+    figuresAbortRef.current?.abort();
+    figuresAbortRef.current = null;
+    setFigures({});
     setBoard(null);
     setDraw(null);
     setSections([]);
@@ -793,6 +859,7 @@ export function VoiceTutorWorkspace() {
           if (prev.some((s) => s.text === text)) return prev;
           const next: LessonStanza = {
             id: `${beat.id}_${prev.length}`,
+            beatId: beat.id,
             text,
             annotations: beat.board?.annotations,
             highlight: beat.board?.highlight,
@@ -1096,7 +1163,7 @@ export function VoiceTutorWorkspace() {
     const chosen = formatsRef.current;
     if (chosen.video) {
       const job = startLessonVideo(cleaned.topic);
-      if (!chosen.text && !chosen.diagram) {
+      if (!chosen.text && !chosen.diagram && !chosen.whiteboard) {
         videoOnlyLessonRef.current = true;
         announceVideoWhenReady(job);
         await speak(
@@ -1104,6 +1171,13 @@ export function VoiceTutorWorkspace() {
         );
         return;
       }
+    }
+    // Text lesson: pictures arrive in the background (whiteboard fetches its own).
+    if (chosen.text && !chosen.whiteboard) loadLessonFigures(cleaned);
+    if (chosen.whiteboard) {
+      // Board first, so the pen starts writing as the first line is spoken.
+      await loadWhiteboard(cleaned);
+      if (planRef.current !== cleaned) return;
     }
     await deliverBeat(cleaned, 0);
   }
@@ -1545,7 +1619,7 @@ export function VoiceTutorWorkspace() {
         (awaitingFocus
           ? pendingTopicRef.current
           : extractTopicFromNudge(text) || text) || "";
-      let turn = await requestVoiceTurn({
+      const turn = await requestVoiceTurn({
         mode: "chat",
         userText: text,
         messages: messagesRef.current,
@@ -1562,14 +1636,9 @@ export function VoiceTutorWorkspace() {
       });
       if (turnAc.signal.aborted) return;
 
-      // propose without a prior clarify pick → force subtopic ask (same as first time).
-      if (
-        turn.action === "propose_topic" &&
-        turn.topic &&
-        !awaitingFocus
-      ) {
-        turn = forceClarifyTurn(turn.topic);
-      }
+      // A specific ask ("why is the sky blue") comes back as propose_topic —
+      // teach it directly. Broad subjects already come back as clarify_focus
+      // with real, topic-specific subtopics from the server.
 
       if (turn.action === "clarify_focus") {
         const parent = turn.parentTopic || turn.topic || text;
@@ -1585,9 +1654,7 @@ export function VoiceTutorWorkspace() {
             focusOptionsRef.current.length > 0
               ? focusOptionsRef.current
               : [
-                  `${stayParent} core ideas`,
-                  `${stayParent} worked example`,
-                  `general ${stayParent}`,
+                  `the basics of ${stayParent}`,
                 ];
           await speak(OVER_LIMIT_SAY);
           await speak(casualFocusSay(stayParent, stayOpts));
@@ -2348,6 +2415,18 @@ export function VoiceTutorWorkspace() {
             showText={formats.text}
             showDiagram={formats.diagram}
             preparing={preparingLesson}
+            figures={figures}
+            whiteboard={
+              formats.whiteboard && (whiteboard || whiteboardPreparing) ? (
+                <WhiteboardBoard
+                  session={whiteboard}
+                  activeBeatIndex={beatIndex}
+                  beatSpeechMs={beatSpeechMs}
+                  halted={boardHaltWriting || lessonPaused}
+                  preparing={whiteboardPreparing}
+                />
+              ) : undefined
+            }
             video={
               media || (videoJob && formats.video) ? (
                 <>

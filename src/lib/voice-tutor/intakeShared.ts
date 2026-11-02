@@ -264,12 +264,11 @@ export function looksLikeVagueTopic(text: string): boolean {
 export function looksLikeInventedPersonTopic(text: string): boolean {
   const t = cleanTopicLabel(text).trim();
   if (!t) return false;
-  // One capitalized-looking token, letters only — not a real school subject.
-  if (/^[A-Z][a-z]{2,12}$/.test(t)) return true;
-  if (/^[a-z]{3,12}$/i.test(t) && /^(megan|sarah|john|alex|mike|emma|olivia|liam)$/i.test(t)) {
-    return true;
-  }
-  return false;
+  // Only flag bare common first names. A capitalized word alone is NOT a
+  // signal: voice transcripts capitalize real topics (Tesla, Rome, Python).
+  return /^(megan|sarah|john|alex|mike|emma|olivia|liam|jessica|emily|david|chris|james|anna|sam)$/i.test(
+    t,
+  );
 }
 
 /**

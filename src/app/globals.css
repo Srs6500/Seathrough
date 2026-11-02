@@ -1174,3 +1174,23 @@ html.marketing-page .font-display {
     @apply font-sans;
   }
 }
+
+/* Whiteboard: title underline is drawn after the title is written. */
+.vt-wb-underline {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: vt-wb-draw 0.55s cubic-bezier(0.22, 0.82, 0.28, 1) forwards;
+}
+
+@keyframes vt-wb-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vt-wb-underline {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

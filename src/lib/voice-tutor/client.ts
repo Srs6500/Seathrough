@@ -1,5 +1,7 @@
 import type { ChatMessage, TurnResponse, VoiceLessonPlan } from "@/lib/voice-tutor/sessionTypes";
 import { keytermQuery } from "@/lib/voice-tutor/sttParams";
+import type { BeatFigure } from "@/lib/voice-tutor/images/types";
+import type { WhiteboardSession } from "@/lib/voice-tutor/whiteboard/schema";
 
 export async function requestVoiceTurn(input: {
   mode: "greet" | "chat" | "plan";
@@ -157,3 +159,39 @@ export async function playVoiceTutorAudio(
 }
 
 export type { ChatMessage, TurnResponse, VoiceLessonPlan };
+
+/** Lesson plan → whiteboard session JSON with laid-out, non-overlapping items. */
+export async function requestWhiteboard(
+  plan: VoiceLessonPlan,
+  signal?: AbortSignal,
+): Promise<WhiteboardSession> {
+  const res = await fetch("/api/voice-tutor/whiteboard", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan }),
+    signal,
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    whiteboard?: WhiteboardSession;
+    error?: string;
+  };
+  if (!res.ok || !body.whiteboard) {
+    throw new Error(body.error || "Couldn't set up the whiteboard.");
+  }
+  return body.whiteboard;
+}
+
+/** Lesson plan → credible-source pictures for the beats that need one ([] is normal). */
+export async function requestLessonImages(
+  plan: VoiceLessonPlan,
+  signal?: AbortSignal,
+): Promise<BeatFigure[]> {
+  const res = await fetch("/api/voice-tutor/images", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan }),
+    signal,
+  });
+  const body = (await res.json().catch(() => ({}))) as { figures?: BeatFigure[] };
+  return res.ok && Array.isArray(body.figures) ? body.figures : [];
+}

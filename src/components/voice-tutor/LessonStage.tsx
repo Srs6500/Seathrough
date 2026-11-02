@@ -13,6 +13,8 @@ import {
   type GutterDiagram,
 } from "@/components/voice-tutor/DiagramGutter";
 import { LivingPassage } from "@/components/voice-tutor/LivingPassage";
+import { SourcedFigure } from "@/components/voice-tutor/SourcedFigure";
+import type { TeachingImage } from "@/lib/voice-tutor/images/types";
 import { LessonSkeleton } from "@/components/voice-tutor/LoadingDots";
 import {
   isTldrawDraw,
@@ -35,6 +37,8 @@ export type LessonSection = {
 /** One persistent lyric-style stanza on the board. */
 export type LessonStanza = {
   id: string;
+  /** Beat that wrote this stanza — its sourced picture shows underneath. */
+  beatId?: string;
   text: string;
   /** Precise apply-units (preferred). */
   annotations?: BoardAnnotation[];
@@ -76,6 +80,10 @@ type LessonStageProps = {
   video?: ReactNode;
   /** Lesson is being planned — show a placeholder passage with this label. */
   preparing?: string | null;
+  /** Credible-source pictures by beat id, shown under that beat's stanza. */
+  figures?: Record<string, TeachingImage>;
+  /** Whiteboard lesson — replaces the passage + diagrams entirely when set. */
+  whiteboard?: ReactNode;
   className?: string;
 };
 
@@ -111,6 +119,8 @@ export function LessonStage({
   showDiagram = true,
   video,
   preparing,
+  whiteboard,
+  figures,
   className,
 }: LessonStageProps) {
   const scrollRef = useRef<HTMLElement>(null);
@@ -255,7 +265,12 @@ export function LessonStage({
         <div className="mb-5 h-5 shrink-0" />
       )}
 
-      {!hasPedagogy && preparing ? (
+      {whiteboard ? (
+        <div className="flex min-h-0 w-full max-w-[88rem] flex-1 flex-col overflow-y-auto scroll-smooth pb-48 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {video ? <div className="mx-auto mb-8 w-full max-w-[40rem]">{video}</div> : null}
+          {whiteboard}
+        </div>
+      ) : !hasPedagogy && preparing ? (
         <div className="flex flex-1 flex-col items-center justify-center pb-36">
           <LessonSkeleton label={preparing} />
         </div>
@@ -353,6 +368,9 @@ export function LessonStage({
                               : undefined
                           }
                         />
+                        {isPast && stanza.beatId && figures?.[stanza.beatId] ? (
+                          <SourcedFigure image={figures[stanza.beatId]!} />
+                        ) : null}
                       </div>
                     );
                   })}

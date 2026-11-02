@@ -31,7 +31,7 @@ type VoiceOrbProps = {
 };
 
 /**
- * Voice presence shaped like the SeeThrough mark (bowl / wave logo).
+ * Voice presence: a round gradient orb that reacts to mic / tutor state.
  */
 export function VoiceOrb({
   state,
@@ -73,12 +73,10 @@ export function VoiceOrb({
               (state === "idle" || state === "connecting") && "bg-[#1b6ca8]/15",
             )}
           />
-          {/* eslint-disable-next-line @next/next/no-img-element -- brand mark as voice orb */}
-          <img
-            src="/SeeThrough_logo.png"
-            alt=""
+          <span
+            aria-hidden
             className={cn(
-              "relative size-14 object-contain drop-shadow-[0_8px_18px_rgba(27,108,168,0.22)] md:size-16",
+              "relative size-12 rounded-full bg-[radial-gradient(circle_at_35%_30%,#9fd0ff_0%,#1b6ca8_55%,#0d3f6b_100%)] shadow-[0_8px_18px_rgba(27,108,168,0.28)] md:size-14",
               state === "speaking" &&
                 "animate-[pulse_1.05s_ease-in-out_infinite]",
               (state === "listening" || state === "wake") &&
@@ -122,12 +120,10 @@ export function VoiceOrb({
             state === "error" && "bg-[#f0c2c2]/35",
           )}
         />
-        {/* eslint-disable-next-line @next/next/no-img-element -- brand mark as voice orb */}
-        <img
-          src="/SeeThrough_logo.png"
-          alt=""
+        <span
+          aria-hidden
           className={cn(
-            "relative size-36 object-contain drop-shadow-[0_16px_40px_rgba(27,108,168,0.2)] md:size-44",
+            "relative size-32 rounded-full bg-[radial-gradient(circle_at_35%_30%,#9fd0ff_0%,#1b6ca8_55%,#0d3f6b_100%)] shadow-[0_16px_40px_rgba(27,108,168,0.25)] md:size-40",
             (state === "listening" || state === "wake") &&
               "scale-[1.03] animate-[pulse_1.8s_ease-in-out_infinite]",
             state === "speaking" &&

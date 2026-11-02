@@ -143,7 +143,7 @@ function messageText(message: { content?: unknown }): string {
 }
 
 /** Groq gpt-oss often emits tool-call wrappers; recover JSON instead of falling to templates. */
-async function completeJson(input: {
+export async function completeJson(input: {
   system: string;
   user: string;
   temperature?: number;
@@ -971,7 +971,7 @@ Hard rules:
 - Do NOT invent people names. Do NOT drag in unrelated subjects.
 - Options may omit the parent word; the app already knows the parent is "${parent}".
 - Never use pronouns ("its", "it", "their", "this") — each option must make sense on its own.
-- Last option should be a short overview chip like "big picture of ${parent}" or "intro to ${parent}" (never "general ${parent}").
+- Last option should be a short overview chip like "intro to ${parent}" (never "general ${parent}").
 - ${avoidedBlock}
 - No numbers. No full sentences.
 ${research}`,
@@ -1019,20 +1019,11 @@ ${research}`,
     if (!softRetry && recentAvoid.length > 3) {
       return buildClarifyForTopic(parentRaw, avoided, true);
     }
-    // Subject-shaped offline fallbacks — avoid hollow theory/apps/general shells.
-    const overview = generalFocusOption(parent, recentAvoid);
-    const focusOptions = [
-      `${parent} mechanisms`,
-      `${parent} landmark ideas`,
-      `hands-on ${parent}`,
-      overview,
-    ].filter((o) => !isGenericFocusShell(o, parent) || /big picture|from scratch|touring|intro to|first look|foundations/i.test(o));
-    const chips =
-      focusOptions.length >= 2
-        ? focusOptions.slice(0, 4)
-        : [`${parent} mechanisms`, `hands-on ${parent}`, overview].slice(0, 4);
+    // No good AI subtopics — ask openly instead of pasting template chips
+    // ("X landmark ideas", "X big picture") that read as nonsense for most asks.
+    const chips = [`the basics of ${parent}`];
     return {
-      say: casualFocusSay(parent, chips),
+      say: `What part of ${parent} do you want — say it in your own words, or I can start with the basics.`,
       action: "clarify_focus",
       parentTopic: parent,
       topic: parent,
@@ -1637,10 +1628,14 @@ Rules:
       const focus = cleanTopicLabel(
         intake.topic || userText,
       );
+      // A name the student actually said is their topic, not a model invention.
+      const saidByStudent = (name: string) =>
+        Boolean(name) && userText.toLowerCase().includes(name.toLowerCase());
       if (
         looksLikeVagueTopic(focus) ||
-        looksLikeInventedPersonTopic(focus) ||
-        looksLikeInventedPersonTopic(intake.topic || "")
+        (looksLikeInventedPersonTopic(focus) && !saidByStudent(focus)) ||
+        (looksLikeInventedPersonTopic(intake.topic || "") &&
+          !saidByStudent(intake.topic || ""))
       ) {
         return buildClarifyForTopic(
           looksLikeInventedPersonTopic(focus) ? userText : focus,

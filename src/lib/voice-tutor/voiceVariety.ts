@@ -85,12 +85,9 @@ const DEFERRED_INTRO = [
 ] as const;
 
 const OVERVIEW_LABELS = [
-  "{topic} big picture",
-  "{topic} from scratch",
-  "touring {topic}",
   "intro to {topic}",
-  "{topic} foundations walkthrough",
-  "first look at {topic}",
+  "the basics of {topic}",
+  "{topic} from scratch",
 ] as const;
 
 export function dynamicTopicLockSay(

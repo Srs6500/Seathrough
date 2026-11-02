@@ -1,17 +1,38 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Check, FileText, Shapes, Video } from "lucide-react";
+import { Check, FileText, Presentation, Shapes, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** How the tutor teaches: any mix of written text, diagrams, and a video. */
-export type TeachFormats = { text: boolean; diagram: boolean; video: boolean };
+/**
+ * How the tutor teaches: any mix of written text, diagrams, and a video.
+ * Whiteboard is a full board lesson, so it replaces text + diagram while on.
+ */
+export type TeachFormats = {
+  text: boolean;
+  diagram: boolean;
+  video: boolean;
+  whiteboard: boolean;
+};
 
 export const DEFAULT_TEACH_FORMATS: TeachFormats = {
   text: true,
   diagram: true,
   video: false,
+  whiteboard: false,
 };
+
+function anyFormat(f: TeachFormats): boolean {
+  return f.text || f.diagram || f.video || f.whiteboard;
+}
+
+/** Apply a toggle, keeping whiteboard and text/diagram mutually exclusive. */
+export function toggleTeachFormat(value: TeachFormats, key: keyof TeachFormats): TeachFormats {
+  const on = !value[key];
+  if (key === "whiteboard" && on) return { ...value, whiteboard: true, text: false, diagram: false };
+  if ((key === "text" || key === "diagram") && on) return { ...value, [key]: true, whiteboard: false };
+  return { ...value, [key]: on };
+}
 
 const STORAGE_KEY = "seethrough.voice-tutor.formats";
 
@@ -25,8 +46,13 @@ function loadTeachFormats(): TeachFormats {
       text: raw.text === true,
       diagram: raw.diagram === true,
       video: raw.video === true,
+      whiteboard: raw.whiteboard === true,
     };
-    return next.text || next.diagram || next.video ? next : DEFAULT_TEACH_FORMATS;
+    if (next.whiteboard) {
+      next.text = false;
+      next.diagram = false;
+    }
+    return anyFormat(next) ? next : DEFAULT_TEACH_FORMATS;
   } catch {
     return DEFAULT_TEACH_FORMATS;
   }
@@ -63,6 +89,7 @@ export function useTeachFormats(): TeachFormats {
 const OPTIONS = [
   { key: "text", label: "Text", Icon: FileText },
   { key: "diagram", label: "Diagram", Icon: Shapes },
+  { key: "whiteboard", label: "Whiteboard", Icon: Presentation },
   { key: "video", label: "Video", Icon: Video },
 ] as const;
 
@@ -77,7 +104,7 @@ export function TeachFormatPicker({
 }) {
   const onCount = OPTIONS.filter((o) => value[o.key]).length;
   return (
-    <fieldset className={cn("flex items-center justify-center gap-1.5", className)}>
+    <fieldset className={cn("flex flex-wrap items-center justify-center gap-1.5", className)}>
       <legend className="sr-only">Teach with</legend>
       <span className="mr-1 text-[12px] text-[#71717a]" aria-hidden>
         Teach with
@@ -103,7 +130,7 @@ export function TeachFormatPicker({
               className="sr-only"
               checked={checked}
               disabled={locked}
-              onChange={() => onChange({ ...value, [key]: !checked })}
+              onChange={() => onChange(toggleTeachFormat(value, key))}
             />
             {checked ? (
               <Check className="size-3.5" aria-hidden />
