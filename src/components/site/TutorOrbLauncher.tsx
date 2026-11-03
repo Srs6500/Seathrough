@@ -17,6 +17,8 @@ const ORB_PX = 104;
 /** Navbar size, as a fraction of the docked orb. */
 const NAV_SCALE = 0.42;
 const LAUNCH_MS = 700;
+/** Longest we wait on the landing page for the mic prompt to be answered. */
+const MIC_WAIT_MS = 12_000;
 
 type Flight = { cx: number; cy: number; dx: number; dy: number; go: boolean };
 
@@ -44,9 +46,13 @@ export function TutorOrbLauncher({
   function launch() {
     if (flight) return;
     requestTutorAutostart();
+    // Ask for the mic now, while this click still counts as a user gesture.
+    // Asked later from the tutor page (no click there), Chrome shows only a
+    // quiet address-bar chip, so the tutor would sit waiting on a hidden prompt.
+    const micReady = askForMic();
     const home = homeRef.current;
     if (!home || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      router.push(TUTOR_HREF);
+      void micReady.then(() => router.push(TUTOR_HREF));
       return;
     }
     const r = home.getBoundingClientRect();
@@ -63,7 +69,9 @@ export function TutorOrbLauncher({
     requestAnimationFrame(() =>
       requestAnimationFrame(() => setFlight((f) => (f ? { ...f, go: true } : f))),
     );
-    window.setTimeout(() => router.push(TUTOR_HREF), LAUNCH_MS);
+    // Open the tutor once the flight lands and the mic prompt is answered.
+    const landed = new Promise((resolve) => window.setTimeout(resolve, LAUNCH_MS));
+    void Promise.all([landed, micReady]).then(() => router.push(TUTOR_HREF));
   }
 
   const size = Math.round(ORB_PX * scale);
@@ -129,4 +137,20 @@ export function TutorOrbLauncher({
         : null}
     </>
   );
+}
+
+/**
+ * Resolve once the browser has an answer about the microphone (allowed or
+ * not). The stream is closed straight away; the tutor opens its own.
+ */
+async function askForMic(): Promise<void> {
+  const answer = navigator.mediaDevices
+    .getUserMedia({ audio: true })
+    .then((stream) => stream.getTracks().forEach((t) => t.stop()))
+    .catch(() => {
+      /* denied or no mic — the tutor shows its own "allow microphone" message */
+    });
+  // Don't hold the covered screen forever if the prompt is ignored.
+  const giveUp = new Promise<void>((resolve) => window.setTimeout(resolve, MIC_WAIT_MS));
+  await Promise.race([answer, giveUp]);
 }
