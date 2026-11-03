@@ -10,7 +10,8 @@ export type ListenLoopHandle = {
 const MIC_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: true,
   noiseSuppression: true,
-  autoGainControl: true,
+  // Off: auto-gain boosts background noise up to speech level in pauses.
+  autoGainControl: false,
 };
 
 function rmsFromTimeDomain(data: Uint8Array): number {

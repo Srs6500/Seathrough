@@ -48,7 +48,9 @@ function micConstraints(): MediaTrackConstraints {
     channelCount: 1,
     echoCancellation: true,
     noiseSuppression: true,
-    autoGainControl: true,
+    // Auto-gain lifts room noise to speech level during silences; Deepgram
+    // copes fine with a quieter (un-boosted) voice.
+    autoGainControl: false,
   };
 }
 
@@ -153,7 +155,8 @@ async function startSileroBargeIn(
     onnxWASMBasePath: ORT_WASM_CDN,
     positiveSpeechThreshold,
     negativeSpeechThreshold: Math.max(0.15, positiveSpeechThreshold - 0.2),
-    minSpeechMs: 120,
+    // ~0.3s of real speech, so a cough, clap or TV word can't cut the tutor off.
+    minSpeechMs: 300,
     redemptionMs: 400,
     onSpeechStart: () => {
       if (!alive || fired) return;
@@ -185,9 +188,9 @@ async function startSileroBargeIn(
 }
 
 function startEnergyBargeIn(options: BargeInOptions): BargeInHandle {
-  const threshold = options.threshold ?? 0.14;
+  const threshold = options.threshold ?? 0.2;
   const settleMs = options.settleMs ?? 180;
-  const holdMs = options.holdMs ?? 90;
+  const holdMs = options.holdMs ?? 250;
   const startedAt = performance.now();
 
   let alive = true;

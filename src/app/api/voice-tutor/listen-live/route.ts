@@ -9,7 +9,7 @@ export const maxDuration = 60;
 type DgMessage = {
   type?: string;
   channel?: {
-    alternatives?: Array<{ transcript?: string }>;
+    alternatives?: Array<{ transcript?: string; confidence?: number }>;
   };
   is_final?: boolean;
   speech_final?: boolean;
@@ -167,8 +167,14 @@ export async function POST(request: Request) {
 
         if (msg.type && msg.type !== "Results") return;
 
-        const piece = msg.channel?.alternatives?.[0]?.transcript?.trim() ?? "";
+        const alt = msg.channel?.alternatives?.[0];
+        const piece = alt?.transcript?.trim() ?? "";
         if (!piece) return;
+        // Background talk, TV and far-off voices come back as low-confidence
+        // words; don't let them become the student's turn.
+        if (typeof alt?.confidence === "number" && alt.confidence < MIN_CONFIDENCE) {
+          return;
+        }
 
         if (msg.is_final) {
           finalized = finalized ? `${finalized} ${piece}` : piece;
@@ -229,6 +235,9 @@ export async function POST(request: Request) {
     },
   });
 }
+
+/** Deepgram word confidence below this is treated as background, not the student. */
+const MIN_CONFIDENCE = 0.55;
 
 function clampInt(
   raw: string | null,

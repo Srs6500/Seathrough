@@ -528,10 +528,10 @@ export class VoiceDuplexSession {
         allowBarge && !this.studentMuted && this.hasMic
           ? startBargeInListener({
               positiveSpeechThreshold:
-                this.handlers.positiveSpeechThreshold ?? 0.55,
-              threshold: this.handlers.bargeThreshold ?? 0.14,
-              settleMs: this.handlers.bargeSettleMs ?? 160,
-              holdMs: this.handlers.bargeHoldMs ?? 80,
+                this.handlers.positiveSpeechThreshold ?? 0.75,
+              threshold: this.handlers.bargeThreshold ?? 0.2,
+              settleMs: this.handlers.bargeSettleMs ?? 400,
+              holdMs: this.handlers.bargeHoldMs ?? 250,
               onBargeIn: () => {
                 this.postBarge = true;
                 this.handlers.onBarge?.();

@@ -2181,10 +2181,12 @@ export function VoiceTutorWorkspace() {
       return `${fragment.text} ${text}`.trim();
     };
     const duplex = new VoiceDuplexSession({
-      positiveSpeechThreshold: 0.55,
-      bargeThreshold: 0.14,
-      bargeSettleMs: 160,
-      bargeHoldMs: 80,
+      // Interrupting the tutor needs clear, sustained speech — background
+      // voices, the tutor's own speaker bleed and clicks shouldn't count.
+      positiveSpeechThreshold: 0.75,
+      bargeThreshold: 0.2,
+      bargeSettleMs: 400,
+      bargeHoldMs: 250,
       wakeWordEnabled: true,
       idleTimeoutMs: 45_000,
       getKeyterms: () => [
