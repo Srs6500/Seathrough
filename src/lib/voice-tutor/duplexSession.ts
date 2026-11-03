@@ -17,6 +17,7 @@ import {
 } from "@/lib/voice-tutor/bargeIn";
 import { MIC_CONSTRAINTS } from "@/lib/voice-tutor/listenLoop";
 import { streamListenUntilUtterance } from "@/lib/voice-tutor/streamListen";
+import { prewarmDirectListen } from "@/lib/voice-tutor/directListen";
 import { streamSpeakTutorLine } from "@/lib/voice-tutor/streamSpeak";
 import {
   DEFAULT_WAKE_PHRASES,
@@ -168,6 +169,7 @@ export class VoiceDuplexSession {
     if (this.hasMic) {
       this.studentMuted = false;
       void warmSileroVad();
+      prewarmDirectListen();
       return true;
     }
     const ok = await ensureMicPermission();
@@ -178,6 +180,7 @@ export class VoiceDuplexSession {
       });
       this.studentMuted = false;
       void warmSileroVad();
+      prewarmDirectListen();
       return true;
     } catch {
       this.stream = null;
@@ -293,8 +296,10 @@ export class VoiceDuplexSession {
             transcript = await streamListenUntilUtterance({
               signal: ac.signal,
               mediaStream: this.stream ?? undefined,
-              utteranceEndMs: listenAfterBarge ? 1200 : 2500,
-              endpointingMs: listenAfterBarge ? 500 : 750,
+              // Turn ends after this much quiet. Cut-off thoughts are held and
+              // joined to the next utterance by the workspace, so keep it short.
+              utteranceEndMs: listenAfterBarge ? 1100 : 1500,
+              endpointingMs: listenAfterBarge ? 400 : 500,
               maxMs: 20000,
               keyterms: this.handlers.getKeyterms?.(),
               onPartial: (partial) => this.handlers.onPartial?.(partial),

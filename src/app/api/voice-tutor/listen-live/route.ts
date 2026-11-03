@@ -1,6 +1,7 @@
 import { envPresence, getDeepgramConfig } from "@/lib/env";
 import { toUserFacingError } from "@/lib/errors/userFacing";
 import { applyDeepgramListenParams } from "@/lib/voice-tutor/sttParams";
+import { MIN_STT_CONFIDENCE } from "@/lib/voice-tutor/sttConfidence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -172,7 +173,7 @@ export async function POST(request: Request) {
         if (!piece) return;
         // Background talk, TV and far-off voices come back as low-confidence
         // words; don't let them become the student's turn.
-        if (typeof alt?.confidence === "number" && alt.confidence < MIN_CONFIDENCE) {
+        if (typeof alt?.confidence === "number" && alt.confidence < MIN_STT_CONFIDENCE) {
           return;
         }
 
@@ -235,9 +236,6 @@ export async function POST(request: Request) {
     },
   });
 }
-
-/** Deepgram word confidence below this is treated as background, not the student. */
-const MIN_CONFIDENCE = 0.55;
 
 function clampInt(
   raw: string | null,

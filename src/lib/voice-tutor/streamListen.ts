@@ -7,6 +7,10 @@
 import { requestVoiceTutorListen } from "@/lib/voice-tutor/client";
 import { listenUntilSilence, MIC_CONSTRAINTS } from "@/lib/voice-tutor/listenLoop";
 import { keytermQuery } from "@/lib/voice-tutor/sttParams";
+import {
+  directListenUntilUtterance,
+  isDirectListenAvailable,
+} from "@/lib/voice-tutor/directListen";
 
 export type StreamListenOptions = {
   /** Deepgram word-gap before UtteranceEnd (ms). Min useful ~1000. */
@@ -34,6 +38,9 @@ export type StreamListenOptions = {
  */
 const LIVE_FAILURES_BEFORE_BATCH = 2;
 let liveFailures = 0;
+/** Same idea for the direct browser → Deepgram socket (token route down, socket blocked). */
+const DIRECT_FAILURES_BEFORE_PROXY = 2;
+let directFailures = 0;
 
 type LiveEvent =
   | { type: "partial"; transcript?: string }
@@ -241,6 +248,34 @@ export async function streamListenUntilUtterance(
   options: StreamListenOptions = {},
 ): Promise<string | null> {
   if (options.signal?.aborted) return null;
+
+  // Fastest: stream straight to Deepgram from the browser.
+  if (
+    options.mediaStream &&
+    isDirectListenAvailable() &&
+    directFailures < DIRECT_FAILURES_BEFORE_PROXY
+  ) {
+    try {
+      const transcript = await directListenUntilUtterance({
+        mediaStream: options.mediaStream,
+        utteranceEndMs: options.utteranceEndMs ?? 1500,
+        endpointingMs: options.endpointingMs ?? 500,
+        maxMs: options.maxMs ?? 20000,
+        keyterms: options.keyterms,
+        signal: options.signal,
+        onPartial: options.onPartial,
+      });
+      directFailures = 0;
+      return transcript;
+    } catch (error) {
+      if (options.signal?.aborted || (error as Error)?.name === "AbortError") {
+        return null;
+      }
+      directFailures += 1;
+      console.warn("[voice] direct Deepgram listen failed, using server route", error);
+    }
+  }
+
   if (liveFailures >= LIVE_FAILURES_BEFORE_BATCH) {
     return streamListenBatchFallback(options);
   }
