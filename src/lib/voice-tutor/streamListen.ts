@@ -213,7 +213,7 @@ async function streamListenBatchFallback(
   const afterShort = (options.utteranceEndMs ?? 2500) <= 1500;
   const blob = await listenUntilSilence({
     signal: options.signal,
-    speechThreshold: afterShort ? 0.04 : 0.05,
+    speechThreshold: afterShort ? 0.06 : 0.07,
     silenceMs: options.utteranceEndMs ?? 3500,
     minSpeechMs: afterShort ? 280 : 550,
     maxMs: options.maxMs ?? 20000,
