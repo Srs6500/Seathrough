@@ -2,11 +2,11 @@
 export type TutorSettings = {
   /** What the tutor calls the student; empty = no name. */
   name: string;
-  /** Ask check questions after explaining. Off = explain only. */
+  /** Ask check questions after explaining. Off (default) = explain only. */
   askQuestions: boolean;
 };
 
-export const DEFAULT_TUTOR_SETTINGS: TutorSettings = { name: "", askQuestions: true };
+export const DEFAULT_TUTOR_SETTINGS: TutorSettings = { name: "", askQuestions: false };
 
 const KEY = "seethrough.voiceTutor.settings.v1";
 
@@ -17,7 +17,7 @@ export function loadTutorSettings(): TutorSettings {
     const parsed = JSON.parse(raw) as Partial<TutorSettings>;
     return {
       name: typeof parsed.name === "string" ? parsed.name.slice(0, 40) : "",
-      askQuestions: parsed.askQuestions !== false,
+      askQuestions: parsed.askQuestions === true,
     };
   } catch {
     return DEFAULT_TUTOR_SETTINGS;
