@@ -26,6 +26,7 @@ export type ModeId =
   | "automatic-drawing"
   | "draw-engine"
   | "explain-video"
+  | "explainer-videos"
   | "course-creator";
 
 export type ModeKind = "learning" | "tool";

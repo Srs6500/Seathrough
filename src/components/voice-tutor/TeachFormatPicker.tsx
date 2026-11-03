@@ -87,9 +87,9 @@ export function useTeachFormats(): TeachFormats {
 }
 
 const OPTIONS = [
+  { key: "whiteboard", label: "Whiteboard", Icon: Presentation },
   { key: "text", label: "Text", Icon: FileText },
   { key: "diagram", label: "Diagram", Icon: Shapes },
-  { key: "whiteboard", label: "Whiteboard", Icon: Presentation },
   { key: "video", label: "Video", Icon: Video },
 ] as const;
 

@@ -1,0 +1,49 @@
+{
+  "topic": "Spaced repetition",
+  "hook": ["Rereading notes barely works.", "Here's how memory actually sticks, in three moves."],
+  "problem": "Reread chapter 4 again",
+  "payoff": ["Recall", "Spacing", "Mixing"],
+  "payoffWord": "memory",
+  "points": [
+    {
+      "name": "recall",
+      "title": ["Active", "Recall"],
+      "line": "First, active recall beats rereading every time.",
+      "stat": { "value": 50, "suffix": "%", "label": "better recall" },
+      "card": "Testing yourself beats rereading",
+      "typed": "quiz --topic cells",
+      "bar": "terminal",
+      "explanation": "Close the book, write what you remember, then check the gaps you missed.",
+      "demo": { "kind": "flow", "items": ["Close book", "Write it", "Check gaps"] },
+      "stamp": "Gaps",
+      "stampWord": "gaps"
+    },
+    {
+      "name": "spacing",
+      "title": ["Space", "Reviews"],
+      "line": "Second, space reviews out over days, not hours.",
+      "stat": { "value": 4, "suffix": "", "label": "reviews needed" },
+      "card": "Day one, three, seven, fourteen",
+      "typed": "when to review flashcards",
+      "bar": "search",
+      "explanation": "Each review lands just as you start to forget, so the memory comes back stronger.",
+      "demo": { "kind": "compare", "items": ["Cramming", "Spaced"], "values": [30, 80] },
+      "stamp": "Stronger",
+      "stampWord": "stronger"
+    },
+    {
+      "name": "mixing",
+      "title": ["Mix", "Topics"],
+      "line": "Third, mix topics instead of blocking one.",
+      "stat": { "value": 3, "suffix": "", "label": "topics per session" },
+      "card": "Switch subjects every block",
+      "typed": "shuffle deck --all",
+      "bar": "terminal",
+      "explanation": "Switching forces your brain to pick the right method, and that choice is what tests reward.",
+      "demo": { "kind": "cycle", "items": ["Algebra", "Biology", "History"] },
+      "stamp": "Choose",
+      "stampWord": "choice"
+    }
+  ],
+  "closing": "So stop rereading. Recall, space, and mix, and your memory does the rest."
+}

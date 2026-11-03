@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 /** Three bouncing dots — the tutor's "working on it" mark. */
@@ -17,21 +18,33 @@ export function LoadingDots({ className }: { className?: string }) {
   );
 }
 
-/** Placeholder passage while the lesson plan is being written. */
-export function LessonSkeleton({ label }: { label: string }) {
+/**
+ * Landing spot for the voice orb while a lesson loads: the dock orb flies
+ * here (it looks for `[data-orb-target]`), loads in place, then flies home.
+ */
+export function LessonSkeleton({
+  label,
+  reveal = false,
+  className,
+}: {
+  label: string;
+  /** Scroll the spot into view (it sits under existing content). */
+  reveal?: boolean;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (reveal) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [reveal]);
   return (
-    <div className="w-full max-w-[40rem]" role="status" aria-live="polite">
-      <p className="mb-5 flex items-center gap-2 text-[14px] font-medium text-[#5b4fd4]">
-        <LoadingDots />
-        {label}
-      </p>
-      <div className="space-y-3 motion-safe:animate-pulse">
-        <div className="h-7 w-3/4 rounded-md bg-[#e4e4e7]" />
-        <div className="h-4 w-full rounded bg-[#ececee]" />
-        <div className="h-4 w-11/12 rounded bg-[#ececee]" />
-        <div className="h-4 w-4/6 rounded bg-[#ececee]" />
-        <div className="h-4 w-5/6 rounded bg-[#ececee]" />
-      </div>
+    <div
+      ref={ref}
+      data-orb-target
+      className={cn("h-64 w-full max-w-[40rem]", className)}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="sr-only">{label}</span>
     </div>
   );
 }

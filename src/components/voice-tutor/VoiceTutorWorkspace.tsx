@@ -11,11 +11,7 @@ import {
   FileDown,
   ImagePlus,
   Loader2,
-  Mic,
-  MicOff,
   PanelLeft,
-  Pause,
-  Play,
 } from "lucide-react";
 import { HistoryRail } from "@/components/voice-tutor/HistoryRail";
 import {
@@ -29,6 +25,17 @@ import {
   type LessonStanza,
 } from "@/components/voice-tutor/LessonStage";
 import { VoiceOrb, type VoiceOrbState } from "@/components/voice-tutor/VoiceOrb";
+import { TutorSettingsButton } from "@/components/voice-tutor/TutorSettingsButton";
+import { useAuth } from "@/components/AuthProvider";
+import { ProfileMenu } from "@/components/voice-tutor/ProfileMenu";
+import { useQuestionAccess } from "@/components/usage/QuestionAccess";
+import {
+  DEFAULT_TUTOR_SETTINGS,
+  loadTutorSettings,
+  personalGreeting,
+  saveTutorSettings,
+  type TutorSettings,
+} from "@/lib/voice-tutor/settings";
 import { LessonVideoJob } from "@/components/voice-tutor/lessonVideo";
 import { LessonVideoPanel } from "@/components/voice-tutor/LessonVideoPanel";
 import {
@@ -39,7 +46,6 @@ import {
 } from "@/components/voice-tutor/TeachFormatPicker";
 import { WhiteboardBoard } from "@/components/voice-tutor/WhiteboardBoard";
 import { BrandMark } from "@/components/lms/BrandMark";
-import { StudyMenu } from "@/components/modes/ModeNav";
 import { Button } from "@/components/ui/button";
 import {
   LIVE_BARGE_ANSWERS,
@@ -70,7 +76,7 @@ import {
 import type { TeachingImage } from "@/lib/voice-tutor/images/types";
 import { draftsFromBeats } from "@/lib/voice-tutor/whiteboard/fromBeats";
 import { layoutWhiteboard } from "@/lib/voice-tutor/whiteboard/layout";
-import type { WhiteboardSession } from "@/lib/voice-tutor/whiteboard/schema";
+import { WHITEBOARD_GAP, type WhiteboardSession } from "@/lib/voice-tutor/whiteboard/schema";
 import {
   VoiceDuplexSession,
   ensureMicPermission,
@@ -94,7 +100,16 @@ import {
   listHistorySessions,
   saveHistorySession,
 } from "@/lib/voice-tutor/historyStore";
-import { exportVoiceSessionPdf } from "@/lib/voice-tutor/pdfExport";
+import { exportLessonTextPdf, exportStagePdf } from "@/lib/voice-tutor/pdfExport";
+import { consumeTutorAutostart } from "@/lib/voice-tutor/autostart";
+import {
+  blobFromUrl,
+  deleteSessionVisuals,
+  loadSessionVisuals,
+  pruneSessionVisuals,
+  saveSessionVisuals,
+  type SavedMedia,
+} from "@/lib/voice-tutor/visualStore";
 import {
   avoidedFocusForParent,
   dynamicBargeLocked,
@@ -342,7 +357,58 @@ export function VoiceTutorWorkspace() {
   const [exportingPdf, setExportingPdf] = useState(false);
   /** X pause — voice + transcript halt until user resumes. */
   const [lessonPaused, setLessonPaused] = useState(false);
+  /** A lesson finished and its stage is still up — the next ask can build on it. */
+  const lessonDoneRef = useRef(false);
+  const followUpCountRef = useRef(0);
+  /** "Building on …" label while a follow-up section is being planned. */
+  const [continuing, setContinuing] = useState<string | null>(null);
+  const { loading: authLoading } = useAuth();
+  const { beginQuestion } = useQuestionAccess();
+  const authLoadingRef = useRef(authLoading);
+  const beginQuestionRef = useRef(beginQuestion);
+  useEffect(() => {
+    authLoadingRef.current = authLoading;
+    beginQuestionRef.current = beginQuestion;
+  }, [authLoading, beginQuestion]);
+  /** Wait (briefly) for the sign-in check so early questions are gated too. */
+  async function settleAuth() {
+    for (let i = 0; i < 40 && authLoadingRef.current; i += 1) {
+      await new Promise((r) => window.setTimeout(r, 100));
+    }
+  }
+  const [settings, setSettings] = useState<TutorSettings>(() =>
+    typeof window === "undefined" ? DEFAULT_TUTOR_SETTINGS : loadTutorSettings(),
+  );
+  const settingsRef = useRef(settings);
+  function updateSettings(next: TutorSettings) {
+    settingsRef.current = next;
+    setSettings(next);
+    saveTutorSettings(next);
+  }
   const [boardHaltWriting, setBoardHaltWriting] = useState(false);
+  /**
+   * Formats a session reopened from History was taught with — shown as-is,
+   * fully drawn, until a new lesson starts. null = live lesson.
+   */
+  const [restoredFormats, setRestoredFormats] = useState<TeachFormats | null>(null);
+  const viewFormats = restoredFormats ?? formats;
+  /** Reopening a session — don't save the half-cleared stage over it. */
+  const restoringRef = useRef(false);
+  const visualsTimerRef = useRef<number | null>(null);
+  const visualSnapshotRef = useRef<{
+    id: string;
+    formats: TeachFormats;
+    plan: VoiceLessonPlan | null;
+    board: BoardContent | null;
+    draw: DrawScene | null;
+    drawings: Array<{ title: string; scene: DrawScene }>;
+    sections: LessonSection[];
+    stanzas: LessonStanza[];
+    figures: Record<string, TeachingImage>;
+    whiteboard: WhiteboardSession | null;
+    media: LessonMedia | null;
+    videoJob: LessonVideoJob | null;
+  } | null>(null);
 
   const playAbortRef = useRef<AbortController | null>(null);
   const turnAbortRef = useRef<AbortController | null>(null);
@@ -513,7 +579,123 @@ export function VoiceTutorWorkspace() {
 
   useEffect(() => {
     refreshHistory();
+    void pruneSessionVisuals(listHistorySessions().map((h) => h.id));
   }, [refreshHistory]);
+
+  /** Write the latest stage snapshot to History (blobs included). */
+  const flushVisuals = useCallback(() => {
+    if (visualsTimerRef.current) {
+      window.clearTimeout(visualsTimerRef.current);
+      visualsTimerRef.current = null;
+    }
+    const snap = visualSnapshotRef.current;
+    if (!snap) return;
+    void (async () => {
+      let media: SavedMedia | null = null;
+      if (snap.media) {
+        const image = await blobFromUrl(snap.media.imageUrl);
+        if (image) {
+          media =
+            snap.media.kind === "model3d"
+              ? {
+                  kind: "model3d",
+                  image,
+                  subject: snap.media.subject,
+                  modelUrl: snap.media.modelUrl,
+                  scene: snap.media.scene,
+                }
+              : { kind: "image", image, subject: snap.media.subject };
+        }
+      }
+      const job = snap.videoJob;
+      const status = job?.status;
+      const video =
+        job && job.blob && status?.kind === "ready"
+          ? { topic: job.topic, blob: job.blob, title: status.title, fileName: status.fileName }
+          : null;
+      await saveSessionVisuals({
+        id: snap.id,
+        savedAt: Date.now(),
+        formats: snap.formats,
+        plan: snap.plan,
+        board: snap.board,
+        draw: snap.draw,
+        drawings: snap.drawings,
+        sections: snap.sections,
+        stanzas: snap.stanzas,
+        figures: snap.figures,
+        whiteboard: snap.whiteboard,
+        media,
+        video,
+      });
+    })();
+  }, []);
+
+  // Keep a snapshot of everything on the stage and save it shortly after it changes.
+  useEffect(() => {
+    if (restoringRef.current) return;
+    const hasVisuals = Boolean(
+      plan ||
+        board ||
+        stanzas.length ||
+        drawings.length ||
+        whiteboard ||
+        media ||
+        videoJob,
+    );
+    if (!hasVisuals) {
+      visualSnapshotRef.current = null;
+      return;
+    }
+    visualSnapshotRef.current = {
+      id: sessionId,
+      formats: viewFormats,
+      plan,
+      board,
+      draw,
+      drawings,
+      sections,
+      stanzas,
+      figures,
+      whiteboard,
+      media,
+      videoJob,
+    };
+    if (visualsTimerRef.current) window.clearTimeout(visualsTimerRef.current);
+    visualsTimerRef.current = window.setTimeout(flushVisuals, 800);
+  }, [
+    sessionId,
+    viewFormats,
+    plan,
+    board,
+    draw,
+    drawings,
+    sections,
+    stanzas,
+    figures,
+    whiteboard,
+    media,
+    videoJob,
+    flushVisuals,
+  ]);
+
+  // The video finishes long after the lesson — save it the moment it's ready.
+  useEffect(() => {
+    if (!videoJob) return;
+    return videoJob.subscribe(() => {
+      if (videoJob.status.kind === "ready" && !restoringRef.current) flushVisuals();
+    });
+  }, [videoJob, flushVisuals]);
+
+  // Don't lose the last few changes when the tab closes.
+  useEffect(() => {
+    const onHide = () => flushVisuals();
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      flushVisuals();
+    };
+  }, [flushVisuals]);
 
   const persist = useCallback(
     (patch?: Partial<HistorySession>) => {
@@ -602,23 +784,6 @@ export function VoiceTutorWorkspace() {
     }
   }
 
-  /** X = pause lesson (voice + transcript). Resume only on request. */
-  function pauseLesson() {
-    lessonPausedRef.current = true;
-    setLessonPaused(true);
-    setBoardHaltWriting(true);
-    turnAbortRef.current?.abort();
-    turnAbortRef.current = null;
-    duplexRef.current?.pause();
-    speakingRef.current = false;
-    listenLoopActiveRef.current = false;
-    clearAsideConfirmTimer();
-    clearBargeIdleResumeTimer();
-    busyRef.current = false;
-    setBusy(false);
-    setOrbState("idle");
-  }
-
   function resumePausedLesson() {
     lessonPausedRef.current = false;
     setLessonPaused(false);
@@ -660,11 +825,6 @@ export function VoiceTutorWorkspace() {
     } else {
       setOrbState("idle");
     }
-  }
-
-  function togglePauseLesson() {
-    if (lessonPausedRef.current) resumePausedLesson();
-    else pauseLesson();
   }
 
   function stopListening() {
@@ -732,6 +892,7 @@ export function VoiceTutorWorkspace() {
 
   function onFormatsChange(next: TeachFormats) {
     setTeachFormats(next);
+    setRestoredFormats(null);
     const lesson = planRef.current;
     const teachingNow = phaseRef.current === "teaching" || phaseRef.current === "checking";
     if (!lesson || !teachingNow) return;
@@ -808,6 +969,7 @@ export function VoiceTutorWorkspace() {
   }
 
   function clearLessonBoard() {
+    setRestoredFormats(null);
     cancelLessonVideo();
     clearWhiteboard();
     figuresAbortRef.current?.abort();
@@ -927,7 +1089,10 @@ export function VoiceTutorWorkspace() {
   async function finishLessonEnding(nextPlan: VoiceLessonPlan) {
     deferredActiveRef.current = null;
     deferredQueueRef.current = [];
-    setPhase("ended");
+    // Stay in the conversation: the board stays up and a follow-up question
+    // builds on this lesson instead of starting a new session.
+    lessonDoneRef.current = true;
+    setPhase("chatting");
     setOrbState(micOnRef.current ? "listening" : "idle");
     await speak(dynamicLessonEnding(nextPlan.topic));
     persist({ ended: true, label: nextPlan.label });
@@ -1107,9 +1272,16 @@ export function VoiceTutorWorkspace() {
 
   async function deliverBeat(nextPlan: VoiceLessonPlan, index: number) {
     if (lessonPausedRef.current || videoOnlyLessonRef.current) return;
+    // "New" / opening history replaced this lesson: stop the old beat loop.
+    if (planRef.current !== nextPlan) return;
     const beat = nextPlan.beats[index];
     if (!beat) {
       await deliverDeferredCloseouts(nextPlan);
+      return;
+    }
+    // Questions turned off in settings (even mid-lesson): skip check beats.
+    if (beat.expectAnswer && !settingsRef.current.askQuestions) {
+      await deliverBeat(nextPlan, index + 1);
       return;
     }
     setBeatIndex(index);
@@ -1132,6 +1304,7 @@ export function VoiceTutorWorkspace() {
   }
 
   async function beginTeaching(nextPlan: VoiceLessonPlan) {
+    lessonDoneRef.current = false;
     clearAsideConfirmTimer();
     clearBargeIdleResumeTimer();
     deferredQueriesRef.current = [];
@@ -1145,8 +1318,14 @@ export function VoiceTutorWorkspace() {
     setLessonPaused(false);
     setPendingTopic(null);
     pendingTopicRef.current = null;
+    // Settings: "Ask questions after explaining" off → explain only.
+    const explainOnly = nextPlan.beats.filter((b) => !b.expectAnswer);
     const cleaned: VoiceLessonPlan = {
       ...nextPlan,
+      beats:
+        !settingsRef.current.askQuestions && explainOnly.length > 0
+          ? explainOnly
+          : nextPlan.beats,
       topic: cleanTopicLabel(nextPlan.topic),
       label: cleanTopicLabel(nextPlan.label || nextPlan.topic),
     };
@@ -1274,6 +1453,126 @@ export function VoiceTutorWorkspace() {
     };
   }
 
+  /** What a finished lesson already taught — context for follow-up planning. */
+  function lessonSummary(lesson: VoiceLessonPlan): string {
+    return lesson.beats
+      .filter((b) => !b.expectAnswer)
+      .map((b) => {
+        const label = b.board?.sectionLabel ? `${b.board.sectionLabel}: ` : "";
+        const body = (b.board?.plainExplain || b.board?.sourceText || b.say).replace(/\s+/g, " ").trim();
+        const points = (b.board?.keyPoints ?? []).slice(0, 3).join("; ");
+        return `- ${label}${body.slice(0, 280)}${points ? ` (points: ${points})` : ""}`;
+      })
+      .join("\n")
+      .slice(0, 3800);
+  }
+
+  /** Put a follow-up board under the existing one, shifting its beats after the old ones. */
+  function appendWhiteboard(
+    prev: WhiteboardSession,
+    add: WhiteboardSession,
+    beatOffset: number,
+    tag: string,
+  ): WhiteboardSession {
+    if (add.items.length === 0) return prev;
+    const bottom = prev.items.reduce((m, it) => Math.max(m, it.y + it.h), 0);
+    const top = add.items.reduce((m, it) => Math.min(m, it.y), Number.POSITIVE_INFINITY);
+    const dy = bottom + WHITEBOARD_GAP * 3 - top;
+    const items = add.items.map((it) => ({
+      ...it,
+      id: `${tag}_${it.id}`,
+      y: it.y + dy,
+      beatIndex: it.beatIndex + beatOffset,
+    }));
+    return {
+      ...prev,
+      board: { width: prev.board.width, height: Math.max(prev.board.height, add.board.height + dy) },
+      items: [...prev.items, ...items],
+    };
+  }
+
+  /**
+   * Follow-up after a finished lesson. Plans a short continuation with the
+   * lesson as context, appends it to the same plan / board / passage, and
+   * teaches it. Returns false when the server says it's an unrelated topic.
+   */
+  async function continueLesson(question: string, turnAc: AbortController): Promise<boolean> {
+    const base = planRef.current;
+    if (!base) return false;
+    setOrbState("thinking");
+    setContinuing(`Building on ${base.label || base.topic}…`);
+    try {
+      let planned: TurnResponse;
+      try {
+        planned = await requestVoiceTurn({
+          mode: "plan",
+          userText: question,
+          topic: question,
+          messages: messagesRef.current,
+          diagrams: formatsRef.current.diagram,
+          priorLesson: { topic: base.topic, summary: lessonSummary(base) },
+          signal: turnAc.signal,
+        });
+      } catch (err) {
+        if (turnAc.signal.aborted || (err as Error).name === "AbortError") return true;
+        throw err;
+      }
+      if (turnAc.signal.aborted || planRef.current !== base) return true;
+      if (planned.continuesLesson === false || !planned.plan) return false;
+
+      followUpCountRef.current += 1;
+      const tag = `f${followUpCountRef.current}`;
+      const extra = planned.plan.beats
+        .filter((b) => settingsRef.current.askQuestions || !b.expectAnswer)
+        .map((b) => ({ ...b, id: `${tag}_${b.id}` }));
+      if (extra.length === 0) return false;
+      const offset = base.beats.length;
+      const seen = new Set((base.sources ?? []).map((src) => src.url));
+      const combined: VoiceLessonPlan = {
+        ...base,
+        beats: [...base.beats, ...extra],
+        sources: [
+          ...(base.sources ?? []),
+          ...(planned.plan.sources ?? []).filter((src) => !seen.has(src.url)),
+        ],
+      };
+
+      // Whiteboard lesson: write the new section under the existing board.
+      if (formatsRef.current.whiteboard && whiteboardPlanRef.current === base) {
+        const mini: VoiceLessonPlan = { ...planned.plan, beats: extra };
+        let add: WhiteboardSession;
+        try {
+          add = await requestWhiteboard(mini, turnAc.signal);
+        } catch {
+          if (turnAc.signal.aborted) return true;
+          add = layoutWhiteboard({
+            topic: mini.topic,
+            drafts: draftsFromBeats(mini),
+            beatOrder: extra.map((b) => b.id),
+          });
+        }
+        if (turnAc.signal.aborted || planRef.current !== base) return true;
+        setWhiteboard((prev) => (prev ? appendWhiteboard(prev, add, offset, tag) : prev));
+        whiteboardPlanRef.current = combined;
+      }
+
+      lessonDoneRef.current = false;
+      planRef.current = combined;
+      setPlan(combined);
+      persist({ ended: false });
+      setContinuing(null);
+      setPhase("teaching");
+      const played = await speak(planned.say || "Good question — let's build on that.", {
+        allowBarge: false,
+      });
+      if (!played || planRef.current !== combined) return true;
+      await deliverBeat(combined, offset);
+      return true;
+    } finally {
+      setContinuing(null);
+    }
+  }
+
   /**
    * Mid-lesson doubt handling:
    * first LIVE_BARGE_ANSWERS → partial voice answer NOW (not on board), resume SAME beat
@@ -1380,6 +1679,28 @@ export function VoiceTutorWorkspace() {
         "Let's keep this about what you want to learn. Name a topic — even a messy one is fine.",
       );
       if (played && micOnRef.current) startListenLoopRef.current();
+      return;
+    }
+
+    // Free tier: 5 questions without an account, then ask to sign up / log in.
+    // Answers to the tutor's own questions and quick yes/no replies don't count.
+    const answeringTutor =
+      phasePeek === "checking" ||
+      phasePeek === "check_offer_try" ||
+      phasePeek === "deferred_close" ||
+      phasePeek === "aside_confirm" ||
+      phasePeek === "clarify_focus" ||
+      phasePeek === "topic_pending";
+    const isNewQuestion =
+      !answeringTutor && !looksLikeAffirmative(text) && !looksLikeNegative(text);
+    if (isNewQuestion) await settleAuth();
+    if (isNewQuestion && !authLoadingRef.current && !beginQuestionRef.current()) {
+      flashUserHeard(text);
+      setOrbState("idle");
+      await speak(
+        "That was your fifth free question today. Sign up or log in to keep learning.",
+        { log: false, allowBarge: false },
+      );
       return;
     }
 
@@ -1609,6 +1930,12 @@ export function VoiceTutorWorkspace() {
         // Default mid-lesson speech → treat as a doubt (partial ×2, then park).
         await handleLessonDoubt(text);
         return;
+      }
+
+      // After a lesson: a related question extends it (same board, same context).
+      if (phaseNow === "chatting" && lessonDoneRef.current && planRef.current) {
+        if (await continueLesson(text, turnAc)) return;
+        if (turnAc.signal.aborted) return;
       }
 
       // Onboarding / clarify: never mark as teaching.
@@ -1934,6 +2261,20 @@ export function VoiceTutorWorkspace() {
     };
   }, []);
 
+  // Opened from the landing-page orb: start talking right away, as if the
+  // student had pressed the mic. Runs after the duplex session exists.
+  const toggleMicRef = useRef<() => Promise<void>>(async () => undefined);
+  useEffect(() => {
+    toggleMicRef.current = toggleMic;
+  });
+  useEffect(() => {
+    // Consume inside the timer so a Strict Mode re-mount doesn't eat the request.
+    const id = window.setTimeout(() => {
+      if (consumeTutorAutostart()) void toggleMicRef.current();
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, []);
+
   async function toggleMic() {
     if (micOn) {
       // Student mic off only — do not cut tutor TTS mid-line.
@@ -1966,7 +2307,7 @@ export function VoiceTutorWorkspace() {
       busyRef.current = true;
       try {
         const turn = await requestVoiceTurn({ mode: "greet", messages: [] });
-        await speak(turn.say);
+        await speak(personalGreeting(settingsRef.current.name, turn.say));
         setPhase("chatting");
       } catch (err) {
         setError(toUserFacingError(err, "Couldn't start the tutor."));
@@ -2192,26 +2533,10 @@ export function VoiceTutorWorkspace() {
     }
   }
 
-  function endSession() {
-    stopPlayback();
-    stopListening();
-    clearAsideConfirmTimer();
-    clearBargeIdleResumeTimer();
-    deferredQueriesRef.current = [];
-    deferredQueueRef.current = [];
-    deferredActiveRef.current = null;
-    pendingAsideQuestionRef.current = null;
-    skipCurrentBeatOnResumeRef.current = false;
-    setMicOn(false);
-    micOnRef.current = false;
-    // Mute the engine too — otherwise its idle timer can reopen a hidden wake loop.
-    duplexRef.current?.setStudentMuted(true);
-    setPhase("ended");
-    setOrbState("idle");
-    persist({ ended: true });
-  }
-
   function newSession() {
+    flushVisuals();
+    visualSnapshotRef.current = null;
+    setRestoredFormats(null);
     stopPlayback();
     stopListening();
     clearAsideConfirmTimer();
@@ -2229,6 +2554,18 @@ export function VoiceTutorWorkspace() {
     setLessonPaused(false);
     setBoardHaltWriting(false);
     clearLessonMedia();
+    // Clear the whole stage (whiteboard, pictures, video) and stop any
+    // in-flight turn, or a whiteboard lesson stays on screen.
+    clearLessonBoard();
+    turnAbortRef.current?.abort();
+    turnAbortRef.current = null;
+    setPreparingLesson(null);
+    setContinuing(null);
+    lessonDoneRef.current = false;
+    videoOnlyLessonRef.current = false;
+    speakingRef.current = false;
+    busyRef.current = false;
+    setBusy(false);
     setSessionId(uid("vs"));
     setSessionLabel("New conversation");
     setMessages([]);
@@ -2261,42 +2598,98 @@ export function VoiceTutorWorkspace() {
     setOrbState("idle");
   }
 
-  function openHistory(id: string) {
+  async function openHistory(id: string) {
+    lessonDoneRef.current = false;
     const found = getHistorySession(id);
     if (!found) return;
+    // Save the session we're leaving before the stage is cleared.
+    flushVisuals();
+    visualSnapshotRef.current = null;
+    restoringRef.current = true;
     stopPlayback();
     stopListening();
     setMicOn(false);
     micOnRef.current = false;
     duplexRef.current?.setStudentMuted(true);
     setSessionId(found.id);
+    sessionIdRef.current = found.id;
     setSessionLabel(found.label);
     setMessages(found.messages);
     messagesRef.current = found.messages;
     setPhase(found.ended ? "ended" : "idle");
     setOrbState("idle");
     setPlan(null);
-    cancelLessonVideo();
-    setDraw(null);
-    setBoard(null);
-    setSections([]);
-    setStanzas([]);
-    setActiveStanzaIndex(0);
+    planRef.current = null;
+    clearLessonBoard();
+    clearLessonMedia();
     setUserHeard("");
+
+    const saved = await loadSessionVisuals(found.id);
+    if (sessionIdRef.current !== found.id) return;
+    if (saved) {
+      setPlan(saved.plan);
+      planRef.current = saved.plan;
+      setBoard(saved.board);
+      setDraw(saved.draw);
+      setDrawings(saved.drawings ?? []);
+      setSections(saved.sections ?? []);
+      setStanzas(saved.stanzas ?? []);
+      // Past the last stanza = everything shows fully written.
+      setActiveStanzaIndex(saved.stanzas?.length ?? 0);
+      setFigures(saved.figures ?? {});
+      setWhiteboard(saved.whiteboard);
+      if (saved.media) {
+        const imageUrl = URL.createObjectURL(saved.media.image);
+        replaceMedia(
+          saved.media.kind === "model3d"
+            ? {
+                kind: "model3d",
+                imageUrl,
+                subject: saved.media.subject,
+                modelUrl: saved.media.modelUrl,
+                scene: saved.media.scene,
+                error:
+                  saved.media.modelUrl || saved.media.scene
+                    ? undefined
+                    : "The 3D model wasn't finished in this session.",
+              }
+            : { kind: "image", imageUrl, subject: saved.media.subject },
+        );
+      }
+      if (saved.video) {
+        const job = new LessonVideoJob(saved.video.topic, saved.video);
+        videoJobRef.current = job;
+        setVideoJob(job);
+      }
+      setRestoredFormats(
+        saved.formats ?? {
+          text: true,
+          diagram: true,
+          whiteboard: Boolean(saved.whiteboard),
+          video: Boolean(saved.video),
+        },
+      );
+    }
+    restoringRef.current = false;
   }
 
   async function downloadPdf() {
     if (exportingPdf) return;
     setExportingPdf(true);
     try {
-      await exportVoiceSessionPdf({
-        label: sessionLabel,
-        topic: plan?.topic || pendingTopic || sessionLabel,
-        objective: plan?.objective,
-        messages,
-        plan,
-        drawings,
-      });
+      // The PDF is the lesson as it looks on screen — not the chat.
+      const title = plan?.label || plan?.topic || sessionLabel;
+      const stage = document.querySelector<HTMLElement>("[data-pdf-stage]");
+      if (stage) {
+        try {
+          await exportStagePdf({ stage, title, label: sessionLabel, sources: plan?.sources });
+          return;
+        } catch (err) {
+          console.warn("[pdf] stage capture failed, exporting lesson text", err);
+        }
+      }
+      if (!plan) throw new Error("Nothing on the board to export yet.");
+      exportLessonTextPdf({ title, label: sessionLabel, plan });
     } catch (err) {
       setError(toUserFacingError(err, "Couldn't export the PDF."));
     } finally {
@@ -2304,7 +2697,7 @@ export function VoiceTutorWorkspace() {
     }
   }
 
-  const showPdf = phase === "ended" || messages.length > 2;
+  const showPdf = Boolean(plan || whiteboard || stanzas.length || drawings.length);
 
   return (
     <div
@@ -2348,6 +2741,7 @@ export function VoiceTutorWorkspace() {
             onSelect={openHistory}
             onDelete={(id) => {
               deleteHistorySession(id);
+              void deleteSessionVisuals(id);
               refreshHistory();
               if (id === sessionId) newSession();
             }}
@@ -2365,9 +2759,10 @@ export function VoiceTutorWorkspace() {
               size="sm"
               className={cn("gap-1.5", INSPECT_CHIP)}
               onClick={() => setHistoryOpen((v) => !v)}
+              aria-label="History"
             >
               <PanelLeft className="size-3.5" />
-              History
+              <span className="hidden sm:inline">History</span>
             </Button>
             <BrandMark
               compact
@@ -2375,7 +2770,7 @@ export function VoiceTutorWorkspace() {
               className="[&>span]:text-[#16161a]"
             />
           </div>
-          <div className="pointer-events-auto flex items-center gap-2">
+          <div className="pointer-events-auto flex shrink-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -2391,12 +2786,9 @@ export function VoiceTutorWorkspace() {
               ) : (
                 <FileDown className="size-3.5" />
               )}
-              PDF
+              <span className="hidden sm:inline">PDF</span>
             </Button>
-            <StudyMenu
-              current="smart-tutor"
-              className="h-9 rounded-lg border border-[#ececee] bg-white px-3 text-[13px] font-medium text-[#16161a] hover:bg-[#fafafa] [&>span]:text-[#16161a]"
-            />
+            <ProfileMenu displayName={settings.name} />
           </div>
         </header>
 
@@ -2412,15 +2804,17 @@ export function VoiceTutorWorkspace() {
             onStanzaComplete={onStanzaComplete}
             haltWriting={boardHaltWriting || lessonPaused}
             sources={plan?.sources}
-            showText={formats.text}
-            showDiagram={formats.diagram}
+            showText={viewFormats.text}
+            showDiagram={viewFormats.diagram}
             preparing={preparingLesson}
+            continuing={continuing}
             figures={figures}
             whiteboard={
-              formats.whiteboard && (whiteboard || whiteboardPreparing) ? (
+              viewFormats.whiteboard && (whiteboard || whiteboardPreparing) ? (
                 <WhiteboardBoard
                   session={whiteboard}
-                  activeBeatIndex={beatIndex}
+                  activeBeatIndex={restoredFormats ? Number.MAX_SAFE_INTEGER : beatIndex}
+                  instant={Boolean(restoredFormats)}
                   beatSpeechMs={beatSpeechMs}
                   halted={boardHaltWriting || lessonPaused}
                   preparing={whiteboardPreparing}
@@ -2428,7 +2822,7 @@ export function VoiceTutorWorkspace() {
               ) : undefined
             }
             video={
-              media || (videoJob && formats.video) ? (
+              media || (videoJob && viewFormats.video) ? (
                 <>
                   {media ? (
                     <LessonMediaCard
@@ -2437,7 +2831,7 @@ export function VoiceTutorWorkspace() {
                       onSceneError={(message) => void repairSceneMedia(message)}
                     />
                   ) : null}
-                  {videoJob && formats.video ? (
+                  {videoJob && viewFormats.video ? (
                     <div className={media ? "mt-6" : undefined}>
                       <LessonVideoPanel key={videoJob.topic} job={videoJob} />
                     </div>
@@ -2459,7 +2853,15 @@ export function VoiceTutorWorkspace() {
             state={orbState}
             variant="dock"
             showLabel={false}
-            className="pointer-events-none mb-4"
+            className="pointer-events-auto mb-1"
+            micOn={micOn}
+            onPress={() => void toggleMic()}
+            pressLabel={micOn ? "Turn microphone off (pause)" : "Turn microphone on"}
+            loadingLabel={
+              continuing ??
+              (formats.whiteboard && !whiteboard ? whiteboardPreparing : null) ??
+              preparingLesson
+            }
           />
           <div className="pointer-events-auto w-full max-w-md">
             <TeachFormatPicker
@@ -2508,57 +2910,7 @@ export function VoiceTutorWorkspace() {
               >
                 <ImagePlus className="size-4" />
               </button>
-              <button
-                type="button"
-                aria-label={micOn ? "Turn microphone off (pause)" : "Turn microphone on"}
-                aria-pressed={micOn}
-                onClick={() => void toggleMic()}
-                className={cn(
-                  "grid size-9 shrink-0 place-items-center rounded-lg transition",
-                  micOn
-                    ? "bg-[#16161a] text-white"
-                    : "bg-[#f4f4f6] text-[#16161a] hover:bg-[#ececee]",
-                )}
-              >
-                {micOn ? (
-                  <Mic className="size-4" />
-                ) : (
-                  <MicOff className="size-4" />
-                )}
-              </button>
-              <button
-                type="button"
-                aria-label={
-                  lessonPaused
-                    ? "Resume lesson"
-                    : "Pause lesson — stop voice and writing"
-                }
-                title={
-                  lessonPaused
-                    ? "Resume lesson"
-                    : "Pause (voice + transcript stop until you resume)"
-                }
-                onClick={togglePauseLesson}
-                className={cn(
-                  "grid size-9 shrink-0 place-items-center rounded-lg transition",
-                  lessonPaused
-                    ? "bg-[#16161a] text-white"
-                    : "bg-[#f4f4f6] text-[#16161a] hover:bg-[#ececee]",
-                )}
-              >
-                {lessonPaused ? (
-                  <Play className="size-4" />
-                ) : (
-                  <Pause className="size-4" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={endSession}
-                className="h-9 shrink-0 rounded-lg bg-[#16161a] px-3 text-[13px] font-medium text-white transition hover:bg-[#2a2a2e]"
-              >
-                End
-              </button>
+              <TutorSettingsButton value={settings} onChange={updateSettings} />
             </div>
           </div>
         </div>

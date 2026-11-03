@@ -70,3 +70,8 @@ Physics-tutor-data/**
 /VFPt_*.svg
 /VFPt_*.png
 /screenshot.png
+
+# explainer videos: local jobs + worker venv
+/.explainer-videos/
+/video-worker/.venv/
+scripts/.smoke-*.mjs

@@ -2,6 +2,7 @@ import { automaticDrawingMode } from "@/modules/automatic-drawing/mode";
 import { browserExperienceMode } from "@/modules/browser-experience/mode";
 import { courseCreatorMode } from "@/modules/course-creator/mode";
 import { explainVideoMode } from "@/modules/explain-video/mode";
+import { explainerVideosMode } from "@/modules/explainer-videos/mode";
 import { aiTutorMode } from "@/modules/ai-tutor/mode";
 import { aiTutorV2Mode } from "@/modules/ai-tutor-v2/mode";
 import { bugAnalyzerMode } from "@/modules/bug-analyzer/mode";
@@ -46,6 +47,7 @@ const ALL_MODES: ModeDefinition[] = [
   automaticDrawingMode,
   drawEngineMode,
   explainVideoMode,
+  explainerVideosMode,
   courseCreatorMode,
 ];
 

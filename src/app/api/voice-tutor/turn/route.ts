@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       avoidedFocusOptions?: unknown;
       lessonContext?: unknown;
       diagrams?: unknown;
+      priorLesson?: unknown;
     };
 
     const mode =
@@ -67,6 +68,17 @@ export async function POST(request: Request) {
               : undefined,
         }
       : undefined;
+    const rawPrior =
+      body.priorLesson && typeof body.priorLesson === "object"
+        ? (body.priorLesson as Record<string, unknown>)
+        : null;
+    const priorLesson =
+      rawPrior && typeof rawPrior.topic === "string" && typeof rawPrior.summary === "string"
+        ? {
+            topic: rawPrior.topic.slice(0, 200),
+            summary: rawPrior.summary.slice(0, 4000),
+          }
+        : undefined;
     const parentTopic =
       typeof body.parentTopic === "string" ? body.parentTopic.trim() : undefined;
     const focusOptions = Array.isArray(body.focusOptions)
@@ -105,6 +117,7 @@ export async function POST(request: Request) {
         userText: topic || userText,
         messages,
         diagrams,
+        priorLesson,
       });
       return Response.json(turn);
     }
