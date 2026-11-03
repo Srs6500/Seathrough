@@ -16,10 +16,10 @@ export type TeachFormats = {
 };
 
 export const DEFAULT_TEACH_FORMATS: TeachFormats = {
-  text: true,
-  diagram: true,
+  text: false,
+  diagram: false,
   video: false,
-  whiteboard: false,
+  whiteboard: true,
 };
 
 function anyFormat(f: TeachFormats): boolean {
@@ -34,7 +34,8 @@ export function toggleTeachFormat(value: TeachFormats, key: keyof TeachFormats):
   return { ...value, [key]: on };
 }
 
-const STORAGE_KEY = "seethrough.voice-tutor.formats";
+/** v2: whiteboard became the default, so earlier saved picks start fresh once. */
+const STORAGE_KEY = "seethrough.voice-tutor.formats.v2";
 
 function loadTeachFormats(): TeachFormats {
   try {
