@@ -32,6 +32,8 @@ export async function requestVoiceTurn(input: {
   };
   /** False when the student turned diagrams off — skips the diagram draft. */
   diagrams?: boolean;
+  /** Plan mode follow-up: what the finished lesson already taught. */
+  priorLesson?: { topic: string; summary: string };
   signal?: AbortSignal;
 }): Promise<TurnResponse> {
   const res = await fetch("/api/voice-tutor/turn", {
@@ -54,6 +56,7 @@ export async function requestVoiceTurn(input: {
       deferredClose: input.deferredClose,
       avoidedFocusOptions: input.avoidedFocusOptions,
       lessonContext: input.lessonContext,
+      priorLesson: input.priorLesson,
     }),
     signal: input.signal,
   });

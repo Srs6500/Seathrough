@@ -97,6 +97,8 @@ type WhiteboardBoardProps = {
   /** Barge-in / pause: the pen stops mid-stroke. */
   halted?: boolean;
   preparing?: string | null;
+  /** Reopened from History: show the whole board at once, no pen. */
+  instant?: boolean;
   className?: string;
 };
 
@@ -110,6 +112,7 @@ export function WhiteboardBoard({
   beatSpeechMs,
   halted = false,
   preparing,
+  instant = false,
   className,
 }: WhiteboardBoardProps) {
   const shellRef = useRef<HTMLDivElement>(null);
@@ -145,10 +148,11 @@ export function WhiteboardBoard({
     });
   }, [items, beatSpeechMs]);
 
-  const reduceMotion = useMemo(
+  const prefersReducedMotion = useMemo(
     () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     [],
   );
+  const reduceMotion = prefersReducedMotion || instant;
 
   const engine = useRef<Engine>({
     idx: 0,
@@ -162,8 +166,18 @@ export function WhiteboardBoard({
   });
   const [frame, setFrame] = useState<Frame>({ idx: 0, p: 0, stage: "idle", cursor: { x: 64, y: 64 }, idleMs: 0 });
 
-  // New session → start from the top.
+  // New session → start from the top. A follow-up that only appends items to
+  // the same board keeps its place, so only the new section gets written.
+  const prevItemsRef = useRef<WhiteboardItem[]>([]);
   useEffect(() => {
+    const prev = prevItemsRef.current;
+    const next = session?.items ?? [];
+    prevItemsRef.current = next;
+    const extends_ =
+      prev.length > 0 &&
+      next.length >= prev.length &&
+      prev.every((item, i) => next[i]?.id === item.id);
+    if (extends_) return;
     const e = engine.current;
     e.idx = 0;
     e.p = 0;
@@ -317,6 +331,7 @@ export function WhiteboardBoard({
 
           <div
             ref={cursorRef}
+            data-pdf-skip
             aria-hidden
             className="pointer-events-none absolute z-10"
             style={{
@@ -373,7 +388,7 @@ function BoardItem({
         style={{
           left: pad,
           top: pad,
-          clipPath: lps ? undefined : `inset(-20% ${(1 - progress) * 100}% -20% 0)`,
+          clipPath: lps || progress >= 1 ? undefined : penClip(progress, "-20%", "0"),
         }}
       >
         {item.lines.map((line, i) => (
@@ -388,7 +403,7 @@ function BoardItem({
               style={{
                 fontSize: item.fontSize,
                 color,
-                clipPath: lps ? `inset(-30% ${(1 - (lps[i] ?? 0)) * 100}% -30% -4%)` : undefined,
+                clipPath: lps && (lps[i] ?? 0) < 1 ? penClip(lps[i] ?? 0, "-30%", "-4%") : undefined,
               }}
             >
               {line}
@@ -487,4 +502,15 @@ function PointerCursor() {
       />
     </svg>
   );
+}
+
+/**
+ * Left-to-right pen reveal. The handwriting font is slanted, so the last
+ * letter overhangs its measured box; the reveal runs a bit past the right
+ * edge so that letter isn't cut off.
+ */
+const PEN_OVERHANG = "0.35em";
+function penClip(p: number, vertical: string, left: string) {
+  const q = Math.max(0, Math.min(1, p));
+  return `inset(${vertical} calc(${((1 - q) * 100).toFixed(2)}% - ${q.toFixed(3)} * ${PEN_OVERHANG}) ${vertical} ${left})`;
 }

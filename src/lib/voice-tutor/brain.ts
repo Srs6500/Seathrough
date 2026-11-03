@@ -1073,6 +1073,8 @@ export async function runVoiceTurn(input: {
   deferredClose?: boolean;
   /** Previously offered focus chips for this parent — do not repeat. */
   avoidedFocusOptions?: string[];
+  /** Follow-up after a finished lesson: what that lesson already taught. */
+  priorLesson?: { topic: string; summary: string };
   /** Current beat context for mid-lesson doubt answers. */
   lessonContext?: {
     beatSay?: string;
@@ -1358,7 +1360,7 @@ ${
   }
 
   // Optional curated seed ONLY when the user clearly asked for math functions / VLT.
-  if (looksLikeFunctions(userText) && input.mode === "plan") {
+  if (looksLikeFunctions(userText) && input.mode === "plan" && !input.priorLesson) {
     const plan = normalizePlanTeachFirst(functionsVoicePlan());
     return {
       say: lockSayForPlan(plan),
@@ -1371,11 +1373,18 @@ ${
   }
 
   try {
+    /** Set when planning a follow-up that continues the previous lesson. */
+    let followUpOf: { topic: string; summary: string } | null = null;
+
     async function buildOpenPlan(topic: string): Promise<VoiceLessonPlan> {
-      if (looksLikeFunctions(topic)) {
+      if (looksLikeFunctions(topic) && !followUpOf) {
         return normalizePlanTeachFirst(functionsVoicePlan());
       }
       const clean = cleanTopicLabel(topic);
+      // Follow-up: build on what was already taught instead of starting over.
+      const priorBlock = followUpOf
+        ? `\n\nTHIS IS A FOLLOW-UP. The student just finished a lesson on "${followUpOf.topic}". It already covered:\n${followUpOf.summary}\n\nAnswer their follow-up question IN THAT CONTEXT:\n- "definition" = the direct answer to the follow-up, tied back to what they learned (do NOT re-define "${followUpOf.topic}" from scratch).\n- "keyConcepts" = new points that extend the lesson — never repeat points listed above.\n- "example" = a fresh concrete case (not one already used).\n- "topic" = a short label for this follow-up (e.g. "Why leaves change color").`
+        : "";
       // What the student said while choosing (level, goal, angle) — pitch the
       // lesson to it instead of planning from the bare focus label.
       const studentSaid = input.messages
@@ -1383,7 +1392,9 @@ ${
         .slice(-4)
         .map((m) => m.text.trim())
         .filter(Boolean);
-      const learnerBlock = studentSaid.length
+      // Follow-ups carry the lesson summary instead — older chat ("teach me X")
+      // would pull the plan back to the original topic.
+      const learnerBlock = studentSaid.length && !followUpOf
         ? `\n\nWhat I said while picking this (use it for my level, goal, and the angle I care about — do NOT change the topic):\n${studentSaid.map((t) => `- ${t}`).join("\n")}`
         : "";
       const physicsBlock = looksLikePhysicsAsk(clean)
@@ -1445,8 +1456,10 @@ diagramKind routing (gutter figure — never overlaps the passage):
 - none: circles + text are enough (most history / pure verbal topics).
 - auto: let the server choose (preferred default).
 Never invent a physics field diagram for non-physics subjects.
-${physicsBlock}${research}${annotationFewShotBlock()}`,
-        user: `Teach me about: ${clean}${learnerBlock}`,
+${physicsBlock}${research}${annotationFewShotBlock()}${priorBlock}`,
+        user: followUpOf
+          ? `My follow-up question about ${followUpOf.topic}: ${topic}${learnerBlock}`
+          : `Teach me about: ${clean}${learnerBlock}`,
       }).catch((error: unknown) => {
         console.warn("[voice-tutor/brain] draft failed, retrying", error);
         return {};
@@ -1494,6 +1507,34 @@ ${research}`,
       }
 
       return normalizePlanTeachFirst(openTopicFallbackPlan(clean));
+    }
+
+    if (input.mode === "plan" && input.priorLesson) {
+      const prior = input.priorLesson;
+      // Is this a follow-up on the lesson, or a brand-new topic?
+      const rel = (await completeJson({
+        temperature: 0,
+        system: `The student just finished a lesson on "${prior.topic}".
+Lesson covered:
+${prior.summary}
+Decide if their next message is a FOLLOW-UP on that lesson (asks more about it, why/how/what-if, an example, a related sub-idea, "explain more", "what about X" where X connects to the lesson) or a NEW, unrelated topic.
+Return ONLY JSON: { "followUp": boolean }`,
+        user: userText,
+      }).catch(() => ({ followUp: true }))) as { followUp?: boolean };
+      if (rel.followUp === false) {
+        return { say: "", action: "speak", showOnBoard: false, continuesLesson: false };
+      }
+      followUpOf = prior;
+      const plan = await buildOpenPlan(userText);
+      return {
+        say: `Good question — let's build on ${cleanTopicLabel(prior.topic)}.`,
+        action: "propose_topic",
+        topic: plan.topic,
+        label: plan.label,
+        plan,
+        showOnBoard: false,
+        continuesLesson: true,
+      };
     }
 
     if (input.mode === "plan") {

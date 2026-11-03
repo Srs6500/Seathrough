@@ -2,6 +2,11 @@
 
 import { useEffect } from "react";
 import { MarketingHero } from "@/components/site/MarketingHero";
+import { FormatsShowcase } from "@/components/site/landing/FormatsShowcase";
+import { LessonSteps } from "@/components/site/landing/LessonSteps";
+import { StartLessonHero } from "@/components/site/landing/StartLessonHero";
+import { Statement } from "@/components/site/landing/Statement";
+import { SystemDesignBand } from "@/components/site/landing/SystemDesignBand";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StudioAccessProvider } from "@/components/site/StudioAccess";
@@ -45,8 +50,13 @@ export function MarketingHome() {
         <MarketingShell>
           <div className="relative z-10 flex min-h-dvh flex-col">
             <SiteHeader variant="marketing" />
-            <main className="flex flex-1 flex-col">
+            <main className="flex flex-1 flex-col overflow-x-clip">
+              <StartLessonHero />
               <MarketingHero />
+              <Statement />
+              <FormatsShowcase />
+              <LessonSteps />
+              <SystemDesignBand />
             </main>
             <SiteFooter variant="marketing" />
           </div>

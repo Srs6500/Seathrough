@@ -1,6 +1,6 @@
 "use client";
 
-import { LoadingDots } from "@/components/voice-tutor/LoadingDots";
+import { MorphOrb } from "@/components/voice-tutor/MorphOrb";
 import { cn } from "@/lib/utils";
 
 export type VoiceOrbState =
@@ -28,6 +28,12 @@ type VoiceOrbProps = {
   /** Units-style: small bottom presence, not a hero blob. */
   variant?: "hero" | "dock";
   showLabel?: boolean;
+  /** Dock only: tapping the orb toggles the mic. */
+  onPress?: () => void;
+  micOn?: boolean;
+  pressLabel?: string;
+  /** Dock only: a lesson is loading — the orb flies to it and loads there. */
+  loadingLabel?: string | null;
 };
 
 /**
@@ -38,63 +44,25 @@ export function VoiceOrb({
   className,
   variant = "hero",
   showLabel = true,
+  onPress,
+  micOn,
+  pressLabel,
+  loadingLabel,
 }: VoiceOrbProps) {
   if (variant === "dock") {
+    // Morphs into a dotted "thinking" sphere, then condenses back on answer.
     return (
-      <div
-        className={cn("flex flex-col items-center", className)}
-        aria-label={STATE_LABEL[state]}
-        role="img"
-      >
-        <div
-          className={cn(
-            "relative grid place-items-center transition-transform duration-500",
-            (state === "listening" || state === "wake") && "scale-110",
-            state === "speaking" && "scale-125",
-            state === "thinking" && "scale-95 opacity-80",
-            state === "idle" && "opacity-55",
-            state === "connecting" && "animate-pulse",
-            state === "error" && "opacity-90",
-          )}
-        >
-          {state === "thinking" || state === "connecting" ? (
-            <span
-              aria-hidden
-              className="absolute size-[4.5rem] animate-spin rounded-full border-2 border-[#1b6ca8]/15 border-t-[#1b6ca8]/70 md:size-20"
-            />
-          ) : null}
-          <span
-            className={cn(
-              "absolute size-16 rounded-full blur-xl transition-opacity",
-              state === "speaking" && "bg-[#1b6ca8]/35",
-              (state === "listening" || state === "wake") && "bg-[#5aa8ef]/30",
-              state === "thinking" && "bg-[#9dbbd3]/25",
-              state === "error" && "bg-[#c24545]/30",
-              (state === "idle" || state === "connecting") && "bg-[#1b6ca8]/15",
-            )}
-          />
-          <span
-            aria-hidden
-            className={cn(
-              "relative size-12 rounded-full bg-[radial-gradient(circle_at_35%_30%,#9fd0ff_0%,#1b6ca8_55%,#0d3f6b_100%)] shadow-[0_8px_18px_rgba(27,108,168,0.28)] md:size-14",
-              state === "speaking" &&
-                "animate-[pulse_1.05s_ease-in-out_infinite]",
-              (state === "listening" || state === "wake") &&
-                "animate-[pulse_1.8s_ease-in-out_infinite]",
-            )}
-          />
-        </div>
+      <div className={cn("flex flex-col items-center", className)}>
+        <MorphOrb
+          state={state}
+          onPress={onPress}
+          micOn={micOn}
+          pressLabel={pressLabel}
+          loadingLabel={loadingLabel}
+        />
         {showLabel ? (
           <p className="mt-1 text-[11px] text-muted" aria-live="polite">
             {STATE_LABEL[state]}
-          </p>
-        ) : state === "thinking" ? (
-          <p
-            className="mt-2 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#1b6ca8] shadow-sm"
-            role="status"
-          >
-            <LoadingDots />
-            Thinking
           </p>
         ) : null}
       </div>

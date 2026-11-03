@@ -133,10 +133,17 @@ export function dynamicExcitementAck(): string {
   return pickVariant(EXCITEMENT_ACK);
 }
 
+const FOLLOW_UP_INVITES = [
+  "Got a follow-up? Ask away and I'll build on this board.",
+  "Curious about anything else here? Ask and we'll keep going from this.",
+  "Want to go deeper? Ask a follow-up and I'll add to what we've got.",
+] as const;
+
 export function dynamicLessonEnding(topic: string): string {
-  return fillTemplate(pickVariant(ENDINGS), {
+  const ending = fillTemplate(pickVariant(ENDINGS), {
     topic: topic.trim() || "this topic",
   });
+  return `${ending} ${pickVariant(FOLLOW_UP_INVITES)}`;
 }
 
 export function dynamicDeferredIntro(): string {

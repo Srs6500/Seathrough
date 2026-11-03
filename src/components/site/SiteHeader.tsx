@@ -79,31 +79,10 @@ function FeatureRow({
   );
 }
 
-const EXPLANATION_FEATURES = [
-  {
-    label: "Smart tutor",
-    href: "/smart-tutor",
-    icon: "/teacher.png",
-    hint: "Talk through a topic. Diagrams and physics figures appear when they help.",
-  },
-  {
-    label: "System design",
-    href: "/system-design",
-    icon: "/systemd.png",
-    hint: "Architecture drawn on one board as you ask.",
-  },
-  {
-    label: "Vibe coder",
-    href: "/vibe-coder",
-    icon: "/debugger.png",
-    hint: "Understand what you built, starting with the database.",
-  },
-  {
-    label: "Browser",
-    href: "/browser",
-    icon: "/globe.png",
-    hint: "Open a live page and learn with highlights.",
-  },
+/** The only two links in the landing-page nav. */
+const MARKETING_NAV = [
+  { label: "AI Tutor", href: "/smart-tutor" },
+  { label: "System Design", href: "/system-design" },
 ] as const;
 
 function pathUnder(pathname: string, href: string) {
@@ -120,7 +99,6 @@ function pathUnder(pathname: string, href: string) {
 export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
   const { openStudio, openAuth, openGetStarted } = useStudioAccess();
   const [featuresOpen, setFeaturesOpen] = useState(false);
-  const [explanationsOpen, setExplanationsOpen] = useState(false);
   const studios = listModesByGroup("studio");
   const more = listModesByGroup("more");
   const labs = listModesByGroup("lab");
@@ -185,113 +163,18 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
           )}
           aria-label="Primary"
         >
-          {marketing ? (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  if (pathname === "/") {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                    return;
-                  }
-                  openStudio("/");
-                }}
-                className={marketingLinkClass(pathname === "/")}
-              >
-                Home
-              </button>
-              <Popover
-                open={explanationsOpen}
-                onOpenChange={setExplanationsOpen}
-              >
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className={marketingLinkClass(
-                      explanationsOpen ||
-                        EXPLANATION_FEATURES.some((item) =>
-                          pathUnder(pathname, item.href),
-                        ),
-                    )}
-                  >
-                    Explanations
-                    <ChevronDown
-                      className={cn(
-                        "size-4 opacity-70 transition duration-200",
-                        explanationsOpen && "rotate-180",
-                      )}
-                    />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="center"
-                  sideOffset={14}
-                  collisionPadding={16}
-                  className={cn(
-                    "w-[min(92vw,34rem)] rounded-lg p-2 shadow-[0_12px_32px_-16px_rgba(17,17,20,0.28)] ring-0",
-                    dark
-                      ? "border border-[#2a2a2e] bg-[#16161a] text-[#f4f4f5]"
-                      : "border border-[#ececee] bg-white text-[#16161a]",
-                  )}
+          {marketing
+            ? MARKETING_NAV.map((item) => (
+                <button
+                  key={item.href}
+                  type="button"
+                  onClick={() => openStudio(item.href)}
+                  className={marketingLinkClass(pathUnder(pathname, item.href))}
                 >
-                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                    {EXPLANATION_FEATURES.map((item) => {
-                      const itemActive = pathUnder(pathname, item.href);
-                      return (
-                        <button
-                          key={item.href}
-                          type="button"
-                          onClick={() => {
-                            setExplanationsOpen(false);
-                            openStudio(item.href);
-                          }}
-                          className={cn(
-                            "flex items-start gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors",
-                            dark
-                              ? itemActive
-                                ? "bg-white/10"
-                                : "hover:bg-white/8"
-                              : itemActive
-                                ? "bg-[#f4f1ff]"
-                                : "hover:bg-[#fafafa]",
-                          )}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element -- static menu thumbnails */}
-                          <img
-                            src={item.icon}
-                            alt=""
-                            className="mt-0.5 size-12 shrink-0 rounded-lg object-contain"
-                          />
-                          <span className="min-w-0">
-                            <span
-                              className={cn(
-                                "block text-[14px] font-medium leading-snug",
-                                dark
-                                  ? "text-white"
-                                  : itemActive
-                                    ? "text-[#5b4fd4]"
-                                    : "text-[#16161a]",
-                              )}
-                            >
-                              {item.label}
-                            </span>
-                            <span
-                              className={cn(
-                                "mt-0.5 block text-[13px] leading-5",
-                                dark ? "text-white/55" : "text-[#71717a]",
-                              )}
-                            >
-                              {item.hint}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </>
-          ) : null}
+                  {item.label}
+                </button>
+              ))
+            : null}
           {!marketing ? (
           <Popover open={featuresOpen} onOpenChange={setFeaturesOpen}>
             <PopoverTrigger asChild>
@@ -439,49 +322,22 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
               <nav className="flex flex-col p-2" aria-label="Mobile">
                 {marketing ? (
                   <>
-                    <SheetClose asChild>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (pathname === "/") return;
-                          openStudio("/");
-                        }}
-                        className={cn(
-                          "rounded-lg px-3 py-2.5 text-left text-[15px]",
-                          dark
-                            ? "text-white/80 hover:bg-white/8 hover:text-white"
-                            : "text-[#3f3f46] hover:bg-[#fafafa] hover:text-[#16161a]",
-                        )}
-                      >
-                        Home
-                      </button>
-                    </SheetClose>
-                    <div className="mt-1">
-                      <p
-                        className={cn(
-                          "px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.06em] uppercase",
-                          dark ? "text-white/45" : "text-[#71717a]",
-                        )}
-                      >
-                        Explanations
-                      </p>
-                      {EXPLANATION_FEATURES.map((item) => (
-                        <SheetClose asChild key={item.href}>
-                          <button
-                            type="button"
-                            onClick={() => openStudio(item.href)}
-                            className={cn(
-                              "w-full rounded-lg px-3 py-2.5 text-left text-[15px]",
-                              dark
-                                ? "text-white/80 hover:bg-white/8 hover:text-white"
-                                : "text-[#3f3f46] hover:bg-[#fafafa] hover:text-[#16161a]",
-                            )}
-                          >
-                            {item.label}
-                          </button>
-                        </SheetClose>
-                      ))}
-                    </div>
+                    {MARKETING_NAV.map((item) => (
+                      <SheetClose asChild key={item.href}>
+                        <button
+                          type="button"
+                          onClick={() => openStudio(item.href)}
+                          className={cn(
+                            "w-full rounded-lg px-3 py-2.5 text-left text-[15px]",
+                            dark
+                              ? "text-white/80 hover:bg-white/8 hover:text-white"
+                              : "text-[#3f3f46] hover:bg-[#fafafa] hover:text-[#16161a]",
+                          )}
+                        >
+                          {item.label}
+                        </button>
+                      </SheetClose>
+                    ))}
                     <div className="mt-2 flex items-center gap-2 px-1">
                       <ThemeToggle variant="marketing" />
                       <span

@@ -73,14 +73,27 @@ export class LessonVideoJob {
   private listeners = new Set<() => void>();
   private cancelled = false;
   private url: string | null = null;
+  private file: Blob | null = null;
 
-  constructor(topic: string) {
+  /** Pass `saved` to reopen a finished video from History instead of filming. */
+  constructor(topic: string, saved?: { blob: Blob; title: string; fileName: string }) {
     this.topic = topic.trim().slice(0, TOPIC_MAX);
     this.canvas = document.createElement("canvas");
     this.canvas.width = FRAME_WIDTH;
     this.canvas.height = FRAME_HEIGHT;
     this.canvas.className = "block h-full w-full";
+    if (saved) {
+      this.file = saved.blob;
+      this.url = URL.createObjectURL(saved.blob);
+      this.current = { kind: "ready", url: this.url, title: saved.title, fileName: saved.fileName };
+      return;
+    }
     void this.run();
+  }
+
+  /** The finished video file (null until ready). */
+  get blob(): Blob | null {
+    return this.file;
   }
 
   get status(): LessonVideoStatus {
@@ -100,6 +113,7 @@ export class LessonVideoJob {
     this.cancelled = true;
     if (this.url) URL.revokeObjectURL(this.url);
     this.url = null;
+    this.file = null;
     this.set({ kind: "cancelled" });
   }
 
@@ -176,6 +190,7 @@ export class LessonVideoJob {
       if (!alive()) return;
       if (!shot) throw new Error("This browser couldn't save the video file.");
 
+      this.file = shot.blob;
       this.url = URL.createObjectURL(shot.blob);
       const ext = shot.blob.type.includes("mp4") ? "mp4" : "webm";
       this.set({

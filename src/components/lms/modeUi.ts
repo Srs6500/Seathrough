@@ -138,6 +138,11 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     hint: "Type an idea. Get a visual explanation worth sharing.",
     tone: "ink",
   },
+  "explainer-videos": {
+    icon: Clapperboard,
+    hint: "Topic in, a 30-60 s explainer reel out.",
+    tone: "ink",
+  },
   "course-creator": {
     icon: Clapperboard,
     hint: "Describe a lesson. Get a shooting script with voice and picture.",

@@ -80,6 +80,8 @@ type LessonStageProps = {
   video?: ReactNode;
   /** Lesson is being planned — show a placeholder passage with this label. */
   preparing?: string | null;
+  /** Follow-up being planned: the orb loads under the existing content. */
+  continuing?: string | null;
   /** Credible-source pictures by beat id, shown under that beat's stanza. */
   figures?: Record<string, TeachingImage>;
   /** Whiteboard lesson — replaces the passage + diagrams entirely when set. */
@@ -119,6 +121,7 @@ export function LessonStage({
   showDiagram = true,
   video,
   preparing,
+  continuing,
   whiteboard,
   figures,
   className,
@@ -250,7 +253,9 @@ export function LessonStage({
   return (
     <div
       className={cn(
-        "relative flex min-h-0 flex-1 flex-col items-center px-5 pt-6",
+        "relative flex min-h-0 flex-1 flex-col items-center px-5",
+        // the whiteboard sits close under the header; other views keep air
+        whiteboard ? "pt-1" : "pt-6",
         className,
       )}
     >
@@ -261,14 +266,17 @@ export function LessonStage({
         >
           {userHeard}
         </p>
-      ) : (
+      ) : whiteboard ? null : (
         <div className="mb-5 h-5 shrink-0" />
       )}
 
       {whiteboard ? (
-        <div className="flex min-h-0 w-full max-w-[88rem] flex-1 flex-col overflow-y-auto scroll-smooth pb-48 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {video ? <div className="mx-auto mb-8 w-full max-w-[40rem]">{video}</div> : null}
+        <div data-pdf-stage className="flex min-h-0 w-full max-w-[88rem] flex-1 flex-col overflow-y-auto scroll-smooth pb-48 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {video ? <div data-pdf-skip className="mx-auto mb-8 w-full max-w-[40rem]">{video}</div> : null}
           {whiteboard}
+          {continuing ? (
+            <LessonSkeleton label={continuing} reveal className="mx-auto mt-6 h-56 shrink-0" />
+          ) : null}
         </div>
       ) : !hasPedagogy && preparing ? (
         <div className="flex flex-1 flex-col items-center justify-center pb-36">
@@ -284,6 +292,7 @@ export function LessonStage({
       ) : (
         <div
           ref={shellRef}
+          data-pdf-stage
           className={cn(
             "relative mx-auto flex min-h-0 w-full flex-1 gap-6",
             activeTldraw
@@ -293,6 +302,7 @@ export function LessonStage({
         >
           <article
             ref={scrollRef}
+            data-pdf-expand
             tabIndex={0}
             aria-label="Lesson board"
             className={cn(
@@ -336,6 +346,7 @@ export function LessonStage({
                     return (
                       <div
                         key={stanza.id}
+                        data-pdf-block
                         ref={
                           isActive || (allDone && index === stanzas.length - 1)
                             ? activeRef
@@ -408,6 +419,9 @@ export function LessonStage({
 
             {!activeTldraw ? (
               <DiagramGutter diagrams={gutterDiagrams} stacked />
+            ) : null}
+            {continuing && !whiteboard ? (
+              <LessonSkeleton label={continuing} reveal className="mt-8 h-56 shrink-0" />
             ) : null}
           </article>
 

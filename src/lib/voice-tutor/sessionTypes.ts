@@ -161,6 +161,11 @@ export const TurnResponseSchema = z.object({
   /** Short written clarify note for the board (mid-lesson aside). */
   boardNote: z.string().optional(),
   /**
+   * Follow-up after a finished lesson: true = the plan continues that lesson
+   * (append to the board), false = unrelated, start a normal new topic.
+   */
+  continuesLesson: z.boolean().optional(),
+  /**
    * End-of-lesson parked-doubt scaffold (voice drips these across student tries).
    * piece1 ≈ 25%, piece2 ≈ next 25%, full = complete close-out.
    */
