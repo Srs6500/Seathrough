@@ -13,7 +13,7 @@ export const lessonsMode: ModeDefinition = {
   order: 10,
   enabled: false,
   usesWhiteboard: true,
-  metaTitle: "Start a lesson | SeeThrough",
+  metaTitle: "AI Whiteboard Lessons – Ask Anything, Watch It Drawn",
   metaDescription:
-    "Ask any topic. SeeThrough draws it on the board while it explains.",
+    "Ask what you're stuck on and an AI tutor draws it on the board while it explains. A visual AI study tool for science, math, coding and more.",
 };

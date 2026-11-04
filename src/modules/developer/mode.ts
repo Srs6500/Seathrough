@@ -14,7 +14,7 @@ export const developerMode: ModeDefinition = {
   enabled: true,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Developer | SeeThrough",
+  metaTitle: "Developer",
   metaDescription:
     "A visual floor of two AI developers fetching tasks from a project manager until credits reset.",
 };

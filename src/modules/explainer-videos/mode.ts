@@ -14,7 +14,7 @@ export const explainerVideosMode: ModeDefinition = {
   enabled: true,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Explainer videos | SeeThrough",
+  metaTitle: "Explainer videos",
   metaDescription:
     "Turn a topic into a narrated 30-60 second explainer reel with captions and a talking presenter, vertical or horizontal.",
 };

@@ -13,7 +13,7 @@ export const dashboardMode: ModeDefinition = {
   order: 3,
   enabled: true,
   usesWhiteboard: false,
-  metaTitle: "Dashboard | SeeThrough",
+  metaTitle: "Dashboard",
   metaDescription:
     "Your saved Smart tutor lessons as videos, with titles you can rename.",
 };

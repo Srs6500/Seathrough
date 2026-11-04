@@ -14,7 +14,7 @@ export const repoScanMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Repo-Scan | SeeThrough",
+  metaTitle: "Repo-Scan",
   metaDescription:
     "Connect a GitHub repository and inspect its tree-sitter parse trees.",
 };

@@ -13,6 +13,6 @@ export const automaticDrawingMode: ModeDefinition = {
   enabled: false,
   badge: "lab",
   usesWhiteboard: true,
-  metaTitle: "Automatic Drawing | SeeThrough",
+  metaTitle: "Automatic Drawing",
   metaDescription: "Prompt SeeThrough’s whiteboard and watch it draw automatically.",
 };

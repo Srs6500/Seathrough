@@ -13,7 +13,7 @@ export const drawEngineMode: ModeDefinition = {
   enabled: false,
   badge: "lab",
   usesWhiteboard: true,
-  metaTitle: "Draw Engine | SeeThrough",
+  metaTitle: "Draw Engine",
   metaDescription:
     "Client Konva draw engine fed by a timed SSE command stream.",
 };

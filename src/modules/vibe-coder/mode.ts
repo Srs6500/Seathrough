@@ -13,7 +13,7 @@ export const vibeCoderMode: ModeDefinition = {
   enabled: true,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Vibe coder | SeeThrough",
+  metaTitle: "Vibe Coder – Understand the App You Built with AI",
   metaDescription:
-    "An interactive guide to the application you built, starting with the database.",
+    "Connect a GitHub repo and get an AI walkthrough of the app you built, starting with the database: what each table is for and which code writes it.",
 };

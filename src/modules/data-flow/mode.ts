@@ -14,7 +14,7 @@ export const dataFlowMode: ModeDefinition = {
   enabled: true,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Data flow | SeeThrough",
+  metaTitle: "Data flow",
   metaDescription:
     "Ask how data moves through a repo and explore the code flow map.",
 };

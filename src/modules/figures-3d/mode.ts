@@ -14,7 +14,7 @@ export const figures3dMode: ModeDefinition = {
   enabled: false,
   badge: "beta",
   usesWhiteboard: false,
-  metaTitle: "Human anatomy | SeeThrough",
+  metaTitle: "Human anatomy",
   metaDescription:
     "Explore animated heart, eye, brain, and kidney models with clear answers.",
 };

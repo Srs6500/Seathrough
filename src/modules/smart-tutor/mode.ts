@@ -14,7 +14,7 @@ export const smartTutorMode: ModeDefinition = {
   enabled: true,
   badge: "new",
   usesWhiteboard: true,
-  metaTitle: "Smart tutor | SeeThrough",
+  metaTitle: "AI Tutor with Voice and Live Diagrams",
   metaDescription:
-    "Ask any question by voice. SeeThrough writes the lesson on the board, sketches when it helps, and shows field diagrams for physics.",
+    "Talk to a free AI tutor about any topic. SeeThrough explains out loud and draws diagrams, physics figures and 3D models on a whiteboard as it teaches.",
 };

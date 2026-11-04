@@ -14,7 +14,7 @@ export const browserExperienceMode: ModeDefinition = {
   enabled: true,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Browser experience | SeeThrough",
+  metaTitle: "AI Study Browser – Learn from Real Sources",
   metaDescription:
-    "Ask any question. SeeThrough opens a live browser, finds a credible source, and explains by highlighting on the page.",
+    "Ask any question. SeeThrough opens a live browser, finds a credible source, and explains it by highlighting the page as it reads.",
 };

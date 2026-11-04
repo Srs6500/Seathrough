@@ -14,7 +14,7 @@ export const sceneExplainMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "3D scene explanation | SeeThrough",
+  metaTitle: "3D scene explanation",
   metaDescription:
     "Watch any scientific process in 3D. An agent builds the scene, repairs crashes, and explains it as it plays.",
 };
