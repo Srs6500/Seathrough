@@ -14,7 +14,7 @@ export const aiTutorV2Mode: ModeDefinition = {
   enabled: true,
   badge: "lab",
   usesWhiteboard: false,
-  metaTitle: "AI Tutor v2 | SeeThrough",
+  metaTitle: "AI Tutor v2",
   metaDescription:
     "Ask a question and watch a streamed whiteboard lesson from the AI Tutor v2 API.",
 };

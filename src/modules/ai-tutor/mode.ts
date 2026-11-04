@@ -14,7 +14,7 @@ export const aiTutorMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Guided tutor | SeeThrough",
+  metaTitle: "Guided tutor",
   metaDescription:
     "A calm tutor that draws how an idea works and checks you understood with a new question.",
 };

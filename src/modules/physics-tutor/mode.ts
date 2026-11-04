@@ -17,7 +17,7 @@ export const physicsTutorMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: true,
-  metaTitle: "Physics tutor | SeeThrough",
+  metaTitle: "Physics tutor",
   metaDescription:
     "Ask high-school physics questions. SeeThrough draws field diagrams, talks you through them, and checks understanding.",
 };

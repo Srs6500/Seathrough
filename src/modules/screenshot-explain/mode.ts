@@ -13,7 +13,7 @@ export const screenshotExplainMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: true,
-  metaTitle: "From a photo | SeeThrough",
+  metaTitle: "From a photo",
   metaDescription:
     "Upload a homework screenshot and get a step-by-step whiteboard explanation.",
 };

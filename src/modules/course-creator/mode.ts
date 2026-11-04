@@ -14,7 +14,7 @@ export const courseCreatorMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Course creator | SeeThrough",
+  metaTitle: "Course creator",
   metaDescription:
     "Type what a lesson should teach. SeeThrough writes it as a shooting script you can later turn into videos.",
 };

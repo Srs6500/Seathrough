@@ -13,7 +13,7 @@ export const explainVideoMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Video explainer | SeeThrough",
+  metaTitle: "Video explainer",
   metaDescription:
     "Type an idea or paste text. Review five scenes, then get a narrated explainer you can edit and share.",
 };

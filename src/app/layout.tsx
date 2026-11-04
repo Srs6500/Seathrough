@@ -7,6 +7,7 @@ import { QuestionAccessProvider } from "@/components/usage/QuestionAccess";
 import { PageTransition } from "@/components/site/PageTransition";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 const geist = Geist({
@@ -43,9 +44,27 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SeeThrough",
-  description:
-    "Type a question. SeeThrough draws it while it explains: on a board, as a system map, or in 3D.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} – ${SITE_TAGLINE}`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  category: "education",
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    url: "/",
+    title: `${SITE_NAME} – ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} – ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
   icons: {
     icon: [{ url: "/SeeThrough_logo.png", type: "image/png" }],
     apple: [{ url: "/SeeThrough_logo.png", type: "image/png" }],

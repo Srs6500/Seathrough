@@ -13,7 +13,7 @@ export const systemDesignMode: ModeDefinition = {
   order: 4,
   enabled: true,
   usesWhiteboard: false,
-  metaTitle: "System design | SeeThrough",
+  metaTitle: "System Design AI Tutor – Learn Architecture Visually",
   metaDescription:
-    "Watch a system design stay on one board: architecture, data, the request, and what happens when someone is offline.",
+    "Learn system design with an AI tutor that draws the architecture, data flow, requests and failure modes on one board as you ask.",
 };

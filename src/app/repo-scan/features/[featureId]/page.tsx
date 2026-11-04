@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { NO_INDEX } from "@/lib/seo";
 import { FeatureDetailPage } from "@/components/repo-scan/FeatureDetailPage";
 
 export const metadata: Metadata = {
   title: "Feature | Repo-Scan",
   description: "Verification details for a scanned repository feature.",
+  robots: NO_INDEX,
 };
 
 export default async function RepoScanFeaturePage({

@@ -12,7 +12,7 @@ export const leetcodeMode: ModeDefinition = {
   order: 50,
   enabled: false,
   usesWhiteboard: false,
-  metaTitle: "Coding practice | SeeThrough",
+  metaTitle: "Coding practice",
   metaDescription:
     "Step through arrays, pointers, and hash maps for coding interview practice.",
 };

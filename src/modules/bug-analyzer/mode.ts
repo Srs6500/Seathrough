@@ -14,7 +14,7 @@ export const bugAnalyzerMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: false,
-  metaTitle: "Debugger | SeeThrough",
+  metaTitle: "Debugger",
   metaDescription:
     "Frontend architecture graph and backend bug analysis for connected GitHub repos.",
 };

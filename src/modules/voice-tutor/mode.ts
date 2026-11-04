@@ -14,7 +14,7 @@ export const voiceTutorMode: ModeDefinition = {
   enabled: false,
   badge: "new",
   usesWhiteboard: true,
-  metaTitle: "Voice tutor | SeeThrough",
+  metaTitle: "Voice tutor",
   metaDescription:
     "SeeThrough Voice Tutor: orb-first, voice-operated lessons with Socratic checks and on-demand diagrams.",
 };
