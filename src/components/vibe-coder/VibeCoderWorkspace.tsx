@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { VibeDatabaseDashboard } from "@/components/vibe-coder/VibeDatabaseDashboard";
 import { VibeOnboard } from "@/components/vibe-coder/VibeOnboard";
+import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import { analyzeSchema } from "@/lib/schema-guide/client";
 import type { SchemaGuide } from "@/lib/schema-guide/types";
 import {
@@ -51,6 +52,7 @@ function readSchema(): { guide: SchemaGuide; repo: string } | null {
 }
 
 export function VibeCoderWorkspace() {
+  const { beginConversation } = useQuestionAccess();
   const [ready, setReady] = useState(false);
   const [connected, setConnected] = useState(false);
   const [githubLogin, setGithubLogin] = useState<string | null>(null);
@@ -126,8 +128,14 @@ export function VibeCoderWorkspace() {
   }, [connected, query]);
 
   async function openRepo(fullName: string) {
+    // Free tier: opening a repo is one conversation; questions about it are free,
+    // and reopening the same repo within the window doesn't count again.
     setBusy(true);
     setError(null);
+    if (!(await beginConversation("vibe-coder", `repo:${fullName}`))) {
+      setBusy(false);
+      return;
+    }
     setRepoName(fullName);
     const clean = sanitizeSandbox(sandbox);
     try {

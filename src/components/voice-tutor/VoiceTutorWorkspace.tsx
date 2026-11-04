@@ -363,13 +363,13 @@ export function VoiceTutorWorkspace() {
   /** "Building on …" label while a follow-up section is being planned. */
   const [continuing, setContinuing] = useState<string | null>(null);
   const { loading: authLoading } = useAuth();
-  const { beginQuestion } = useQuestionAccess();
+  const { beginConversation } = useQuestionAccess();
   const authLoadingRef = useRef(authLoading);
-  const beginQuestionRef = useRef(beginQuestion);
+  const beginConversationRef = useRef(beginConversation);
   useEffect(() => {
     authLoadingRef.current = authLoading;
-    beginQuestionRef.current = beginQuestion;
-  }, [authLoading, beginQuestion]);
+    beginConversationRef.current = beginConversation;
+  }, [authLoading, beginConversation]);
   /** Wait (briefly) for the sign-in check so early questions are gated too. */
   async function settleAuth() {
     for (let i = 0; i < 40 && authLoadingRef.current; i += 1) {
@@ -1682,8 +1682,9 @@ export function VoiceTutorWorkspace() {
       return;
     }
 
-    // Free tier: 5 questions without an account, then ask to sign up / log in.
-    // Answers to the tutor's own questions and quick yes/no replies don't count.
+    // Free tier: 5 conversations (sessions) per 12 hours. Each new question is
+    // checked against the current session id, so only a session's first
+    // question uses up a conversation. Answers and yes/no replies skip the check.
     const answeringTutor =
       phasePeek === "checking" ||
       phasePeek === "check_offer_try" ||
@@ -1694,11 +1695,14 @@ export function VoiceTutorWorkspace() {
     const isNewQuestion =
       !answeringTutor && !looksLikeAffirmative(text) && !looksLikeNegative(text);
     if (isNewQuestion) await settleAuth();
-    if (isNewQuestion && !authLoadingRef.current && !beginQuestionRef.current()) {
+    if (
+      isNewQuestion &&
+      !(await beginConversationRef.current("smart-tutor", sessionIdRef.current))
+    ) {
       flashUserHeard(text);
       setOrbState("idle");
       await speak(
-        "That was your fifth free question today. Sign up or log in to keep learning.",
+        "You've used your five free conversations for now. Go Pro to keep learning, or come back when your limit resets.",
         { log: false, allowBarge: false },
       );
       return;
@@ -2568,7 +2572,10 @@ export function VoiceTutorWorkspace() {
     speakingRef.current = false;
     busyRef.current = false;
     setBusy(false);
-    setSessionId(uid("vs"));
+    const nextSessionId = uid("vs");
+    // Ref first: the next question may be checked before the effect syncs it.
+    sessionIdRef.current = nextSessionId;
+    setSessionId(nextSessionId);
     setSessionLabel("New conversation");
     setMessages([]);
     messagesRef.current = [];

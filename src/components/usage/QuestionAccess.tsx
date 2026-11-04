@@ -6,11 +6,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { AuthModal } from "@/components/AuthModal";
 import { useAuth } from "@/components/AuthProvider";
+import { PaywallModal, type PaywallView } from "@/components/usage/PaywallModal";
+import type { BillingStatus, MeteredFeature } from "@/lib/billing/config";
+import { fetchBillingStatus, requestConversation } from "@/lib/billing/client";
 import {
   canAskAnonymous,
   consumeQuestion,
@@ -35,6 +39,17 @@ type QuestionAccessValue = {
   /** Call if the ask was aborted / failed before any real work. */
   cancelQuestion: () => void;
   openAuth: (mode?: AuthMode) => void;
+  /**
+   * Call when a NEW conversation starts on a metered feature (not on every
+   * prompt). Reusing the same conversationId for follow-ups is free.
+   * Resolves false when the limit is hit — the paywall opens.
+   */
+  beginConversation: (feature: MeteredFeature, conversationId: string) => Promise<boolean>;
+  /** Plan + per-feature usage; null until loaded. */
+  billing: BillingStatus | null;
+  refreshBilling: () => Promise<BillingStatus | null>;
+  /** Open the promo code dialog (from a menu, not from a limit). */
+  openPromo: () => void;
 };
 
 const QuestionAccessContext = createContext<QuestionAccessValue | null>(null);
@@ -50,6 +65,16 @@ export function QuestionAccessProvider({
   const [authOpen, setAuthOpen] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
   const [, setTick] = useState(0);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [paywall, setPaywall] = useState<PaywallView | null>(null);
+  /** Paywall hidden while the auth modal is up; reshown after it closes. */
+  const pendingPaywallRef = useRef<PaywallView | null>(null);
+  const loadingRef = useRef(loading);
+  const tokenRef = useRef(accessToken);
+  useEffect(() => {
+    loadingRef.current = loading;
+    tokenRef.current = accessToken;
+  }, [loading, accessToken]);
   const quotaHydrated = useSyncExternalStore(
     subscribeHydration,
     () => true,
@@ -65,6 +90,44 @@ export function QuestionAccessProvider({
       ? remainingQuestions()
       : DAILY_QUESTION_LIMIT;
 
+  const refreshBilling = useCallback(async () => {
+    const next = await fetchBillingStatus(tokenRef.current);
+    if (next) setBilling(next);
+    return next;
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    void refreshBilling();
+  }, [loading, accessToken, refreshBilling]);
+
+  /** After signing in from the paywall, show it again with the upgrade options. */
+  const resumePaywall = useCallback(async () => {
+    const pending = pendingPaywallRef.current;
+    pendingPaywallRef.current = null;
+    if (!pending) return;
+    const status = await refreshBilling();
+    if (status?.plan === "pro") return;
+    setPaywall(pending);
+  }, [refreshBilling]);
+
+  const beginConversation = useCallback(
+    async (feature: MeteredFeature, conversationId: string) => {
+      // Let the sign-in check settle so a signed-in user isn't counted as anonymous.
+      for (let i = 0; i < 40 && loadingRef.current; i += 1) {
+        await new Promise((r) => window.setTimeout(r, 100));
+      }
+      const result = await requestConversation(feature, conversationId, tokenRef.current);
+      if (result.allowed) return true;
+      setPaywall({ kind: "limit", feature: result.feature, resetAt: result.resetAt });
+      void refreshBilling();
+      return false;
+    },
+    [refreshBilling],
+  );
+
+  const openPromo = useCallback(() => setPaywall({ kind: "promo" }), []);
+
   const openAuth = useCallback((mode: AuthMode = "login") => {
     setAuthRequired(false);
     setAuthMode(mode);
@@ -76,7 +139,8 @@ export function QuestionAccessProvider({
     if (!signedIn) return;
     setAuthOpen(false);
     setAuthRequired(false);
-  }, [signedIn]);
+    void resumePaywall();
+  }, [signedIn, resumePaywall]);
 
   const canAsk = useCallback(() => {
     if (loading) return false;
@@ -119,8 +183,22 @@ export function QuestionAccessProvider({
       beginQuestion,
       cancelQuestion,
       openAuth,
+      beginConversation,
+      billing,
+      refreshBilling,
+      openPromo,
     }),
-    [remaining, canAsk, beginQuestion, cancelQuestion, openAuth],
+    [
+      remaining,
+      canAsk,
+      beginQuestion,
+      cancelQuestion,
+      openAuth,
+      beginConversation,
+      billing,
+      refreshBilling,
+      openPromo,
+    ],
   );
 
   return (
@@ -135,7 +213,18 @@ export function QuestionAccessProvider({
         onClose={() => {
           setAuthOpen(false);
           setAuthRequired(false);
+          void resumePaywall();
         }}
+      />
+      <PaywallModal
+        view={paywall}
+        onClose={() => setPaywall(null)}
+        onOpenAuth={(mode) => {
+          pendingPaywallRef.current = paywall;
+          setPaywall(null);
+          openAuth(mode);
+        }}
+        onUpgraded={() => void refreshBilling()}
       />
     </QuestionAccessContext.Provider>
   );

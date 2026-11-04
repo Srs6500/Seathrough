@@ -33,6 +33,8 @@ import { BoxesLoader } from "@/components/ui/BoxesLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/components/AuthProvider";
+import { useQuestionAccess } from "@/components/usage/QuestionAccess";
+import { newConversationId } from "@/lib/billing/client";
 import {
   playExperimentAudio,
   requestExperimentLesson,
@@ -189,6 +191,8 @@ export function ExperimentBoard({
   styleToggle?: ReactNode;
 } = {}) {
   const { accessToken, loading: authLoading } = useAuth();
+  const { beginConversation } = useQuestionAccess();
+  const designConversationRef = useRef({ id: newConversationId(), started: false });
   const usesLessonHistory = kind === "tutor" || kind === "physics";
   const historyStore: DiagramHistoryStore =
     kind === "physics" ? "physics" : "diagram";
@@ -967,6 +971,17 @@ export function ExperimentBoard({
       return;
     }
 
+    // Free tier: each new design is one conversation; edits and answers inside
+    // it are free. A design that failed to start keeps its id for the retry.
+    if (kind === "system") {
+      if (designConversationRef.current.started) {
+        designConversationRef.current = { id: newConversationId(), started: false };
+      }
+      if (!(await beginConversation("system-design", designConversationRef.current.id))) {
+        return;
+      }
+    }
+
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -998,6 +1013,7 @@ export function ExperimentBoard({
     try {
       const result = await requestExperimentLesson(text, ac.signal, undefined, kind);
       if (ac.signal.aborted) return;
+      designConversationRef.current.started = true;
       if (result.kind === "intake") {
         setIntake(result.intake);
         setDesignPrompt(text);

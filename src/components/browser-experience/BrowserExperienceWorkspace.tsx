@@ -13,6 +13,7 @@ import { AppShell } from "@/components/lms/AppShell";
 import { PromptBar } from "@/components/PromptBar";
 import { Button } from "@/components/ui/button";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
+import { newConversationId } from "@/lib/billing/client";
 import {
   activateBrowserTab,
   annotateBrowserSession,
@@ -339,7 +340,8 @@ function ActPanel({
 
 export function BrowserExperienceWorkspace() {
   const { logout } = useAuth();
-  const { beginQuestion, cancelQuestion, openAuth } = useQuestionAccess();
+  const { beginConversation, openAuth } = useQuestionAccess();
+  const conversationRef = useRef({ id: newConversationId(), started: false });
 
   const [prompt, setPrompt] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
@@ -740,19 +742,27 @@ export function BrowserExperienceWorkspace() {
       return;
     }
 
-    if (!beginQuestion()) return;
-    submittingRef.current = true;
-
-    abortRef.current?.abort();
-    teachAbortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
     const followUp = isFollowUpPrompt(text, {
       hasReadySession:
         Boolean(session?.id) && (phase === "ready" || phase === "act"),
       priorQuestion: priorQuestionRef.current || session?.question || "",
     });
+
+    // Free tier counts conversations, not prompts: follow-ups reuse the id.
+    // A new topic gets a fresh id, unless the last one never got started.
+    submittingRef.current = true;
+    if (!followUp && conversationRef.current.started) {
+      conversationRef.current = { id: newConversationId(), started: false };
+    }
+    if (!(await beginConversation("browser", conversationRef.current.id))) {
+      submittingRef.current = false;
+      return;
+    }
+
+    abortRef.current?.abort();
+    teachAbortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setPhase("working");
     setActiveBeatId(null);
@@ -783,6 +793,7 @@ export function BrowserExperienceWorkspace() {
           });
 
       priorQuestionRef.current = text;
+      conversationRef.current.started = true;
       setSession(result.session);
       const nextMatrix = result.session.matrix ?? matrix;
       if (nextMatrix) {
@@ -802,7 +813,6 @@ export function BrowserExperienceWorkspace() {
       );
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      cancelQuestion();
       setPhase("error");
       pushNote(
         toUserFacingError(

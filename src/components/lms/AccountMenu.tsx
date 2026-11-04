@@ -1,7 +1,8 @@
 "use client";
 
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Ticket, UserRound } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import { useOptionalTheme } from "@/components/site/ThemeProvider";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,6 +30,7 @@ export function AccountMenu({
   variant = "default",
 }: AccountMenuProps) {
   const { user, loading, logout } = useAuth();
+  const { billing, openPromo } = useQuestionAccess();
   const marketing = variant === "marketing";
   const { theme } = useOptionalTheme();
   const dark = marketing && theme === "dark";
@@ -101,8 +103,19 @@ export function AccountMenu({
         <DropdownMenuLabel className="flex items-center gap-2 font-normal">
           <UserRound className="size-3.5" />
           {user.username}
+          {billing?.plan === "pro" ? (
+            <span className="ml-auto rounded-full bg-[#eef5fb] px-1.5 py-0.5 text-[11px] font-medium text-[#1b6ca8]">
+              Unlimited
+            </span>
+          ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {billing?.plan !== "pro" ? (
+          <DropdownMenuItem onSelect={() => openPromo()}>
+            <Ticket className="size-4" />
+            Redeem promo code
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           variant="destructive"
           onSelect={() => {
