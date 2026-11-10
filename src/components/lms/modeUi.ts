@@ -17,6 +17,7 @@ import {
   Map,
   GitBranch,
   Network,
+  Newspaper,
   PenLine,
   Sparkles,
   Film,
@@ -37,6 +38,11 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     icon: Sparkles,
     hint: "Talk through a topic. Diagrams and physics figures appear when they help.",
     tone: "blue",
+  },
+  news: {
+    icon: Newspaper,
+    hint: "Ask what happened. Credible sources, photos, and quotes land on the board.",
+    tone: "copper",
   },
   "voice-tutor": {
     icon: Mic,

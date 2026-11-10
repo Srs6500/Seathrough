@@ -284,3 +284,187 @@ export async function searchTopicBriefing(
   }
   return { answer: cleanText(json.answer, 1_200), sources };
 }
+
+/** Wire-service and major-outlet hosts preferred for News mode. */
+export const NEWS_PREFERRED_DOMAINS = [
+  "reuters.com",
+  "apnews.com",
+  "ap.org",
+  "bbc.com",
+  "bbc.co.uk",
+  "npr.org",
+  "theguardian.com",
+  "nytimes.com",
+  "washingtonpost.com",
+  "wsj.com",
+  "bloomberg.com",
+  "ft.com",
+  "economist.com",
+  "cnn.com",
+  "aljazeera.com",
+  "politico.com",
+  "axios.com",
+  "nature.com",
+  "science.org",
+  "nasa.gov",
+  "who.int",
+  "cdc.gov",
+  "noaa.gov",
+  "federalreserve.gov",
+  "sec.gov",
+  "treasury.gov",
+] as const;
+
+/** Image CDNs / hosts commonly used by those outlets. */
+const NEWS_IMAGE_HOSTS = [
+  ...NEWS_PREFERRED_DOMAINS,
+  "bbci.co.uk",
+  "ichef.bbci.co.uk",
+  "static.bbc.co.uk",
+  "reutersmedia.net",
+  "static01.nyt.com",
+  "static.nytimes.com",
+  "nyt.com",
+  "guim.co.uk",
+  "media.guim.co.uk",
+  "assets.bwbx.io",
+  "cdn.cnn.com",
+  "media.cnn.com",
+  "i.cdn.turner.com",
+  "video-api.wsj.com",
+  "images.wsj.net",
+  "s.wsj.net",
+  "img.washingtonpost.com",
+  "www3.nhk.or.jp",
+] as const;
+
+export function isNewsPreferredHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  return NEWS_PREFERRED_DOMAINS.some((domain) =>
+    isDomainOrSubdomain(host, domain),
+  );
+}
+
+export function isNewsImageHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  if (isNewsPreferredHost(host)) return true;
+  return NEWS_IMAGE_HOSTS.some(
+    (domain) => host === domain || host.endsWith(`.${domain}`),
+  );
+}
+
+function newsSourceScore(url: URL): number {
+  const host = url.hostname.toLowerCase();
+  if (isNewsPreferredHost(host)) return 0;
+  if (host.endsWith(".gov") || /\.(?:ac|edu|gov)\.[a-z]{2}$/i.test(host)) {
+    return 1;
+  }
+  return 2;
+}
+
+function collectBriefingSources(value: unknown): LessonSource[] {
+  const response = value as TavilyResponse;
+  if (!Array.isArray(response?.results)) return [];
+  const seen = new Set<string>();
+  const sources: LessonSource[] = [];
+  for (const raw of response.results as TavilyResult[]) {
+    const url = safeUrl(raw?.url);
+    const title = cleanText(raw?.title, 240);
+    const excerpt = cleanText(raw?.content, 700);
+    if (!url || !title || !excerpt || seen.has(url.href)) continue;
+    if (
+      BLOCKED_DOMAINS.some((domain) => isDomainOrSubdomain(url.hostname, domain))
+    ) {
+      continue;
+    }
+    seen.add(url.href);
+    sources.push({
+      id: `S${sources.length + 1}`,
+      title,
+      url: url.href,
+      publisher: url.hostname.replace(/^www\./, ""),
+      excerpt,
+    });
+  }
+  return sources
+    .sort((a, b) => {
+      const aUrl = safeUrl(a.url);
+      const bUrl = safeUrl(b.url);
+      return (
+        newsSourceScore(aUrl ?? new URL("https://example.com")) -
+        newsSourceScore(bUrl ?? new URL("https://example.com"))
+      );
+    })
+    .slice(0, MAX_RESULTS)
+    .map((source, index) => ({ ...source, id: `S${index + 1}` }));
+}
+
+/**
+ * Current-events briefing for News mode. Prefers wire services and major
+ * outlets via Tavily's news topic; falls back to an open news search when the
+ * preferred-domain pass returns nothing.
+ */
+export async function searchNewsBriefing(
+  query: string,
+  signal?: AbortSignal,
+  timeoutMs = 8_000,
+): Promise<TopicBriefing> {
+  const apiKey = getTavilyConfig().apiKey;
+  const trimmed = query.trim().slice(0, 320);
+  if (!apiKey || !trimmed) return { answer: "", sources: [] };
+
+  const today = new Date().toISOString().slice(0, 10);
+  // Force recency in the query — bare "nasdaq" otherwise ranks archival explainers.
+  const datedQuery = `${trimmed} today ${today} latest`.slice(0, 400);
+
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const combinedSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+
+  async function run(includeDomains: boolean): Promise<TopicBriefing> {
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: datedQuery,
+        topic: "news",
+        search_depth: "advanced",
+        max_results: 8,
+        include_answer: "advanced",
+        include_raw_content: false,
+        include_images: false,
+        exclude_domains: [
+          ...BLOCKED_DOMAINS,
+          "wikipedia.org",
+          "wikimedia.org",
+        ],
+        ...(includeDomains
+          ? { include_domains: [...NEWS_PREFERRED_DOMAINS] }
+          : {}),
+      }),
+      signal: combinedSignal,
+    });
+    if (!response.ok) {
+      throw new Error(`Tavily news search failed with status ${response.status}`);
+    }
+    const json = (await response.json()) as TavilyResponse & { answer?: unknown };
+    return {
+      answer: cleanText(json.answer, 1_400),
+      sources: collectBriefingSources(json),
+    };
+  }
+
+  try {
+    const preferred = await run(true);
+    if (preferred.answer || preferred.sources.length) return preferred;
+  } catch (error) {
+    console.warn(
+      "[tavily] preferred news search failed",
+      error instanceof Error ? error.message : "search failed",
+    );
+  }
+  return run(false);
+}
+

@@ -5,13 +5,14 @@ import { getServiceSupabase } from "@/lib/supabase/server";
 import {
   FREE_CONVERSATIONS_PER_FEATURE,
   METERED_FEATURES,
-  USAGE_WINDOW_MS,
   type BillingStatus,
   type ConversationAllowed,
   type ConversationLimitHit,
   type MeteredFeature,
   type Plan,
+  type PlanSource,
 } from "@/lib/billing/config";
+import { stripeConfigured, subscriptionIsPro } from "@/lib/billing/stripe";
 
 // ---------------------------------------------------------------------------
 // Who is asking: signed-in user (Bearer token) and/or an anonymous cookie id.
@@ -45,17 +46,36 @@ export async function getRequester(request: Request): Promise<Requester> {
 // Plans
 // ---------------------------------------------------------------------------
 
-type BillingRow = {
+export type BillingRow = {
   user_id: string;
   plan: Plan;
-  plan_source: "promo" | null;
+  plan_source: PlanSource | null;
+  promo_code: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_status: string | null;
 };
+
+const BILLING_SELECT =
+  "user_id, plan, plan_source, promo_code, stripe_customer_id, stripe_subscription_id, subscription_status";
 
 export async function getBillingAccount(userId: string): Promise<BillingRow | null> {
   const { data, error } = await getServiceSupabase()
     .from("billing_accounts")
-    .select("user_id, plan, plan_source")
+    .select(BILLING_SELECT)
     .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as BillingRow | null) ?? null;
+}
+
+export async function getBillingAccountByCustomerId(
+  customerId: string,
+): Promise<BillingRow | null> {
+  const { data, error } = await getServiceSupabase()
+    .from("billing_accounts")
+    .select(BILLING_SELECT)
+    .eq("stripe_customer_id", customerId)
     .maybeSingle();
   if (error) throw error;
   return (data as BillingRow | null) ?? null;
@@ -63,7 +83,7 @@ export async function getBillingAccount(userId: string): Promise<BillingRow | nu
 
 export async function upsertBillingAccount(
   userId: string,
-  patch: Partial<Omit<BillingRow, "user_id">> & { promo_code?: string | null },
+  patch: Partial<Omit<BillingRow, "user_id">>,
 ): Promise<void> {
   const { error } = await getServiceSupabase()
     .from("billing_accounts")
@@ -71,17 +91,44 @@ export async function upsertBillingAccount(
   if (error) throw error;
 }
 
+/**
+ * Apply a Stripe subscription status onto the billing account.
+ * Promo Pro is preserved unless Stripe explicitly grants Pro (or the
+ * account was already on Stripe).
+ */
+export async function applyStripeSubscription(input: {
+  userId: string;
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  status: string;
+}): Promise<void> {
+  const existing = await getBillingAccount(input.userId);
+  const pro = subscriptionIsPro(input.status);
+  const wasStripe = existing?.plan_source === "stripe";
+  const keepPromo = existing?.plan_source === "promo" && !pro && !wasStripe;
+
+  await upsertBillingAccount(input.userId, {
+    stripe_customer_id:
+      input.customerId ?? existing?.stripe_customer_id ?? null,
+    stripe_subscription_id:
+      input.subscriptionId ?? existing?.stripe_subscription_id ?? null,
+    subscription_status: input.status,
+    plan: keepPromo ? "pro" : pro ? "pro" : "free",
+    plan_source: keepPromo ? "promo" : pro || wasStripe ? "stripe" : null,
+    promo_code: existing?.promo_code ?? null,
+  });
+}
+
 // ---------------------------------------------------------------------------
-// Conversation limits
+// Conversation limits (lifetime free allotment)
 // ---------------------------------------------------------------------------
 
 type UsageRow = { conversation_key: string; created_at: string };
 
-async function recentUsage(
+async function lifetimeUsage(
   requester: Requester,
   feature: MeteredFeature | null,
 ): Promise<Array<UsageRow & { feature: MeteredFeature }>> {
-  const since = new Date(Date.now() - USAGE_WINDOW_MS).toISOString();
   // Signed-out usage on this browser still counts after signing up, so
   // creating an account isn't a free reset.
   const subject = requester.user
@@ -90,7 +137,6 @@ async function recentUsage(
   let query = getServiceSupabase()
     .from("usage_conversations")
     .select("feature, conversation_key, created_at")
-    .gte("created_at", since)
     .or(subject)
     .order("created_at", { ascending: true })
     .limit(500);
@@ -98,14 +144,6 @@ async function recentUsage(
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as Array<UsageRow & { feature: MeteredFeature }>;
-}
-
-/** When the next slot frees up, given rows in the window (oldest first). */
-function nextResetAt(rows: UsageRow[]): string | null {
-  const distinct = dedupeByKey(rows);
-  if (distinct.length < FREE_CONVERSATIONS_PER_FEATURE) return null;
-  const freeing = distinct[distinct.length - FREE_CONVERSATIONS_PER_FEATURE];
-  return new Date(new Date(freeing.created_at).getTime() + USAGE_WINDOW_MS).toISOString();
 }
 
 function dedupeByKey<T extends UsageRow>(rows: T[]): T[] {
@@ -125,7 +163,8 @@ async function isPro(user: AuthUser | null): Promise<boolean> {
 
 /**
  * Record the start of a conversation on a feature, or refuse it.
- * The same conversationKey again within the window is free (follow-ups).
+ * The same conversationKey again is free (follow-ups). Free accounts get a
+ * lifetime allotment of FREE_CONVERSATIONS_PER_FEATURE per feature.
  */
 export async function beginConversation(
   requester: Requester,
@@ -136,7 +175,7 @@ export async function beginConversation(
     return { allowed: true, plan: "pro", remaining: null };
   }
 
-  const rows = dedupeByKey(await recentUsage(requester, feature));
+  const rows = dedupeByKey(await lifetimeUsage(requester, feature));
   if (rows.some((row) => row.conversation_key === conversationKey)) {
     return {
       allowed: true,
@@ -151,8 +190,7 @@ export async function beginConversation(
       reason: requester.user ? "upgrade" : "signup",
       feature,
       limit: FREE_CONVERSATIONS_PER_FEATURE,
-      resetAt:
-        nextResetAt(rows) ?? new Date(Date.now() + USAGE_WINDOW_MS).toISOString(),
+      resetAt: null,
     };
   }
 
@@ -176,20 +214,25 @@ export async function beginConversation(
 export async function getBillingStatus(requester: Requester): Promise<BillingStatus> {
   const account = requester.user ? await getBillingAccount(requester.user.id) : null;
   const plan: Plan = account?.plan === "pro" ? "pro" : "free";
-  const rows = await recentUsage(requester, null);
+  const rows = await lifetimeUsage(requester, null);
   const usage = {} as BillingStatus["usage"];
   for (const feature of Object.keys(METERED_FEATURES) as MeteredFeature[]) {
     const mine = dedupeByKey(rows.filter((row) => row.feature === feature));
     usage[feature] = {
       used: mine.length,
       limit: FREE_CONVERSATIONS_PER_FEATURE,
-      resetAt: nextResetAt(mine),
+      resetAt: null,
     };
   }
+  const planSource: PlanSource | null =
+    plan === "pro" && (account?.plan_source === "promo" || account?.plan_source === "stripe")
+      ? account.plan_source
+      : null;
   return {
     signedIn: Boolean(requester.user),
     plan,
-    planSource: plan === "pro" ? (account?.plan_source ?? null) : null,
+    planSource,
+    stripeEnabled: stripeConfigured(),
     usage,
   };
 }

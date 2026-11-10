@@ -4,6 +4,7 @@ import {
   planVoiceLesson,
   runVoiceTurn,
 } from "@/lib/voice-tutor/brain";
+import { parseVoiceTutorStyle } from "@/lib/voice-tutor/lessonStyle";
 import type { ChatMessage } from "@/lib/voice-tutor/sessionTypes";
 
 export const runtime = "nodejs";
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
       lessonContext?: unknown;
       diagrams?: unknown;
       priorLesson?: unknown;
+      style?: unknown;
     };
 
     const mode =
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
     const awaitingFocus = body.awaitingFocus === true;
     const preferClarify = body.preferClarify === true;
     const diagrams = body.diagrams !== false;
+    const style = parseVoiceTutorStyle(body.style);
     const clarifyAside = body.clarifyAside === true;
     const partialAside = body.partialAside === true;
     const deferredClose = body.deferredClose === true;
@@ -118,6 +121,7 @@ export async function POST(request: Request) {
         messages,
         diagrams,
         priorLesson,
+        style,
       });
       return Response.json(turn);
     }
@@ -138,6 +142,7 @@ export async function POST(request: Request) {
       avoidedFocusOptions,
       lessonContext,
       diagrams,
+      style,
     });
     return Response.json(turn);
   } catch (error) {

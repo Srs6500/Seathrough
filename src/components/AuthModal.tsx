@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { MorphOrb } from "@/components/voice-tutor/MorphOrb";
 import {
@@ -36,43 +36,72 @@ export function AuthModal({
 }: AuthModalProps) {
   const { login, signup } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checkEmail, setCheckEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setMode(initialMode);
+    setError(null);
+    setCheckEmail(null);
+  }, [open, initialMode]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const err =
-      mode === "login"
-        ? await login(username, password)
-        : await signup(username, password);
-    setBusy(false);
-    if (err) {
-      setError(err);
+
+    if (mode === "login") {
+      const err = await login(email, password);
+      setBusy(false);
+      if (err) {
+        setError(err);
+        return;
+      }
+      setEmail("");
+      setPassword("");
+      onSuccess?.();
+      onClose();
       return;
     }
-    setUsername("");
+
+    const result = await signup(email, password);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    if (result.needsConfirmation) {
+      setCheckEmail(result.email ?? email);
+      setPassword("");
+      return;
+    }
+    setEmail("");
     setPassword("");
     onSuccess?.();
     onClose();
   }
 
-  const title = quotaExhausted
-    ? "You're on a roll"
-    : required
-      ? "Sign in to continue"
-      : mode === "login"
-        ? "Welcome back"
-        : "Create your account";
-  const subtitle = quotaExhausted
-    ? "You've used today's 5 free questions. Sign up or log in to keep learning — it's free and takes a few seconds."
-    : required
-      ? "Create an account or log in to keep learning."
-      : "One account for every lesson you start.";
+  const title = checkEmail
+    ? "Check your email"
+    : quotaExhausted
+      ? "You're on a roll"
+      : required
+        ? "Sign in to continue"
+        : mode === "login"
+          ? "Welcome back"
+          : "Create your account";
+  const subtitle = checkEmail
+    ? `We sent a confirmation link to ${checkEmail}. Open it to finish signing up.`
+    : quotaExhausted
+      ? "You've used today's 5 free questions. Sign up or log in to keep learning — it's free and takes a few seconds."
+      : required
+        ? "Create an account or log in to keep learning."
+        : "One account for every lesson you start.";
 
   return (
     <Dialog
@@ -88,20 +117,18 @@ export function AuthModal({
           if (required || busy) event.preventDefault();
         }}
         onOpenAutoFocus={(event) => {
-          // start typing right away instead of focusing the first tab
           event.preventDefault();
-          document.getElementById("auth-username")?.focus();
+          document.getElementById("auth-email")?.focus();
         }}
         onEscapeKeyDown={(event) => {
           if (required || busy) event.preventDefault();
         }}
       >
-        {/* header: the tutor's dotted orb on the app's soft grey */}
         <div className="relative flex flex-col items-center bg-[#f4f4f6] px-6 pt-5 pb-4">
           <div className="pointer-events-none -my-3 scale-[0.85]" aria-hidden>
             <MorphOrb state={busy ? "thinking" : "listening"} />
           </div>
-          {quotaExhausted ? (
+          {quotaExhausted && !checkEmail ? (
             <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-[#3f3f46] shadow-sm">
               <span className="flex gap-0.5" aria-hidden>
                 {[0, 1, 2, 3, 4].map((i) => (
@@ -121,110 +148,159 @@ export function AuthModal({
             {subtitle}
           </DialogDescription>
 
-          {/* segmented switch, same feel as the Teach-with chips */}
-          <div
-            role="tablist"
-            aria-label="Account"
-            className="mt-5 grid grid-cols-2 gap-1 rounded-lg bg-[#f4f4f6] p-1"
-          >
-            {(
-              [
-                ["signup", "Sign up"],
-                ["login", "Log in"],
-              ] as const
-            ).map(([value, label]) => (
+          {checkEmail ? (
+            <div className="mt-5 flex flex-col items-center gap-4">
+              <span className="grid size-12 place-items-center rounded-full bg-[#eef6fc] text-[#1b6ca8]">
+                <Mail className="size-5" />
+              </span>
               <button
-                key={value}
                 type="button"
-                role="tab"
-                aria-selected={mode === value}
                 onClick={() => {
-                  setMode(value);
+                  setCheckEmail(null);
+                  setMode("login");
                   setError(null);
                 }}
-                className={cn(
-                  "h-8 rounded-md text-[13px] font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/40",
-                  mode === value
-                    ? "bg-white text-[#16161a] shadow-[0_1px_2px_rgba(22,22,26,0.08)]"
-                    : "text-[#71717a] hover:text-[#16161a]",
-                )}
+                className="flex h-10 w-full items-center justify-center rounded-lg bg-[#16161a] text-[14px] font-medium text-white transition hover:bg-[#2a2a2e]"
               >
-                {label}
+                Back to log in
               </button>
-            ))}
-          </div>
-
-          <form className="mt-4 flex flex-col gap-3" onSubmit={(e) => void onSubmit(e)}>
-            <div>
-              <label htmlFor="auth-username" className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]">
-                Username
-              </label>
-              <input
-                id="auth-username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-                disabled={busy}
-                placeholder="e.g. alex"
-                className={FIELD}
-              />
             </div>
+          ) : (
+            <>
+              <div
+                role="tablist"
+                aria-label="Account"
+                className="mt-5 grid grid-cols-2 gap-1 rounded-lg bg-[#f4f4f6] p-1"
+              >
+                {(
+                  [
+                    ["signup", "Sign up"],
+                    ["login", "Log in"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === value}
+                    onClick={() => {
+                      setMode(value);
+                      setError(null);
+                    }}
+                    className={cn(
+                      "h-8 rounded-md text-[13px] font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-[#1b6ca8]/40",
+                      mode === value
+                        ? "bg-white text-[#16161a] shadow-[0_1px_2px_rgba(22,22,26,0.08)]"
+                        : "text-[#71717a] hover:text-[#16161a]",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-            <div>
-              <label htmlFor="auth-password" className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="auth-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
-                  disabled={busy}
-                  placeholder="At least 6 characters"
-                  className={cn(FIELD, "pr-10")}
-                />
+              <form
+                className="mt-4 flex flex-col gap-3"
+                onSubmit={(e) => void onSubmit(e)}
+              >
+                <div>
+                  <label
+                    htmlFor="auth-email"
+                    className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="auth-email"
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    disabled={busy}
+                    placeholder="you@example.com"
+                    className={FIELD}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="auth-password"
+                    className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="auth-password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete={
+                        mode === "login" ? "current-password" : "new-password"
+                      }
+                      disabled={busy}
+                      placeholder="At least 6 characters"
+                      className={cn(FIELD, "pr-10")}
+                    />
+                    <button
+                      type="button"
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[#71717a] transition hover:bg-[#f4f4f6] hover:text-[#16161a]"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {error ? (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-[#f3d4d4] bg-[#fdf3f3] px-3 py-2 text-[13px] text-[#c24545]"
+                  >
+                    {error}
+                  </p>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={busy || !email.trim() || !password}
+                  className="mt-1 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#16161a] text-[14px] font-medium text-white transition hover:bg-[#2a2a2e] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {busy
+                    ? "Please wait…"
+                    : mode === "login"
+                      ? "Log in"
+                      : "Create account"}
+                </button>
+              </form>
+
+              <p className="mt-4 text-center text-[12px] text-[#71717a]">
+                {mode === "login" ? "New here? " : "Already have an account? "}
                 <button
                   type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-md text-[#71717a] transition hover:bg-[#f4f4f6] hover:text-[#16161a]"
+                  onClick={() => {
+                    setMode(mode === "login" ? "signup" : "login");
+                    setError(null);
+                  }}
+                  className="font-medium text-[#1b6ca8] hover:underline"
                 >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  {mode === "login" ? "Create an account" : "Log in"}
                 </button>
-              </div>
-            </div>
-
-            {error ? (
-              <p role="alert" className="rounded-lg border border-[#f3d4d4] bg-[#fdf3f3] px-3 py-2 text-[13px] text-[#c24545]">
-                {error}
               </p>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={busy || !username.trim() || !password}
-              className="mt-1 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#16161a] text-[14px] font-medium text-white transition hover:bg-[#2a2a2e] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {busy ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
-            </button>
-          </form>
-
-          <p className="mt-4 text-center text-[12px] text-[#71717a]">
-            {mode === "login" ? "New here? " : "Already have an account? "}
-            <button
-              type="button"
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-                setError(null);
-              }}
-              className="font-medium text-[#1b6ca8] hover:underline"
-            >
-              {mode === "login" ? "Create an account" : "Log in"}
-            </button>
-          </p>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

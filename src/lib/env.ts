@@ -381,5 +381,10 @@ export function envPresence() {
     GITHUB_APP_ID: Boolean(optional("GITHUB_APP_ID")),
     GITHUB_APP_SLUG: Boolean(optional("GITHUB_APP_SLUG")),
     GITHUB_APP_PRIVATE_KEY: Boolean(optional("GITHUB_APP_PRIVATE_KEY")),
+    STRIPE_SECRET_KEY: Boolean(optional("STRIPE_SECRET_KEY")),
+    STRIPE_PRICE_ID: Boolean(
+      optional("STRIPE_PRICE_ID") || optional("STRIPE_PRICE_ID_PRO"),
+    ),
+    STRIPE_WEBHOOK_SECRET: Boolean(optional("STRIPE_WEBHOOK_SECRET")),
   };
 }

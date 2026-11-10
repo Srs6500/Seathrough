@@ -16,12 +16,16 @@ export type AuthUser = {
   username: string;
 };
 
+export type SignupResult =
+  | { ok: true; needsConfirmation: boolean; email?: string }
+  | { ok: false; error: string };
+
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   accessToken: string | null;
-  login: (username: string, password: string) => Promise<string | null>;
-  signup: (username: string, password: string) => Promise<string | null>;
+  login: (email: string, password: string) => Promise<string | null>;
+  signup: (email: string, password: string) => Promise<SignupResult>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -109,12 +113,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const body = (await res.json()) as {
         error?: string;
@@ -133,29 +137,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signup = useCallback(async (username: string, password: string) => {
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const body = (await res.json()) as {
-        error?: string;
-        user?: AuthUser;
-        session?: { access_token: string; refresh_token: string };
-      };
-      if (!res.ok || !body.session || !body.user) {
-        return body.error || "Could not create account";
+  const signup = useCallback(
+    async (email: string, password: string): Promise<SignupResult> => {
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const body = (await res.json()) as {
+          error?: string;
+          needsConfirmation?: boolean;
+          email?: string;
+          user?: AuthUser;
+          session?: { access_token: string; refresh_token: string };
+        };
+        if (!res.ok) {
+          return {
+            ok: false,
+            error: body.error || "Could not create account",
+          };
+        }
+
+        if (body.needsConfirmation || !body.session || !body.user) {
+          return {
+            ok: true,
+            needsConfirmation: true,
+            email: body.email ?? email,
+          };
+        }
+
+        await applySession(body.session);
+        setUser(body.user);
+        setAccessToken(body.session.access_token);
+        return { ok: true, needsConfirmation: false };
+      } catch {
+        return {
+          ok: false,
+          error: "Could not create account. Please try again.",
+        };
       }
-      await applySession(body.session);
-      setUser(body.user);
-      setAccessToken(body.session.access_token);
-      return null;
-    } catch {
-      return "Could not create account. Please try again.";
-    }
-  }, []);
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
     try {

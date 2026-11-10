@@ -1,6 +1,7 @@
 import { completeJson } from "@/lib/voice-tutor/brain";
 import { pickLessonImages } from "@/lib/voice-tutor/images/pick";
 import type { BeatFigure } from "@/lib/voice-tutor/images/types";
+import type { VoiceTutorStyle } from "@/lib/voice-tutor/lessonStyle";
 import type { VoiceLessonPlan } from "@/lib/voice-tutor/sessionTypes";
 import { draftsFromBeats } from "@/lib/voice-tutor/whiteboard/fromBeats";
 import { layoutWhiteboard } from "@/lib/voice-tutor/whiteboard/layout";
@@ -30,6 +31,28 @@ Rules:
   (e.g. a callout to the "right" of the explanation it sums up). "near" must be an earlier id.
 - Never copy the spoken line verbatim; the board summarises what is said.`;
 
+const NEWS_SYSTEM = `You are explaining TODAY's news on a whiteboard while you talk.
+Write short reporter-style board notes: headline, what happened, why, and attributed quotes.
+Only use figures that appear in the credible sources block. Never invent levels or percents.
+
+Return JSON: { "items": [ ... ] } where each item is
+{ "id": string, "kind": "title"|"heading"|"note"|"explanation"|"formula"|"callout",
+  "text": string, "beatId": string, "reveal"?: "write"|"wipe",
+  "place"?: { "near"?: string, "side"?: "below"|"right" } }
+
+Rules:
+- Exactly one "title" first — a short news headline for the CURRENT story.
+- Every beat gets 1–4 items. beatId must be one of the given beat ids.
+- ids are short and unique ("t1", "h2", "n3"...).
+- note: under 12 words, start with "• " — timeline / who / what bullets for today.
+- explanation: 1–2 plain sentences on what happened or why it matters (under 34 words).
+- callout: attributed quote or paraphrase under 22 words, e.g. 'Reuters: "…" ' or 'AP reports …'.
+  Include 1–2 callouts when sources give usable lines. Never invent quotes or outlet names.
+- formula: only a figure that appears in the sources (e.g. "+2.1%"). Skip if unsure.
+- Do NOT write multi-year history or "1971–2021" style notes.
+- Do NOT give coordinates. Use "place" only next to an earlier id.
+- Never copy the spoken line verbatim; the board summarises reporting.`;
+
 function beatsBlock(plan: VoiceLessonPlan): string {
   return plan.beats
     .map((beat, i) => {
@@ -41,6 +64,14 @@ function beatsBlock(plan: VoiceLessonPlan): string {
       return bits.join("\n");
     })
     .join("\n\n");
+}
+
+function sourcesBlock(plan: VoiceLessonPlan): string {
+  if (!plan.sources?.length) return "";
+  return `\nCredible sources (use for callout attribution; do not invent):\n${plan.sources
+    .slice(0, 5)
+    .map((s) => `- ${s.publisher}: ${s.title} — ${s.excerpt}`)
+    .join("\n")}`;
 }
 
 function parseDrafts(raw: unknown, plan: VoiceLessonPlan): WhiteboardDraftItem[] {
@@ -93,15 +124,18 @@ function withFigures(drafts: WhiteboardDraftItem[], figures: BeatFigure[]): Whit
 }
 
 /** Turn a lesson plan into a laid-out whiteboard session (exact coordinates). */
-export async function generateWhiteboard(plan: VoiceLessonPlan): Promise<WhiteboardSession> {
+export async function generateWhiteboard(
+  plan: VoiceLessonPlan,
+  style: VoiceTutorStyle = "default",
+): Promise<WhiteboardSession> {
   const beatOrder = plan.beats.map((b) => b.id);
   let drafts: WhiteboardDraftItem[] = [];
   // Pictures are looked up alongside the board draft, not after it.
-  const figuresPromise = pickLessonImages(plan).catch(() => [] as BeatFigure[]);
+  const figuresPromise = pickLessonImages(plan, style).catch(() => [] as BeatFigure[]);
   try {
     const raw = await completeJson({
-      system: SYSTEM,
-      user: `Topic: ${plan.topic}\nObjective: ${plan.objective}\n\n${beatsBlock(plan)}`,
+      system: style === "news" ? NEWS_SYSTEM : SYSTEM,
+      user: `Topic: ${plan.topic}\nObjective: ${plan.objective}\n\n${beatsBlock(plan)}${sourcesBlock(plan)}`,
       temperature: 0.3,
     });
     drafts = parseDrafts(raw, plan);

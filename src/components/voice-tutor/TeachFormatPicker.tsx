@@ -1,18 +1,21 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Check, FileText, Presentation, Shapes, Video } from "lucide-react";
+import { Check, FileText, Newspaper, Presentation, Shapes, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * How the tutor teaches: any mix of written text, diagrams, and a video.
  * Whiteboard is a full board lesson, so it replaces text + diagram while on.
+ * News is a style on top: credible sources, quotes, and photos on the board.
  */
 export type TeachFormats = {
   text: boolean;
   diagram: boolean;
   video: boolean;
   whiteboard: boolean;
+  /** Live reporting style — pulls credible sources + news photos onto the board. */
+  news: boolean;
 };
 
 export const DEFAULT_TEACH_FORMATS: TeachFormats = {
@@ -20,22 +23,40 @@ export const DEFAULT_TEACH_FORMATS: TeachFormats = {
   diagram: false,
   video: false,
   whiteboard: true,
+  news: false,
 };
 
+const TEACH_KEYS = ["whiteboard", "text", "diagram", "video"] as const;
+
 function anyFormat(f: TeachFormats): boolean {
-  return f.text || f.diagram || f.video || f.whiteboard;
+  return TEACH_KEYS.some((key) => f[key]);
 }
 
 /** Apply a toggle, keeping whiteboard and text/diagram mutually exclusive. */
 export function toggleTeachFormat(value: TeachFormats, key: keyof TeachFormats): TeachFormats {
   const on = !value[key];
-  if (key === "whiteboard" && on) return { ...value, whiteboard: true, text: false, diagram: false };
-  if ((key === "text" || key === "diagram") && on) return { ...value, [key]: true, whiteboard: false };
+  if (key === "news") {
+    // News is whiteboard-first: photos and attributed quotes belong on the board.
+    if (on) {
+      return { ...value, news: true, whiteboard: true, text: false, diagram: false };
+    }
+    return { ...value, news: false };
+  }
+  if (key === "whiteboard" && on) {
+    return { ...value, whiteboard: true, text: false, diagram: false };
+  }
+  if ((key === "text" || key === "diagram") && on) {
+    // Leaving the board leaves news style too — text path isn't the news board.
+    return { ...value, [key]: true, whiteboard: false, news: false };
+  }
+  if (key === "whiteboard" && !on) {
+    return { ...value, whiteboard: false, news: false };
+  }
   return { ...value, [key]: on };
 }
 
-/** v2: whiteboard became the default, so earlier saved picks start fresh once. */
-const STORAGE_KEY = "seethrough.voice-tutor.formats.v2";
+/** v3: news style chip added beside the teach formats. */
+const STORAGE_KEY = "seethrough.voice-tutor.formats.v3";
 
 function loadTeachFormats(): TeachFormats {
   try {
@@ -48,8 +69,13 @@ function loadTeachFormats(): TeachFormats {
       diagram: raw.diagram === true,
       video: raw.video === true,
       whiteboard: raw.whiteboard === true,
+      news: raw.news === true,
     };
-    if (next.whiteboard) {
+    if (next.news) {
+      next.whiteboard = true;
+      next.text = false;
+      next.diagram = false;
+    } else if (next.whiteboard) {
       next.text = false;
       next.diagram = false;
     }
@@ -87,11 +113,35 @@ export function useTeachFormats(): TeachFormats {
   return useSyncExternalStore(subscribe, snapshot, () => DEFAULT_TEACH_FORMATS);
 }
 
+/** Fill missing fields from older saved sessions (pre-news). */
+export function normalizeTeachFormats(
+  value: Partial<TeachFormats> | null | undefined,
+): TeachFormats {
+  if (!value) return DEFAULT_TEACH_FORMATS;
+  const next: TeachFormats = {
+    text: value.text === true,
+    diagram: value.diagram === true,
+    video: value.video === true,
+    whiteboard: value.whiteboard === true,
+    news: value.news === true,
+  };
+  if (next.news) {
+    next.whiteboard = true;
+    next.text = false;
+    next.diagram = false;
+  } else if (next.whiteboard) {
+    next.text = false;
+    next.diagram = false;
+  }
+  return anyFormat(next) ? next : DEFAULT_TEACH_FORMATS;
+}
+
 const OPTIONS = [
   { key: "whiteboard", label: "Whiteboard", Icon: Presentation },
   { key: "text", label: "Text", Icon: FileText },
   { key: "diagram", label: "Diagram", Icon: Shapes },
   { key: "video", label: "Video", Icon: Video },
+  { key: "news", label: "News", Icon: Newspaper },
 ] as const;
 
 export function TeachFormatPicker({
@@ -103,7 +153,7 @@ export function TeachFormatPicker({
   onChange: (next: TeachFormats) => void;
   className?: string;
 }) {
-  const onCount = OPTIONS.filter((o) => value[o.key]).length;
+  const onCount = TEACH_KEYS.filter((key) => value[key]).length;
   return (
     <fieldset className={cn("flex flex-wrap items-center justify-center gap-1.5", className)}>
       <legend className="sr-only">Teach with</legend>
@@ -112,11 +162,17 @@ export function TeachFormatPicker({
       </span>
       {OPTIONS.map(({ key, label, Icon }) => {
         const checked = value[key];
-        const locked = checked && onCount === 1;
+        const locked = key !== "news" && checked && onCount === 1;
         return (
           <label
             key={key}
-            title={locked ? "Keep at least one way to learn" : undefined}
+            title={
+              locked
+                ? "Keep at least one way to learn"
+                : key === "news"
+                  ? "Explain current events from credible sources on the board"
+                  : undefined
+            }
             className={cn(
               "inline-flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition",
               "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#5b4fd4]/40",

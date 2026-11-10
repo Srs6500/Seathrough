@@ -1,5 +1,14 @@
 import { getTavilyConfig } from "@/lib/env";
-import { isCredibleSourceUrl } from "@/lib/providers/tavily";
+import {
+  isCredibleSourceUrl,
+  isNewsImageHost,
+} from "@/lib/providers/tavily";
+import {
+  filterFreshNewsImages,
+  looksStaleNewsImage,
+  newsTodayIso,
+} from "@/lib/voice-tutor/images/newsFreshness";
+import type { VoiceTutorStyle } from "@/lib/voice-tutor/lessonStyle";
 import type { TeachingImage } from "@/lib/voice-tutor/images/types";
 
 /**
@@ -165,50 +174,145 @@ export async function commonsSearchImage(query: string, caption: string): Promis
   return null;
 }
 
+const NEWS_BLOCKED_IMAGE_HOSTS = [
+  "wikipedia.org",
+  "wikimedia.org",
+  "wikimediafoundation.org",
+  "reddit.com",
+  "quora.com",
+  "medium.com",
+  "substack.com",
+  "facebook.com",
+  "instagram.com",
+  "tiktok.com",
+  "x.com",
+  "twitter.com",
+  "pinterest.com",
+  "fandom.com",
+  "youtube.com",
+] as const;
+
+function isBlockedNewsImageHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  return (
+    NEWS_BLOCKED_IMAGE_HOSTS.some(
+      (domain) => host === domain || host.endsWith(`.${domain}`),
+    ) || host.includes("wikimedia")
+  );
+}
+
+function imageUrlAllowed(href: string, style: VoiceTutorStyle): boolean {
+  try {
+    const url = new URL(href);
+    if (url.protocol !== "https:") return false;
+    const host = url.hostname.replace(/^www\./, "");
+    if (style === "news") {
+      // Prefer known outlet CDNs, but allow other https news CDN hosts —
+      // freshness vetting (not host allowlists) is the real gate. Always
+      // block Wikimedia / social; those dump archival charts for "Nasdaq".
+      if (isBlockedNewsImageHost(host)) return false;
+      return true;
+    }
+    return isCredibleSourceUrl(url) || isNewsImageHost(host);
+  } catch {
+    return false;
+  }
+}
+
+function teachingImageFromTavily(
+  href: string,
+  caption: string,
+  description: string,
+): TeachingImage | null {
+  try {
+    const host = new URL(href).hostname.replace(/^www\./, "");
+    return {
+      url: href,
+      width: 960,
+      height: 720,
+      caption,
+      alt: description || caption,
+      credit: host,
+      license: "",
+      sourceUrl: href,
+      sourceName: host,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Image hosted by a credible institution, via Tavily image search. */
-export async function credibleWebImage(query: string, caption: string): Promise<TeachingImage | null> {
+export async function credibleWebImage(
+  query: string,
+  caption: string,
+  style: VoiceTutorStyle = "default",
+): Promise<TeachingImage | null> {
+  const found = await credibleWebImages(query, caption, style, 1);
+  return found[0] ?? null;
+}
+
+/** Several Tavily image candidates (news path collects extras for freshness vet). */
+export async function credibleWebImages(
+  query: string,
+  caption: string,
+  style: VoiceTutorStyle = "default",
+  limit = style === "news" ? 6 : 1,
+): Promise<TeachingImage[]> {
   const apiKey = getTavilyConfig().apiKey;
-  if (!apiKey) return null;
+  if (!apiKey) return [];
+  const today = newsTodayIso();
+  const searchQuery =
+    style === "news"
+      ? `${query} ${today} today latest`.replace(/\s+/g, " ").trim()
+      : query;
   try {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        query,
-        topic: "general",
+        query: searchQuery,
+        topic: style === "news" ? "news" : "general",
         search_depth: "basic",
-        max_results: 5,
+        max_results: style === "news" ? 10 : 5,
         include_images: true,
         include_image_descriptions: true,
         include_answer: false,
+        ...(style === "news"
+          ? {
+              exclude_domains: [
+                "wikipedia.org",
+                "wikimedia.org",
+                "commons.wikimedia.org",
+              ],
+            }
+          : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS + 2_000),
     });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { images?: Array<string | { url?: string; description?: string }> };
+    if (!res.ok) return [];
+    const json = (await res.json()) as {
+      images?: Array<string | { url?: string; description?: string }>;
+    };
+    const out: TeachingImage[] = [];
+    const seen = new Set<string>();
     for (const raw of json.images ?? []) {
       const href = typeof raw === "string" ? raw : raw?.url;
       if (!href || !/\.(png|jpe?g|webp|svg)(\?|$)/i.test(href)) continue;
-      if (!isCredibleSourceUrl(href)) continue;
-      const host = new URL(href).hostname.replace(/^www\./, "");
+      if (!imageUrlAllowed(href, style)) continue;
+      if (seen.has(href)) continue;
       const description = typeof raw === "string" ? "" : stripHtml(raw.description, 240);
-      // Real pixel size is unknown here; the board letterboxes into a 4:3 frame.
-      return {
-        url: href,
-        width: 960,
-        height: 720,
-        caption,
-        alt: description || caption,
-        credit: host,
-        license: "",
-        sourceUrl: href,
-        sourceName: host,
-      };
+      const image = teachingImageFromTavily(href, caption, description);
+      if (!image) continue;
+      if (style === "news" && looksStaleNewsImage(image)) continue;
+      seen.add(href);
+      out.push(image);
+      if (out.length >= limit) break;
     }
+    return style === "news" ? filterFreshNewsImages(out) : out;
   } catch {
-    /* fail-soft */
+    return [];
   }
-  return null;
 }
 
 /**
@@ -228,15 +332,31 @@ function tidyCredit(image: TeachingImage): TeachingImage {
   return { ...image, credit: credit || image.credit };
 }
 
-/** Try each source in order of trust; first usable picture wins. */
-export async function findTeachingImage(input: {
-  wikiTitle?: string;
+/** News-only: never fall back to Wikipedia/Commons (those surface 1971–2021 charts). */
+export async function findNewsImageCandidates(input: {
   query: string;
   caption: string;
-}): Promise<TeachingImage | null> {
+}): Promise<TeachingImage[]> {
+  const candidates = await credibleWebImages(input.query, input.caption, "news", 6);
+  return candidates.map((image) => tidyCredit(honestCaption(image)));
+}
+
+/** Try each source in order of trust; first usable picture wins. */
+export async function findTeachingImage(
+  input: {
+    wikiTitle?: string;
+    query: string;
+    caption: string;
+  },
+  style: VoiceTutorStyle = "default",
+): Promise<TeachingImage | null> {
+  if (style === "news") {
+    const newsPhoto = (await findNewsImageCandidates(input))[0] ?? null;
+    return newsPhoto;
+  }
   const found =
     (input.wikiTitle ? await wikipediaLeadImage(input.wikiTitle, input.caption) : null) ??
     (await commonsSearchImage(input.query, input.caption)) ??
-    (await credibleWebImage(input.query, input.caption));
+    (await credibleWebImage(input.query, input.caption, style));
   return found ? tidyCredit(honestCaption(found)) : null;
 }

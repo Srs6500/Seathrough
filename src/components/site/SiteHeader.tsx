@@ -79,11 +79,28 @@ function FeatureRow({
   );
 }
 
-/** The only two links in the landing-page nav. */
+/** Links in the landing-page nav. */
 const MARKETING_NAV = [
-  { label: "AI Tutor", href: "/smart-tutor" },
-  { label: "System Design", href: "/system-design" },
+  { label: "AI Tutor", href: "/smart-tutor", kind: "studio" },
+  { label: "System Design", href: "/system-design", kind: "studio" },
+  { label: "Pricing", href: "#pricing", kind: "anchor" },
 ] as const;
+
+function goMarketingNav(
+  item: (typeof MARKETING_NAV)[number],
+  openStudio: (href: string) => void,
+) {
+  if (item.kind === "anchor") {
+    const el = document.getElementById(item.href.replace(/^#/, ""));
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    window.location.assign(`/${item.href}`);
+    return;
+  }
+  openStudio(item.href);
+}
 
 function pathUnder(pathname: string, href: string) {
   if (pathname === href) return true;
@@ -168,8 +185,10 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                 <button
                   key={item.href}
                   type="button"
-                  onClick={() => openStudio(item.href)}
-                  className={marketingLinkClass(pathUnder(pathname, item.href))}
+                  onClick={() => goMarketingNav(item, openStudio)}
+                  className={marketingLinkClass(
+                    item.kind === "studio" && pathUnder(pathname, item.href),
+                  )}
                 >
                   {item.label}
                 </button>
@@ -326,7 +345,7 @@ export function SiteHeader({ variant = "default" }: SiteHeaderProps) {
                       <SheetClose asChild key={item.href}>
                         <button
                           type="button"
-                          onClick={() => openStudio(item.href)}
+                          onClick={() => goMarketingNav(item, openStudio)}
                           className={cn(
                             "w-full rounded-lg px-3 py-2.5 text-left text-[15px]",
                             dark

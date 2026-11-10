@@ -32,6 +32,7 @@ import {
   type SketchLayout,
   type SketchSpec,
 } from "@/lib/voice-tutor/sketchShapes";
+import type { VoiceTutorStyle } from "@/lib/voice-tutor/lessonStyle";
 import {
   researchPromptBlock,
   researchTopic,
@@ -923,6 +924,7 @@ async function buildClarifyForTopic(
   parentRaw: string,
   avoided: string[] = [],
   softRetry = false,
+  style: VoiceTutorStyle = "default",
 ): Promise<TurnResponse> {
   const parent = cleanTopicLabel(parentRaw);
 
@@ -955,9 +957,18 @@ async function buildClarifyForTopic(
   // Research first so chips reflect what the topic really is (new products, events).
   const research = researchPromptBlock(
     parent,
-    (await researchTopic(parent)).notes,
+    (await researchTopic(parent, style)).notes,
+    style,
   );
   try {
+    const newsAngles =
+      style === "news"
+        ? `
+News-mode angles:
+- Offer concrete story lenses: who/what moved, why it moved, market/region, and fallout.
+- Prefer named events, tickers, places, agencies, or people from the research — not textbook shells.
+`
+        : "";
     const angleJson = (await completeJson({
       temperature: softRetry ? 0.7 : 0.55,
       system: `Student wants to learn about "${parent}". Variety seed: ${varietySeed}.
@@ -967,6 +978,7 @@ Return ONLY JSON: {
 Hard rules:
 - Give REAL named subtopics a beginner would recognize for "${parent}".
 - BAD (never): "concepts", "examples", "core ideas", "theory", "applications", "basics", "key terms", "practice problem", "how it works", "${parent} concepts", "${parent} examples", "${parent} in general", "general ${parent}".
+${newsAngles}
 - GOOD: concrete nouns/skills inside the subject (if parent were Java: inheritance, for-loops, ArrayList — if parent were photosynthesis: chlorophyll, light reactions, glucose).
 - Do NOT invent people names. Do NOT drag in unrelated subjects.
 - Options may omit the parent word; the app already knows the parent is "${parent}".
@@ -1017,7 +1029,7 @@ ${research}`,
   } catch {
     // Soften once: shorter avoid list + hotter sample before offline chips.
     if (!softRetry && recentAvoid.length > 3) {
-      return buildClarifyForTopic(parentRaw, avoided, true);
+      return buildClarifyForTopic(parentRaw, avoided, true, style);
     }
     // No good AI subtopics — ask openly instead of pasting template chips
     // ("X landmark ideas", "X big picture") that read as nonsense for most asks.
@@ -1083,15 +1095,26 @@ export async function runVoiceTurn(input: {
   };
   /** False when the student turned diagrams off (skip the diagram draft). */
   diagrams?: boolean;
+  /** News mode pulls live reporting + board quotes/photos. */
+  style?: VoiceTutorStyle;
 }): Promise<TurnResponse> {
+  const style: VoiceTutorStyle = input.style === "news" ? "news" : "default";
   if (input.mode === "greet") {
     return {
-      say: pickVariant([
-        "Hey — I'm your voice tutor. Ask about anything you want to learn — math, physics, code, history, whatever — and we'll lock a topic in.",
-        "Welcome in. Tell me what you're curious about — any subject — and we'll pick a clear focus.",
-        "Good to have you. What should we learn today? Name a topic and we'll narrow it.",
-        "Ready when you are — throw me a topic, big or small, and we'll start shaping a lesson.",
-      ]),
+      say:
+        style === "news"
+          ? pickVariant([
+              "Hey — ask what happened. Markets, politics, science news — I'll pull credible reporting and walk it on the board.",
+              "Welcome in. Name a current event or market move and we'll explain what happened and why.",
+              "Ready when you are — ask about today's news and I'll source it, then teach it on the whiteboard.",
+              "Good to have you. What story should we unpack — a headline, a market move, or a breaking event?",
+            ])
+          : pickVariant([
+              "Hey — I'm your voice tutor. Ask about anything you want to learn — math, physics, code, history, whatever — and we'll lock a topic in.",
+              "Welcome in. Tell me what you're curious about — any subject — and we'll pick a clear focus.",
+              "Good to have you. What should we learn today? Name a topic and we'll narrow it.",
+              "Ready when you are — throw me a topic, big or small, and we'll start shaping a lesson.",
+            ]),
       action: "speak",
       showOnBoard: false,
     };
@@ -1320,7 +1343,7 @@ ${
       isTopicSwitchAway(userText, parent, options)
     ) {
       const next = extractTopicFromNudge(userText);
-      return buildClarifyForTopic(next, input.avoidedFocusOptions);
+      return buildClarifyForTopic(next, input.avoidedFocusOptions, false, style);
     }
     const focus = qualifyFocusWithParent(
       resolveFocusChoice(userText, parent, options) || cleanTopicLabel(userText),
@@ -1342,6 +1365,8 @@ ${
     return buildClarifyForTopic(
       extractTopicFromNudge(userText) || userText,
       input.avoidedFocusOptions,
+      false,
+      style,
     );
   }
 
@@ -1401,23 +1426,58 @@ ${
         ? `\n${formatPhysicsVoiceContextBlock(buildPhysicsTutorContext(clean))}\n`
         : "";
       // Research before explaining — never guess what an unfamiliar name means.
-      const found = await researchTopic(clean);
-      const research = researchPromptBlock(clean, found.notes);
+      const found = await researchTopic(clean, style);
+      const research = researchPromptBlock(clean, found.notes, style);
       const withSources = (plan: VoiceLessonPlan): VoiceLessonPlan =>
         found.sources.length ? { ...plan, sources: found.sources } : plan;
 
       // Board diagram is its own small call (parallel) — far more reliable than
-      // bolting it onto the lesson JSON.
+      // bolting it onto the lesson JSON. News lessons prefer sourced photos.
       const diagramPromise =
-        input.diagrams === false
+        input.diagrams === false || style === "news"
           ? Promise.resolve(null)
           : draftBoardDiagram(clean, research);
 
-      // Simple draft first — much more reliable than a huge beats schema on Groq.
-      // A malformed draft falls through to the tighter retry (not the offline stub).
-      const draftRaw = await completeJson({
-        temperature: 0.45,
-        system: `You are a clear, accurate tutor for ANY subject (history, science, math, literature, etc.).
+      const newsDraftSystem =
+        style === "news"
+          ? `You explain TODAY's news from the research block only (not a textbook tutor, not multi-year market history).
+Teach in this exact order: what happened → key facts/causes → why it matters.
+Return ONLY JSON (no tool calls, no markdown):
+{
+  "topic": string,
+  "objective": one sentence,
+  "definition": "2-3 short sentences: who/what/when/where for the CURRENT session/day. Plain words. Use ONLY figures present in the research. NOT 'here's what X is about'.",
+  "keyConcepts": ["one short sentence", "one short sentence", "one short sentence"],
+  "example": "3-5 short sentences: why it happened and why it matters, with attributed reporting language (e.g. 'Reuters reports…', 'according to AP…'). Include one short attributed quote or paraphrase when the research has it. Do not invent quotes or numbers.",
+  "highlight": "exact 5-14 word phrase copied from definition",
+  "rememberTip": "short way to remember the core development",
+  "examCue": "one question checking they understood what happened and why",
+  "annotations": [
+    {
+      "targetPhrase": "exact contiguous substring copied from definition (3-12 words)",
+      "style": "circle|underline|both",
+      "sideNote": "one short cause/impact line",
+      "recallQuestion": "application question about the event",
+      "examCue": "optional formal phrasing"
+    }
+  ],
+  "checkAsk": "spoken check: ask what happened and one reason why, in their words",
+  "checkHint": "short hint pointing at the definition",
+  "checkSuccess": "short praise",
+  "diagramKind": "none"
+}
+keyConcepts MUST be 3 concrete reported facts/causes — never vague shells like "market reaction".
+HARD accuracy rules:
+- Every index level, percent, yield, or price MUST appear verbatim in the research. If missing, omit the number and say reporting did not include it.
+- Do NOT invent quotes, tickers, causes, or recycle an old market day from memory.
+- Do NOT narrate multi-decade charts or "since 1971" history when the ask is about today.
+- If research is thin or missing, say live reporting was limited — stay cautious.
+Never say "here's what X is about", "let's unpack", or "the marked line".
+highlight and every targetPhrase MUST be copied verbatim from definition.
+annotations: 1-2 apply-units max.
+Always set diagramKind to "none" for news.
+${research}${annotationFewShotBlock()}${priorBlock}`
+          : `You are a clear, accurate tutor for ANY subject (history, science, math, literature, etc.).
 Teach in this exact order: definition → key concepts → one example.
 Return ONLY JSON (no tool calls, no markdown):
 {
@@ -1456,10 +1516,18 @@ diagramKind routing (gutter figure — never overlaps the passage):
 - none: circles + text are enough (most history / pure verbal topics).
 - auto: let the server choose (preferred default).
 Never invent a physics field diagram for non-physics subjects.
-${physicsBlock}${research}${annotationFewShotBlock()}${priorBlock}`,
+${physicsBlock}${research}${annotationFewShotBlock()}${priorBlock}`;
+
+      // Simple draft first — much more reliable than a huge beats schema on Groq.
+      // A malformed draft falls through to the tighter retry (not the offline stub).
+      const draftRaw = await completeJson({
+        temperature: 0.45,
+        system: newsDraftSystem,
         user: followUpOf
           ? `My follow-up question about ${followUpOf.topic}: ${topic}${learnerBlock}`
-          : `Teach me about: ${clean}${learnerBlock}`,
+          : style === "news"
+            ? `Explain what happened: ${clean}${learnerBlock}`
+            : `Teach me about: ${clean}${learnerBlock}`,
       }).catch((error: unknown) => {
         console.warn("[voice-tutor/brain] draft failed, retrying", error);
         return {};
@@ -1468,8 +1536,13 @@ ${physicsBlock}${research}${annotationFewShotBlock()}${priorBlock}`,
       const diagram = await diagramPromise;
       // The student's Diagram toggle outranks the model's "none" (it picks
       // none for most verbal topics, which left the board diagram-less).
+      // News lessons stay photo/quote-first — no invented diagrams.
       const diagramKind = (kind: LessonDraft["diagramKind"]) =>
-        input.diagrams === false ? "none" : kind === "none" ? "auto" : kind;
+        input.diagrams === false || style === "news"
+          ? "none"
+          : kind === "none"
+            ? "auto"
+            : kind;
       const draft = draftRaw as LessonDraft;
       if (draftIsUsable(draft)) {
         return withSources(
@@ -1487,7 +1560,12 @@ ${physicsBlock}${research}${annotationFewShotBlock()}${priorBlock}`,
       // Retry once with an even tighter prompt.
       const retryRaw = await completeJson({
         temperature: 0.3,
-        system: `Return JSON only: { "topic", "definition", "keyConcepts", "example", "highlight", "rememberTip", "checkAsk" }.
+        system:
+          style === "news"
+            ? `Return JSON only: { "topic", "definition", "keyConcepts", "example", "highlight", "rememberTip", "checkAsk" }.
+definition = 2-3 sentences of what happened (who/what/when/where). keyConcepts = 3 reported facts/causes. example = why it happened and why it matters, with outlet attribution, 3-5 sentences. Never invent quotes or numbers. Never use "here's what X is about".
+${research}`
+            : `Return JSON only: { "topic", "definition", "keyConcepts", "example", "highlight", "rememberTip", "checkAsk" }.
 definition = 2-3 sentences of what it IS. keyConcepts = 3 short teaching sentences. example = one concrete case, 3-5 sentences. For World War II include years, sides, and why it mattered. Never use "here's what X is about".
 ${research}`,
         user: `${clean}${learnerBlock}`,
@@ -1584,7 +1662,7 @@ Return ONLY JSON: { "offTopic": boolean, "say": string }
       looksLikeVagueTopic(userText) ||
       looksLikeVagueTopic(stripTopicIntensifiers(userText));
     if (vagueNow) {
-      return buildClarifyForTopic(userText, input.avoidedFocusOptions);
+      return buildClarifyForTopic(userText, input.avoidedFocusOptions, false, style);
     }
 
     const historyBlock = input.messages
@@ -1655,6 +1733,8 @@ Rules:
       return buildClarifyForTopic(
         cleanTopicLabel(intake.parentTopic || intake.topic || userText),
         input.avoidedFocusOptions,
+        false,
+        style,
       );
     }
 
@@ -1662,7 +1742,7 @@ Rules:
       const parent =
         cleanTopicLabel(intake.parentTopic || intake.topic || userText);
       // Always generate dynamic content angles (never theory/apps shells).
-      return buildClarifyForTopic(parent, input.avoidedFocusOptions);
+      return buildClarifyForTopic(parent, input.avoidedFocusOptions, false, style);
     }
 
     if (clarity === "ready" || alreadyAskedFocus) {
@@ -1681,6 +1761,8 @@ Rules:
         return buildClarifyForTopic(
           looksLikeInventedPersonTopic(focus) ? userText : focus,
           input.avoidedFocusOptions,
+          false,
+          style,
         );
       }
       if (looksLikeFunctions(focus)) {
@@ -1771,11 +1853,14 @@ Rules:
   // Broad offline guess → clarify, never auto-plan filler lessons.
   const parent = cleanTopicLabel(userText);
   if (parent.split(/\s+/).length <= 3) {
-    return buildClarifyForTopic(parent, input.avoidedFocusOptions);
+    return buildClarifyForTopic(parent, input.avoidedFocusOptions, false, style);
   }
 
   return {
-    say: "Tell me any topic — math, physics, code, history, whatever you're stuck on — and we'll lock a clear focus.",
+    say:
+      style === "news"
+        ? "Ask about a headline, market move, or current event — and we'll unpack what happened."
+        : "Tell me any topic — math, physics, code, history, whatever you're stuck on — and we'll lock a clear focus.",
     action: "speak",
     showOnBoard: false,
   };

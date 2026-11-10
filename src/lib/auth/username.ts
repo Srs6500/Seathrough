@@ -1,4 +1,7 @@
-/** Username helpers — Supabase Auth still needs an email under the hood. */
+/**
+ * Username helpers — kept for legacy accounts that signed up before
+ * real-email auth (synthetic `*@users.seathrough.local` addresses).
+ */
 
 const EMAIL_DOMAIN = "users.seathrough.local";
 

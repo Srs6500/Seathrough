@@ -1,5 +1,5 @@
--- Plans (unlimited via promo code) + per-feature conversation limits.
--- Run after 009_github_installations.sql.
+-- Plans (unlimited via promo code or Stripe) + per-feature conversation limits.
+-- Run after 009_github_installations.sql. Stripe columns: see 011_billing_stripe.sql.
 --
 -- Plans live in their own table, NOT on profiles: profiles has an
 -- "update own row" policy, so a plan column there could be flipped to 'pro'
@@ -9,7 +9,7 @@
 create table if not exists public.billing_accounts (
   user_id uuid primary key references auth.users (id) on delete cascade,
   plan text not null default 'free',
-  -- 'promo' for now (how the user got unlimited access).
+  -- 'promo' | 'stripe' (how the user got unlimited access).
   plan_source text,
   promo_code text,
   created_at timestamptz not null default now(),
@@ -30,7 +30,7 @@ create policy "billing_accounts_select_own"
   using (auth.uid() = user_id);
 
 -- One row per conversation started on a feature. Free users get
--- 5 per feature in any rolling 12 hours. Follow-up questions inside the same
+-- 5 lifetime conversations per feature. Follow-up questions inside the same
 -- conversation reuse the row (same conversation_key) and cost nothing.
 create table if not exists public.usage_conversations (
   id uuid primary key default gen_random_uuid(),

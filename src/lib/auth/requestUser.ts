@@ -4,6 +4,7 @@ import { getSupabaseConfig } from "@/lib/env";
 export type AuthUser = {
   id: string;
   username: string;
+  email: string | null;
 };
 
 /** Resolve the signed-in user from an Authorization Bearer token. */
@@ -37,7 +38,11 @@ export async function getUserFromRequest(
       data.user.email?.split("@")[0] ||
       "learner";
 
-    return { id: data.user.id, username };
+    return {
+      id: data.user.id,
+      username,
+      email: data.user.email ?? null,
+    };
   } catch {
     return null;
   }

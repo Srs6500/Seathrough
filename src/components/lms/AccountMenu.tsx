@@ -1,9 +1,10 @@
 "use client";
 
-import { LogOut, Ticket, UserRound } from "lucide-react";
+import { CreditCard, LogOut, Sparkles, Ticket, UserRound } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import { useOptionalTheme } from "@/components/site/ThemeProvider";
+import { PRO_MONTHLY_PRICE_USD } from "@/lib/billing/config";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export function AccountMenu({
   variant = "default",
 }: AccountMenuProps) {
   const { user, loading, logout } = useAuth();
-  const { billing, openPromo } = useQuestionAccess();
+  const { billing, openPromo, openBillingPortal } = useQuestionAccess();
   const marketing = variant === "marketing";
   const { theme } = useOptionalTheme();
   const dark = marketing && theme === "dark";
@@ -112,8 +113,24 @@ export function AccountMenu({
         <DropdownMenuSeparator />
         {billing?.plan !== "pro" ? (
           <DropdownMenuItem onSelect={() => openPromo()}>
+            <Sparkles className="size-4" />
+            Upgrade — ${PRO_MONTHLY_PRICE_USD}/mo
+          </DropdownMenuItem>
+        ) : null}
+        {billing?.plan !== "pro" ? (
+          <DropdownMenuItem onSelect={() => openPromo()}>
             <Ticket className="size-4" />
             Redeem promo code
+          </DropdownMenuItem>
+        ) : null}
+        {billing?.plan === "pro" && billing.planSource === "stripe" ? (
+          <DropdownMenuItem
+            onSelect={() => {
+              void openBillingPortal();
+            }}
+          >
+            <CreditCard className="size-4" />
+            Manage billing
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem

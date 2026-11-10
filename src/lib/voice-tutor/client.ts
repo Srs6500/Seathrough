@@ -1,3 +1,4 @@
+import type { VoiceTutorStyle } from "@/lib/voice-tutor/lessonStyle";
 import type { ChatMessage, TurnResponse, VoiceLessonPlan } from "@/lib/voice-tutor/sessionTypes";
 import { keytermQuery } from "@/lib/voice-tutor/sttParams";
 import type { BeatFigure } from "@/lib/voice-tutor/images/types";
@@ -34,6 +35,8 @@ export async function requestVoiceTurn(input: {
   diagrams?: boolean;
   /** Plan mode follow-up: what the finished lesson already taught. */
   priorLesson?: { topic: string; summary: string };
+  /** News mode pulls live reporting onto the board. */
+  style?: VoiceTutorStyle;
   signal?: AbortSignal;
 }): Promise<TurnResponse> {
   const res = await fetch("/api/voice-tutor/turn", {
@@ -57,6 +60,7 @@ export async function requestVoiceTurn(input: {
       avoidedFocusOptions: input.avoidedFocusOptions,
       lessonContext: input.lessonContext,
       priorLesson: input.priorLesson,
+      style: input.style,
     }),
     signal: input.signal,
   });
@@ -167,11 +171,12 @@ export type { ChatMessage, TurnResponse, VoiceLessonPlan };
 export async function requestWhiteboard(
   plan: VoiceLessonPlan,
   signal?: AbortSignal,
+  style: VoiceTutorStyle = "default",
 ): Promise<WhiteboardSession> {
   const res = await fetch("/api/voice-tutor/whiteboard", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ plan, style }),
     signal,
   });
   const body = (await res.json().catch(() => ({}))) as {
@@ -188,11 +193,12 @@ export async function requestWhiteboard(
 export async function requestLessonImages(
   plan: VoiceLessonPlan,
   signal?: AbortSignal,
+  style: VoiceTutorStyle = "default",
 ): Promise<BeatFigure[]> {
   const res = await fetch("/api/voice-tutor/images", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ plan, style }),
     signal,
   });
   const body = (await res.json().catch(() => ({}))) as { figures?: BeatFigure[] };

@@ -1,8 +1,10 @@
 /** Shared (client + server) billing constants. */
 
+/** Free conversations per metered feature for an account (lifetime — no rolling reset). */
 export const FREE_CONVERSATIONS_PER_FEATURE = 5;
-export const USAGE_WINDOW_HOURS = 12;
-export const USAGE_WINDOW_MS = USAGE_WINDOW_HOURS * 60 * 60 * 1000;
+
+/** Pro subscription list price shown in the paywall (USD / month). */
+export const PRO_MONTHLY_PRICE_USD = 9;
 
 export const METERED_FEATURES = {
   "smart-tutor": "Smart tutor",
@@ -19,15 +21,17 @@ export function isMeteredFeature(value: unknown): value is MeteredFeature {
 
 export type Plan = "free" | "pro";
 
+export type PlanSource = "promo" | "stripe";
+
 /** Body of a 429 from /api/usage/conversation. */
 export type ConversationLimitHit = {
   allowed: false;
-  /** signup = signed out; upgrade = signed-in free user (can enter a promo code). */
+  /** signup = signed out; upgrade = signed-in free user. */
   reason: "signup" | "upgrade";
   feature: MeteredFeature;
   limit: number;
-  /** ISO time the next free conversation opens up on this feature. */
-  resetAt: string;
+  /** Always null for the lifetime free allotment (kept for older clients). */
+  resetAt: string | null;
 };
 
 export type ConversationAllowed = {
@@ -40,7 +44,9 @@ export type ConversationAllowed = {
 export type BillingStatus = {
   signedIn: boolean;
   plan: Plan;
-  planSource: "promo" | null;
+  planSource: PlanSource | null;
+  /** True when Checkout / Portal can be opened (Stripe env present). */
+  stripeEnabled: boolean;
   usage: Record<
     MeteredFeature,
     { used: number; limit: number; resetAt: string | null }

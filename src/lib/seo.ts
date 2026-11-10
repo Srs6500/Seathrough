@@ -11,6 +11,7 @@ export const SITE_DESCRIPTION =
 export const INDEXABLE_ROUTES = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
   { path: "/smart-tutor", priority: 0.9, changeFrequency: "weekly" },
+  { path: "/news", priority: 0.9, changeFrequency: "daily" },
   { path: "/lessons", priority: 0.8, changeFrequency: "weekly" },
   { path: "/system-design", priority: 0.8, changeFrequency: "weekly" },
   { path: "/vibe-coder", priority: 0.7, changeFrequency: "monthly" },

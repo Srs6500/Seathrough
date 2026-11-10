@@ -39,6 +39,7 @@ import {
 import { LessonVideoJob } from "@/components/voice-tutor/lessonVideo";
 import { LessonVideoPanel } from "@/components/voice-tutor/LessonVideoPanel";
 import {
+  normalizeTeachFormats,
   setTeachFormats,
   TeachFormatPicker,
   useTeachFormats,
@@ -47,6 +48,7 @@ import {
 import { WhiteboardBoard } from "@/components/voice-tutor/WhiteboardBoard";
 import { BrandMark } from "@/components/lms/BrandMark";
 import { Button } from "@/components/ui/button";
+import type { VoiceTutorStyle } from "@/lib/voice-tutor/lessonStyle";
 import {
   LIVE_BARGE_ANSWERS,
   MAX_CHECK_QUESTION_REPEATS,
@@ -286,7 +288,11 @@ function looksLikeOffTopicChitchat(text: string, activeTopic?: string): boolean 
   );
 }
 
-export function VoiceTutorWorkspace() {
+export function VoiceTutorWorkspace({
+  style = "default",
+}: {
+  style?: VoiceTutorStyle;
+} = {}) {
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [orbState, setOrbState] = useState<VoiceOrbState>("idle");
   const [micOn, setMicOn] = useState(false);
@@ -317,9 +323,26 @@ export function VoiceTutorWorkspace() {
   /** One repair at a time — the viewer can report the same crash twice. */
   const sceneRepairingRef = useRef(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  /** Teach with: text / diagram / video (any mix, remembered per browser). */
+  /** Teach with: text / diagram / video / news (any mix, remembered per browser). */
   const formats = useTeachFormats();
   const formatsRef = useRef(formats);
+  // Prop from /news OR the Teach-with News chip inside Smart tutor.
+  const lessonStyle: VoiceTutorStyle =
+    style === "news" || formats.news ? "news" : "default";
+  const styleRef = useRef(lessonStyle);
+  styleRef.current = lessonStyle;
+  // /news page lands with the News chip already on.
+  useEffect(() => {
+    if (style !== "news") return;
+    if (formatsRef.current.news && formatsRef.current.whiteboard) return;
+    setTeachFormats({
+      text: false,
+      diagram: false,
+      video: formatsRef.current.video,
+      whiteboard: true,
+      news: true,
+    });
+  }, [style]);
   const [videoJob, setVideoJob] = useState<LessonVideoJob | null>(null);
   const videoJobRef = useRef<LessonVideoJob | null>(null);
   /** Video-only lesson: the video teaches, so voice beats are not delivered. */
@@ -929,7 +952,7 @@ export function VoiceTutorWorkspace() {
     setWhiteboardPreparing(`Setting up the whiteboard for ${lesson.topic}…`);
     let session: WhiteboardSession;
     try {
-      session = await requestWhiteboard(lesson, controller.signal);
+      session = await requestWhiteboard(lesson, controller.signal, styleRef.current);
     } catch (err) {
       if (controller.signal.aborted) return;
       console.warn("[whiteboard] falling back to lesson board content", err);
@@ -950,7 +973,7 @@ export function VoiceTutorWorkspace() {
     const controller = new AbortController();
     figuresAbortRef.current = controller;
     setFigures({});
-    requestLessonImages(lesson, controller.signal)
+    requestLessonImages(lesson, controller.signal, styleRef.current)
       .then((found) => {
         if (controller.signal.aborted || planRef.current !== lesson) return;
         setFigures(Object.fromEntries(found.map((f) => [f.beatId, f.image])));
@@ -1148,6 +1171,7 @@ export function VoiceTutorWorkspace() {
         teaching: true,
         deferredClose: true,
         lessonContext,
+        style: styleRef.current,
       });
       const piece1 =
         turn.deferredPieces?.piece1?.trim() ||
@@ -1511,6 +1535,7 @@ export function VoiceTutorWorkspace() {
           messages: messagesRef.current,
           diagrams: formatsRef.current.diagram,
           priorLesson: { topic: base.topic, summary: lessonSummary(base) },
+          style: styleRef.current,
           signal: turnAc.signal,
         });
       } catch (err) {
@@ -1542,7 +1567,7 @@ export function VoiceTutorWorkspace() {
         const mini: VoiceLessonPlan = { ...planned.plan, beats: extra };
         let add: WhiteboardSession;
         try {
-          add = await requestWhiteboard(mini, turnAc.signal);
+          add = await requestWhiteboard(mini, turnAc.signal, styleRef.current);
         } catch {
           if (turnAc.signal.aborted) return true;
           add = layoutWhiteboard({
@@ -1630,6 +1655,7 @@ export function VoiceTutorWorkspace() {
         teaching: true,
         partialAside: true,
         lessonContext,
+        style: styleRef.current,
         signal: turnAbortRef.current?.signal,
       });
       let line = turn.say.trim() || liveFallback;
@@ -1682,9 +1708,9 @@ export function VoiceTutorWorkspace() {
       return;
     }
 
-    // Free tier: 5 conversations (sessions) per 12 hours. Each new question is
-    // checked against the current session id, so only a session's first
-    // question uses up a conversation. Answers and yes/no replies skip the check.
+    // Free tier: 5 lifetime conversations (sessions) per feature. Each new
+    // question is checked against the current session id, so only a session's
+    // first question uses up a conversation. Answers and yes/no replies skip it.
     const answeringTutor =
       phasePeek === "checking" ||
       phasePeek === "check_offer_try" ||
@@ -1702,7 +1728,7 @@ export function VoiceTutorWorkspace() {
       flashUserHeard(text);
       setOrbState("idle");
       await speak(
-        "You've used your five free conversations for now. Go Pro to keep learning, or come back when your limit resets.",
+        "You've used your five free conversations. Upgrade to Pro for nine dollars a month for unlimited learning.",
         { log: false, allowBarge: false },
       );
       return;
@@ -1963,6 +1989,7 @@ export function VoiceTutorWorkspace() {
         focusOptions: awaitingFocus ? focusOptionsRef.current : undefined,
         avoidedFocusOptions: avoidedFocusFor(clarifyParent),
         diagrams: formatsRef.current.diagram,
+        style: styleRef.current,
         signal: turnAc.signal,
       });
       if (turnAc.signal.aborted) return;
@@ -2074,6 +2101,7 @@ export function VoiceTutorWorkspace() {
                   topic: turn.topic,
                   messages: messagesRef.current,
                   diagrams: formatsRef.current.diagram,
+                  style: styleRef.current,
                   signal: turnAc.signal,
                 });
                 nextPlan = planned.plan ?? null;
@@ -2312,8 +2340,19 @@ export function VoiceTutorWorkspace() {
       setBusy(true);
       busyRef.current = true;
       try {
-        const turn = await requestVoiceTurn({ mode: "greet", messages: [] });
-        await speak(personalGreeting(settingsRef.current.name, turn.say));
+        const turn = await requestVoiceTurn({
+          mode: "greet",
+          messages: [],
+          style: styleRef.current,
+        });
+        const greet =
+          styleRef.current === "news"
+            ? (() => {
+                const name = settingsRef.current.name.trim();
+                return name ? `Hey ${name}! ${turn.say}` : turn.say;
+              })()
+            : personalGreeting(settingsRef.current.name, turn.say);
+        await speak(greet);
         setPhase("chatting");
       } catch (err) {
         setError(toUserFacingError(err, "Couldn't start the tutor."));
@@ -2671,12 +2710,15 @@ export function VoiceTutorWorkspace() {
         setVideoJob(job);
       }
       setRestoredFormats(
-        saved.formats ?? {
-          text: true,
-          diagram: true,
-          whiteboard: Boolean(saved.whiteboard),
-          video: Boolean(saved.video),
-        },
+        normalizeTeachFormats(
+          saved.formats ?? {
+            text: true,
+            diagram: true,
+            whiteboard: Boolean(saved.whiteboard),
+            video: Boolean(saved.video),
+            news: false,
+          },
+        ),
       );
     }
     restoringRef.current = false;

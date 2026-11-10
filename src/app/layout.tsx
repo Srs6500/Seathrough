@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, IBM_Plex_Mono, Inter, Newsreader } from "next/font/google";
 import localFont from "next/font/local";
+import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/components/AuthProvider";
 import { GithubInstallReturn } from "@/components/vibe-coder/GithubInstallReturn";
 import { QuestionAccessProvider } from "@/components/usage/QuestionAccess";
@@ -97,6 +98,7 @@ export default function RootLayout({
             </TooltipProvider>
           </QuestionAccessProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );

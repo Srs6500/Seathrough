@@ -14,7 +14,11 @@ import { AuthModal } from "@/components/AuthModal";
 import { useAuth } from "@/components/AuthProvider";
 import { PaywallModal, type PaywallView } from "@/components/usage/PaywallModal";
 import type { BillingStatus, MeteredFeature } from "@/lib/billing/config";
-import { fetchBillingStatus, requestConversation } from "@/lib/billing/client";
+import {
+  fetchBillingStatus,
+  requestConversation,
+  startBillingPortal,
+} from "@/lib/billing/client";
 import {
   canAskAnonymous,
   consumeQuestion,
@@ -48,8 +52,10 @@ type QuestionAccessValue = {
   /** Plan + per-feature usage; null until loaded. */
   billing: BillingStatus | null;
   refreshBilling: () => Promise<BillingStatus | null>;
-  /** Open the promo code dialog (from a menu, not from a limit). */
+  /** Open the upgrade / promo dialog (from a menu, not from a limit). */
   openPromo: () => void;
+  /** Open Stripe Customer Portal when the account is on a Stripe plan. */
+  openBillingPortal: () => Promise<void>;
 };
 
 const QuestionAccessContext = createContext<QuestionAccessValue | null>(null);
@@ -134,6 +140,24 @@ export function QuestionAccessProvider({
     setAuthOpen(true);
   }, []);
 
+  const openBillingPortal = useCallback(async () => {
+    const token = tokenRef.current;
+    if (!token) {
+      openAuth("login");
+      return;
+    }
+    try {
+      const url = await startBillingPortal(token);
+      window.location.assign(url);
+    } catch (error) {
+      console.warn(
+        "[billing/portal]",
+        error instanceof Error ? error.message : "portal failed",
+      );
+      setPaywall({ kind: "promo" });
+    }
+  }, [openAuth]);
+
   // Dismiss the free-quota modal once a session is present.
   useEffect(() => {
     if (!signedIn) return;
@@ -187,6 +211,7 @@ export function QuestionAccessProvider({
       billing,
       refreshBilling,
       openPromo,
+      openBillingPortal,
     }),
     [
       remaining,
@@ -198,6 +223,7 @@ export function QuestionAccessProvider({
       billing,
       refreshBilling,
       openPromo,
+      openBillingPortal,
     ],
   );
 
@@ -218,6 +244,7 @@ export function QuestionAccessProvider({
       />
       <PaywallModal
         view={paywall}
+        stripeEnabled={billing?.stripeEnabled !== false}
         onClose={() => setPaywall(null)}
         onOpenAuth={(mode) => {
           pendingPaywallRef.current = paywall;

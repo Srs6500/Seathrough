@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ensureProfileForUser } from "@/lib/auth/profile";
 import { getSupabaseConfig } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -27,23 +28,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
+    const username = await ensureProfileForUser({
+      userId: userData.user.id,
+      email: userData.user.email,
+      preferredUsername:
+        (userData.user.user_metadata?.username as string | undefined) ?? null,
+    });
+
     const { data: profile } = await client
       .from("profiles")
       .select("username, display_name")
       .eq("id", userData.user.id)
       .maybeSingle();
 
-    const username =
-      profile?.username ||
-      (userData.user.user_metadata?.username as string | undefined) ||
-      userData.user.email?.split("@")[0] ||
-      "learner";
-
     return NextResponse.json({
       user: {
         id: userData.user.id,
-        username,
-        displayName: profile?.display_name ?? username,
+        username: profile?.username ?? username,
+        displayName: profile?.display_name ?? profile?.username ?? username,
       },
     });
   } catch {

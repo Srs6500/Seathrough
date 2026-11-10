@@ -60,6 +60,30 @@ export async function redeemPromoCode(accessToken: string, code: string): Promis
   if (!res.ok) throw new Error(await readError(res, "That promo code isn't valid."));
 }
 
+/** Start Stripe Checkout; returns the hosted Checkout URL. */
+export async function startCheckout(accessToken: string): Promise<string> {
+  const res = await fetch("/api/billing/checkout", {
+    method: "POST",
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Could not start Checkout."));
+  const body = (await res.json()) as { url?: string };
+  if (!body.url) throw new Error("Could not start Checkout.");
+  return body.url;
+}
+
+/** Open Stripe Customer Portal for managing / canceling Pro. */
+export async function startBillingPortal(accessToken: string): Promise<string> {
+  const res = await fetch("/api/billing/portal", {
+    method: "POST",
+    headers: authHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error(await readError(res, "Could not open billing portal."));
+  const body = (await res.json()) as { url?: string };
+  if (!body.url) throw new Error("Could not open billing portal.");
+  return body.url;
+}
+
 export function newConversationId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
