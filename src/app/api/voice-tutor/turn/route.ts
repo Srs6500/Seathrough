@@ -1,5 +1,6 @@
 import { envPresence } from "@/lib/env";
 import { toUserFacingError } from "@/lib/errors/userFacing";
+import { withLlmApi } from "@/lib/llm/withLlmApi";
 import {
   planVoiceLesson,
   runVoiceTurn,
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  return withLlmApi(request, "voice-tutor", async () => {
   try {
     const body = (await request.json()) as {
       mode?: unknown;
@@ -153,4 +155,5 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+  });
 }

@@ -1,5 +1,5 @@
 import { getLlmConfig } from "@/lib/env";
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 
 function extractJsonObject(raw: string): unknown {
   const trimmed = raw.trim();
@@ -76,7 +76,7 @@ export async function completeJsonObject(input: {
   temperature?: number;
 }): Promise<unknown> {
   const config = getLlmConfig();
-  const client = new OpenAI({
+  const client = getTrackedOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
   });

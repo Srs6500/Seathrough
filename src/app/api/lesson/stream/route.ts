@@ -1,7 +1,9 @@
 import { runLessonStream } from "@/lib/orchestrator/runLessonStream";
 import { getUserFromRequest } from "@/lib/auth/requestUser";
+import { getRequester } from "@/lib/billing/server";
 import { toUserFacingError } from "@/lib/errors/userFacing";
 import { envPresence } from "@/lib/env";
+import { runWithLlmRequestContext } from "@/lib/llm/context";
 import type { StreamEvent } from "@/types/lesson";
 
 export const runtime = "nodejs";
@@ -58,63 +60,75 @@ export async function POST(request: Request) {
 
   const withAudio =
     body.withAudio !== false && presence.DEEPGRAM_API_KEY === true;
-  const user = await getUserFromRequest(request);
+  const [user, requester] = await Promise.all([
+    getUserFromRequest(request),
+    getRequester(request),
+  ]);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      let closed = false;
-      const safeClose = () => {
-        if (closed) return;
-        closed = true;
-        try {
-          controller.close();
-        } catch {
-          /* already closed by client abort */
-        }
-      };
-      const send = (event: StreamEvent) => {
-        if (closed || request.signal.aborted) return;
-        try {
-          controller.enqueue(encoder.encode(sseEncode(event)));
-        } catch {
-          closed = true;
-        }
-      };
+      await runWithLlmRequestContext(
+        {
+          feature: "lesson-stream",
+          userId: user?.id ?? requester.user?.id ?? null,
+          anonId: requester.anonId,
+        },
+        async () => {
+          let closed = false;
+          const safeClose = () => {
+            if (closed) return;
+            closed = true;
+            try {
+              controller.close();
+            } catch {
+              /* already closed by client abort */
+            }
+          };
+          const send = (event: StreamEvent) => {
+            if (closed || request.signal.aborted) return;
+            try {
+              controller.enqueue(encoder.encode(sseEncode(event)));
+            } catch {
+              closed = true;
+            }
+          };
 
-      try {
-        for await (const event of runLessonStream({
-          prompt,
-          withAudio,
-          signal: request.signal,
-          mode: body.mode === "follow_up" ? "follow_up" : "new",
-          conversationId: body.conversationId?.trim(),
-          visualSummary: body.visualSummary?.trim(),
-          boardBottomY:
-            typeof body.boardBottomY === "number" &&
-            Number.isFinite(body.boardBottomY)
-              ? Math.max(0, body.boardBottomY)
-              : undefined,
-          userId: user?.id ?? null,
-          confirmedTightAsk: body.confirmedTightAsk?.trim() || undefined,
-        })) {
-          send(event);
-          if (event.type === "error" || event.type === "done") {
-            break;
+          try {
+            for await (const event of runLessonStream({
+              prompt,
+              withAudio,
+              signal: request.signal,
+              mode: body.mode === "follow_up" ? "follow_up" : "new",
+              conversationId: body.conversationId?.trim(),
+              visualSummary: body.visualSummary?.trim(),
+              boardBottomY:
+                typeof body.boardBottomY === "number" &&
+                Number.isFinite(body.boardBottomY)
+                  ? Math.max(0, body.boardBottomY)
+                  : undefined,
+              userId: user?.id ?? null,
+              confirmedTightAsk: body.confirmedTightAsk?.trim() || undefined,
+            })) {
+              send(event);
+              if (event.type === "error" || event.type === "done") {
+                break;
+              }
+            }
+          } catch (error) {
+            if (!request.signal.aborted) {
+              const message = toUserFacingError(error);
+              console.error(
+                "[lesson-stream-route]",
+                error instanceof Error ? error.message : error,
+              );
+              send({ type: "error", message });
+            }
+          } finally {
+            safeClose();
           }
-        }
-      } catch (error) {
-        if (!request.signal.aborted) {
-          const message = toUserFacingError(error);
-          console.error(
-            "[lesson-stream-route]",
-            error instanceof Error ? error.message : error,
-          );
-          send({ type: "error", message });
-        }
-      } finally {
-        safeClose();
-      }
+        },
+      );
     },
   });
 

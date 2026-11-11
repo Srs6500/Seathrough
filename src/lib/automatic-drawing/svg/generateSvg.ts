@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import {
   generatedSvgEnvelopeSchema,
@@ -17,14 +17,14 @@ function drawingClient() {
   const openaiKey = optionalEnv("OPENAI_API_KEY");
   if (openaiKey) {
     return {
-      client: new OpenAI({ apiKey: openaiKey }),
+      client: getTrackedOpenAI({ apiKey: openaiKey }),
       model: optionalEnv("VISUAL_MODEL") ?? "gpt-4.1",
       isGroq: false,
     };
   }
   const config = getLlmConfig();
   return {
-    client: new OpenAI({
+    client: getTrackedOpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL,
     }),

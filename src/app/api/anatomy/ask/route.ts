@@ -11,6 +11,7 @@ import {
   EYE_STRUCTURE_IDS,
   KIDNEY_STRUCTURE_IDS,
 } from "@/lib/anatomy/types";
+import { withLlmApi } from "@/lib/llm/withLlmApi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,6 +60,7 @@ function retrieveForScene(
 }
 
 export async function POST(request: Request) {
+  return withLlmApi(request, "anatomy", async () => {
   let json: unknown;
   try {
     json = await request.json();
@@ -138,4 +140,5 @@ export async function POST(request: Request) {
       { status: missingConfiguration ? 503 : 502 },
     );
   }
+  });
 }

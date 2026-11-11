@@ -1,4 +1,5 @@
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { envPresence, getExplainVideoLlmConfig } from "@/lib/env";
 import { ENGINE_GUIDE } from "@/lib/explain-video/engineGuide";
 import {
@@ -77,7 +78,7 @@ type Client = { client: OpenAI; model: string; groq: boolean; tokensPerMinute: n
 function makeClient(): Client {
   const config = getExplainVideoLlmConfig();
   return {
-    client: new OpenAI({
+    client: getTrackedOpenAI({
       apiKey: config.apiKey,
       ...(config.baseURL ? { baseURL: config.baseURL } : {}),
       maxRetries: 3,

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import { extractJson } from "@/lib/experiment/systemDesign/llm";
 import { normWord, sameWord } from "@/lib/explainer-video/timing";
@@ -52,7 +52,7 @@ Rules:
 function client() {
   const cfg = getLlmConfig();
   return {
-    openai: new OpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
+    openai: getTrackedOpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
     model: cfg.model,
     groq: cfg.provider === "groq",
   };

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getVisionLlmConfig } from "@/lib/env";
 import { imageExtractionModelSchema } from "@/lib/image-explain/schemas";
 import type {
@@ -32,7 +32,7 @@ export const visionExtractAdapter: ImageExtractAdapter = {
   label: "Vision model",
   async extract(input: ImageExtractInput): Promise<ImageExtraction> {
     const config = getVisionLlmConfig();
-    const client = new OpenAI({
+    const client = getTrackedOpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL,
     });

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { envPresence, getLlmConfig } from "@/lib/env";
 import {
   BEAT_COUNT_MAX,
@@ -67,7 +67,7 @@ function isJsonModeError(error: unknown): boolean {
 
 export async function generateLessonScript(prompt: string): Promise<LessonScript> {
   const config = getLlmConfig();
-  const client = new OpenAI({
+  const client = getTrackedOpenAI({
     apiKey: config.apiKey,
     ...(config.baseURL ? { baseURL: config.baseURL } : {}),
     maxRetries: 2,

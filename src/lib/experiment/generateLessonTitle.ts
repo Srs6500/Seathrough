@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import {
   clipTitle,
@@ -18,7 +18,7 @@ export async function generateLessonTitle(
     .join(" ");
   try {
     const cfg = getLlmConfig();
-    const client = new OpenAI({
+    const client = getTrackedOpenAI({
       apiKey: cfg.apiKey,
       ...(cfg.baseURL ? { baseURL: cfg.baseURL } : {}),
     });

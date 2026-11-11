@@ -4,6 +4,8 @@ import { preferredBrowserProvider } from "@/lib/browser-experience/openBrowser";
 import { askBodySchema } from "@/lib/browser-experience/schemas";
 import { runBrowserAsk } from "@/lib/browser-experience/runAsk";
 import { browserExperienceSseResponse } from "@/lib/browser-experience/sse";
+import { getRequester } from "@/lib/billing/server";
+import { runWithLlmRequestContext } from "@/lib/llm/context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,20 +47,31 @@ export async function POST(request: Request) {
     return Response.json({ error: "Prompt is required" }, { status: 400 });
   }
 
+  const requester = await getRequester(request);
+
   return browserExperienceSseResponse(async (send) => {
-    try {
-      await runBrowserAsk({
-        prompt: parsed.data.prompt,
-        sessionId: parsed.data.sessionId,
-        onEvent: send,
-      });
-    } catch (error) {
-      throw new Error(
-        toUserFacingError(
-          error,
-          "Could not start the browser lesson. Try again.",
-        ),
-      );
-    }
+    await runWithLlmRequestContext(
+      {
+        feature: "browser",
+        userId: requester.user?.id ?? null,
+        anonId: requester.anonId,
+      },
+      async () => {
+        try {
+          await runBrowserAsk({
+            prompt: parsed.data.prompt,
+            sessionId: parsed.data.sessionId,
+            onEvent: send,
+          });
+        } catch (error) {
+          throw new Error(
+            toUserFacingError(
+              error,
+              "Could not start the browser lesson. Try again.",
+            ),
+          );
+        }
+      },
+    );
   });
 }

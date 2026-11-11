@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { envPresence, getLlmConfig } from "@/lib/env";
 import {
   guideBackend,
@@ -207,7 +207,7 @@ export async function answerBackendQuestion(
 
   try {
     const cfg = getLlmConfig();
-    const client = new OpenAI({
+    const client = getTrackedOpenAI({
       apiKey: cfg.apiKey,
       ...(cfg.baseURL ? { baseURL: cfg.baseURL } : {}),
     });

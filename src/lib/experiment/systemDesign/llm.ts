@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 
 function optionalEnv(name: string): string | undefined {
@@ -9,14 +10,14 @@ function designClient() {
   const openaiKey = optionalEnv("OPENAI_API_KEY");
   if (openaiKey) {
     return {
-      client: new OpenAI({ apiKey: openaiKey }),
+      client: getTrackedOpenAI({ apiKey: openaiKey }),
       model: optionalEnv("OPENAI_MODEL") ?? "gpt-4.1",
       groq: false,
     };
   }
   const cfg = getLlmConfig();
   return {
-    client: new OpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
+    client: getTrackedOpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
     model: cfg.model,
     groq: (cfg.baseURL ?? "").includes("groq.com"),
   };

@@ -4,7 +4,7 @@
  * that runs in the sandboxed scene iframe (see scene-explain/iframeRuntime).
  */
 
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getModel3dCodeConfig, getVisionLlmConfig } from "@/lib/env";
 import { toDataUrl } from "@/lib/image-explain/extract/types";
 import { inspectSceneCode } from "@/lib/scene-explain/inspectCode";
@@ -135,7 +135,7 @@ async function describeForModeling(
   signal?: AbortSignal,
 ): Promise<{ title: string; brief: string; description: string; focusOptions: string[] }> {
   const config = getVisionLlmConfig();
-  const client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
+  const client = getTrackedOpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
   const completion = await client.chat.completions.create(
     {
       model: config.model,
@@ -178,7 +178,7 @@ async function writeModelCode(
   signal?: AbortSignal,
 ): Promise<string> {
   const { apiKey, model, baseURL } = getModel3dCodeConfig();
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = getTrackedOpenAI({ apiKey, baseURL });
   const completion = await client.chat.completions.create(
     {
       model,

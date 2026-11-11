@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import { algoClassifyModelSchema } from "@/lib/leetcode/schemas";
 import type { AlgoPattern, AlgoSpec } from "@/lib/leetcode/types";
@@ -224,7 +224,7 @@ export async function classifyWithLlm(
   signal?: AbortSignal,
 ): Promise<AlgoSpec> {
   const config = getLlmConfig();
-  const client = new OpenAI({
+  const client = getTrackedOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
   });

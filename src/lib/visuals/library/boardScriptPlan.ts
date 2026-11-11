@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import {
   boardScriptSchema,
@@ -564,7 +564,7 @@ async function analyzeVisualForBoard(input: {
   highlight?: string;
 }): Promise<VisualPlan | null> {
   const config = getLlmConfig();
-  const client = new OpenAI({
+  const client = getTrackedOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
   });

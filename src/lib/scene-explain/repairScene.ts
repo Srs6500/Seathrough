@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import { parseRepairedCode } from "@/lib/scene-explain/parseProgram";
 import { REPAIR_SYSTEM } from "@/lib/scene-explain/prompts";
@@ -11,7 +11,7 @@ export async function repairSceneCode(input: SceneRepairInput): Promise<string> 
   if (!error) throw new Error("Crash details are required");
 
   const { apiKey, model, baseURL } = getLlmConfig();
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = getTrackedOpenAI({ apiKey, baseURL });
   const completion = await client.chat.completions.create({
     model,
     temperature: 0.2,

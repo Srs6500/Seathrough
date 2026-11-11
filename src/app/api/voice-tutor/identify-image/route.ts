@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getVisionLlmConfig } from "@/lib/env";
 import { toUserFacingError } from "@/lib/errors/userFacing";
 import { toDataUrl } from "@/lib/image-explain/extract/types";
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
   try {
     const config = getVisionLlmConfig();
-    const client = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
+    const client = getTrackedOpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
     const completion = await client.chat.completions.create(
       {
         model: config.model,

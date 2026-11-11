@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import {
   actPlanSchema,
@@ -69,7 +70,7 @@ function messageText(message: {
 
 async function completeJson(system: string, user: string): Promise<unknown> {
   const config = getLlmConfig();
-  const client = new OpenAI({
+  const client = getTrackedOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
   });

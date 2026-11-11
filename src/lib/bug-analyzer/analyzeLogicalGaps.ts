@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { z } from "zod";
 import type { RepoAnalysis } from "@/lib/bug-analyzer/analyzeRepo";
 import type {
@@ -934,7 +934,7 @@ export async function enrichArchitectureWithAi(
 ): Promise<ArchitectureReport> {
   try {
     const cfg = getLlmConfig();
-    const client = new OpenAI({
+    const client = getTrackedOpenAI({
       apiKey: cfg.apiKey,
       ...(cfg.baseURL ? { baseURL: cfg.baseURL } : {}),
     });

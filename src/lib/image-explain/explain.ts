@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import { imageExplanationModelSchema } from "@/lib/image-explain/schemas";
 import type {
@@ -27,7 +27,7 @@ export async function explainExtraction(input: {
   signal?: AbortSignal;
 }): Promise<ImageExplanation> {
   const config = getLlmConfig();
-  const client = new OpenAI({
+  const client = getTrackedOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
   });

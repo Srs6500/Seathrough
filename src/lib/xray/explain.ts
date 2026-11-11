@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { z } from "zod";
 import { envPresence, getLlmConfig } from "@/lib/env";
 import type { XRayAskPayload, XRayAskResult } from "@/lib/xray/types";
@@ -171,7 +171,7 @@ export async function answerFeatureQuestion(
 
   try {
     const cfg = getLlmConfig();
-    const client = new OpenAI({
+    const client = getTrackedOpenAI({
       apiKey: cfg.apiKey,
       ...(cfg.baseURL ? { baseURL: cfg.baseURL } : {}),
     });

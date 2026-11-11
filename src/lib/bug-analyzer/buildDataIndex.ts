@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { z } from "zod";
 import {
   attachArchitectureAnalysis,
@@ -975,7 +975,7 @@ export async function enrichIndexWithAi(
   if (index.records.length === 0 && index.elements.length === 0) return index;
   try {
     const cfg = getLlmConfig();
-    const client = new OpenAI({
+    const client = getTrackedOpenAI({
       apiKey: cfg.apiKey,
       ...(cfg.baseURL ? { baseURL: cfg.baseURL } : {}),
     });

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import { lessonMcqSchema, type LessonMcq } from "@/lib/schemas/mcq";
 
@@ -66,7 +66,7 @@ export async function generateLessonMcq(
   }
 
   const config = getLlmConfig();
-  const client = new OpenAI({
+  const client = getTrackedOpenAI({
     apiKey: config.apiKey,
     baseURL: config.baseURL,
   });

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import {
   TurnResponseSchema,
@@ -81,7 +81,7 @@ export {
 function client() {
   const cfg = getLlmConfig();
   return {
-    openai: new OpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
+    openai: getTrackedOpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
     model: cfg.model,
   };
 }

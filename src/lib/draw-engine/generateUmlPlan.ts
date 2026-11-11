@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import {
   alignUmlWithLessonText,
@@ -19,13 +19,13 @@ function getClient() {
   const openaiKey = optionalEnv("OPENAI_API_KEY");
   if (openaiKey) {
     return {
-      client: new OpenAI({ apiKey: openaiKey }),
+      client: getTrackedOpenAI({ apiKey: openaiKey }),
       model: optionalEnv("OPENAI_MODEL") ?? "gpt-4.1",
     };
   }
   const cfg = getLlmConfig();
   return {
-    client: new OpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
+    client: getTrackedOpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL }),
     model: cfg.model,
   };
 }

@@ -4,11 +4,13 @@ import {
 } from "@/lib/automatic-drawing/generatePlan";
 import { envPresence } from "@/lib/env";
 import { toUserFacingError } from "@/lib/errors/userFacing";
+import { withLlmApi } from "@/lib/llm/withLlmApi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  return withLlmApi(request, "system-design", async () => {
   try {
     const presence = envPresence();
     if (!presence.OPENAI_API_KEY && !presence.GROQ_API_KEY) {
@@ -54,4 +56,5 @@ export async function POST(request: Request) {
         : 500;
     return Response.json({ error: message }, { status });
   }
+  });
 }

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { getLlmConfig } from "@/lib/env";
 import {
   builtinSceneForPrompt,
@@ -128,7 +128,7 @@ async function requestTwoPass(input: SceneGenerateInput): Promise<SceneProgram> 
 
 async function requestPlan(input: SceneGenerateInput) {
   const { apiKey, model, baseURL } = getLlmConfig();
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = getTrackedOpenAI({ apiKey, baseURL });
   const completion = await client.chat.completions.create({
     model,
     temperature: 0.5,
@@ -147,7 +147,7 @@ async function requestCode(
   plan: ReturnType<typeof parseScenePlan>,
 ): Promise<string> {
   const { apiKey, model, baseURL } = getLlmConfig();
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = getTrackedOpenAI({ apiKey, baseURL });
   const completion = await client.chat.completions.create({
     model,
     temperature: 0.35,
@@ -203,7 +203,7 @@ async function requestSingleShot(
   jsonMode: boolean,
 ): Promise<SceneProgram> {
   const { apiKey, model, baseURL } = getLlmConfig();
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = getTrackedOpenAI({ apiKey, baseURL });
   const completion = await client.chat.completions.create({
     model,
     temperature: 0.4,

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTrackedOpenAI } from "@/lib/llm/trackedOpenAI";
 import { envPresence, getLlmConfig } from "@/lib/env";
 import type { FactOrigin, SchemaGuide } from "@/lib/schema-guide/types";
 
@@ -44,7 +44,7 @@ function clip(value: string, max: number): string {
 export async function polishGuideWithLlm(guide: SchemaGuide): Promise<SchemaGuide> {
   try {
     const cfg = getLlmConfig();
-    const client = new OpenAI({
+    const client = getTrackedOpenAI({
       apiKey: cfg.apiKey,
       ...(cfg.baseURL ? { baseURL: cfg.baseURL } : {}),
     });
