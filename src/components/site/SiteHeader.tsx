@@ -79,14 +79,20 @@ function FeatureRow({
   );
 }
 
-/** Links in the landing-page nav. */
-const MARKETING_NAV = [
+type MarketingNavItem = {
+  label: string;
+  href: string;
+  kind: "studio" | "anchor";
+};
+
+/** Links in the landing-page nav. Pricing (#pricing) stays off for now. */
+const MARKETING_NAV: MarketingNavItem[] = [
   { label: "AI Tutor", href: "/smart-tutor", kind: "studio" },
   { label: "System Design", href: "/system-design", kind: "studio" },
-] as const;
+];
 
 function goMarketingNav(
-  item: (typeof MARKETING_NAV)[number],
+  item: MarketingNavItem,
   openStudio: (href: string) => void,
 ) {
   if (item.kind === "anchor") {
