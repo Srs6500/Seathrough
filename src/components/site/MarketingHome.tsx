@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { MarketingHero } from "@/components/site/MarketingHero";
 import { FormatsShowcase } from "@/components/site/landing/FormatsShowcase";
 import { LessonSteps } from "@/components/site/landing/LessonSteps";
-import { PricingSection } from "@/components/site/landing/PricingSection";
 import { StartLessonHero } from "@/components/site/landing/StartLessonHero";
 import { Statement } from "@/components/site/landing/Statement";
 import { SystemDesignBand } from "@/components/site/landing/SystemDesignBand";
@@ -58,7 +57,6 @@ export function MarketingHome() {
               <FormatsShowcase />
               <LessonSteps />
               <SystemDesignBand />
-              <PricingSection />
             </main>
             <SiteFooter variant="marketing" />
           </div>

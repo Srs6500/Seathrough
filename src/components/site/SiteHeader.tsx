@@ -83,7 +83,6 @@ function FeatureRow({
 const MARKETING_NAV = [
   { label: "AI Tutor", href: "/smart-tutor", kind: "studio" },
   { label: "System Design", href: "/system-design", kind: "studio" },
-  { label: "Pricing", href: "#pricing", kind: "anchor" },
 ] as const;
 
 function goMarketingNav(
