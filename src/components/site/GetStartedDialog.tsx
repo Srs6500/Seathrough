@@ -19,12 +19,6 @@ const START_OPTIONS = [
     icon: "/teacher.png",
   },
   {
-    href: "/course-generator",
-    label: "Course generator",
-    hint: "Describe a topic. Get lessons, notes, and practice — each unit builds when you open it.",
-    icon: "/teacher.png",
-  },
-  {
     href: "/system-design",
     label: "System design",
     hint: "Architecture drawn on one board as you ask.",

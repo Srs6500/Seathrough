@@ -1,14 +1,6 @@
-import type { Metadata } from "next";
-import { CourseGeneratorWorkspace } from "@/components/course-generator/CourseGeneratorWorkspace";
-import { pageMetadata } from "@/lib/seo";
-import { courseGeneratorMode } from "@/modules/course-generator/mode";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = pageMetadata({
-  title: courseGeneratorMode.metaTitle,
-  description: courseGeneratorMode.metaDescription,
-  path: "/course-generator",
-});
-
+/** Hidden for now — mode stays in the codebase for later. */
 export default function CourseGeneratorPage() {
-  return <CourseGeneratorWorkspace />;
+  redirect("/smart-tutor");
 }

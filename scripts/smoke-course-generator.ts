@@ -4,7 +4,7 @@ import type { CourseOutline } from "../src/lib/course-generator/types";
 import { getMode } from "../src/modes/registry";
 
 assert.equal(getMode("course-generator")?.href, "/course-generator");
-assert.equal(getMode("course-generator")?.enabled, true);
+assert.equal(getMode("course-generator")?.enabled, false);
 
 const writingDigest = digestFromContent(
   {

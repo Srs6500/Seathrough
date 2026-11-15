@@ -11,7 +11,7 @@ export const courseGeneratorMode: ModeDefinition = {
   kind: "learning",
   group: "studio",
   order: 1.7,
-  enabled: true,
+  enabled: false,
   badge: "new",
   usesWhiteboard: true,
   metaTitle: "AI Course Generator – Lessons, Notes, and Practice",
