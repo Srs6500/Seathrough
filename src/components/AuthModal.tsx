@@ -36,7 +36,9 @@ export function AuthModal({
 }: AuthModalProps) {
   const { login, signup } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,26 +52,31 @@ export function AuthModal({
     setCheckEmail(null);
   }, [open, initialMode]);
 
+  const canSubmit =
+    mode === "login"
+      ? Boolean(identifier.trim() && password)
+      : Boolean(email.trim() && username.trim() && password);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
 
     if (mode === "login") {
-      const err = await login(email, password);
+      const err = await login(identifier, password);
       setBusy(false);
       if (err) {
         setError(err);
         return;
       }
-      setEmail("");
+      setIdentifier("");
       setPassword("");
       onSuccess?.();
       onClose();
       return;
     }
 
-    const result = await signup(email, password);
+    const result = await signup(email, password, username);
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -81,6 +88,7 @@ export function AuthModal({
       return;
     }
     setEmail("");
+    setUsername("");
     setPassword("");
     onSuccess?.();
     onClose();
@@ -118,7 +126,9 @@ export function AuthModal({
         }}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          document.getElementById("auth-email")?.focus();
+          document
+            .getElementById(mode === "login" ? "auth-identifier" : "auth-email")
+            ?.focus();
         }}
         onEscapeKeyDown={(event) => {
           if (required || busy) event.preventDefault();
@@ -203,28 +213,79 @@ export function AuthModal({
                 className="mt-4 flex flex-col gap-3"
                 onSubmit={(e) => void onSubmit(e)}
               >
-                <div>
-                  <label
-                    htmlFor="auth-email"
-                    className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
-                  >
-                    Email
-                  </label>
-                  <input
-                    id="auth-email"
-                    type="email"
-                    inputMode="email"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                    disabled={busy}
-                    placeholder="you@example.com"
-                    className={FIELD}
-                  />
-                </div>
+                {mode === "login" ? (
+                  <div>
+                    <label
+                      htmlFor="auth-identifier"
+                      className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
+                    >
+                      Email or username
+                    </label>
+                    <input
+                      id="auth-identifier"
+                      type="text"
+                      inputMode="text"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      autoComplete="username"
+                      disabled={busy}
+                      placeholder="you@example.com or alex"
+                      className={FIELD}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="auth-email"
+                        className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
+                      >
+                        Email
+                      </label>
+                      <input
+                        id="auth-email"
+                        type="email"
+                        inputMode="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                        disabled={busy}
+                        placeholder="you@example.com"
+                        className={FIELD}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="auth-username"
+                        className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
+                      >
+                        Username
+                      </label>
+                      <input
+                        id="auth-username"
+                        type="text"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        autoComplete="username"
+                        disabled={busy}
+                        placeholder="e.g. alex"
+                        className={FIELD}
+                      />
+                      <p className="mt-1 text-[11px] text-[#a1a1aa]">
+                        3–24 characters: letters, numbers, or underscore
+                      </p>
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <label
@@ -274,7 +335,7 @@ export function AuthModal({
 
                 <button
                   type="submit"
-                  disabled={busy || !email.trim() || !password}
+                  disabled={busy || !canSubmit}
                   className="mt-1 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#16161a] text-[14px] font-medium text-white transition hover:bg-[#2a2a2e] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : null}

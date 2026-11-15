@@ -1,6 +1,7 @@
 import { automaticDrawingMode } from "@/modules/automatic-drawing/mode";
 import { browserExperienceMode } from "@/modules/browser-experience/mode";
 import { courseCreatorMode } from "@/modules/course-creator/mode";
+import { courseGeneratorMode } from "@/modules/course-generator/mode";
 import { explainVideoMode } from "@/modules/explain-video/mode";
 import { explainerVideosMode } from "@/modules/explainer-videos/mode";
 import { aiTutorMode } from "@/modules/ai-tutor/mode";
@@ -30,6 +31,7 @@ import type { ModeDefinition, ModeGroup, ModeId, ModeKind } from "@/modes/types"
 const ALL_MODES: ModeDefinition[] = [
   smartTutorMode,
   newsMode,
+  courseGeneratorMode,
   voiceTutorMode,
   physicsTutorMode,
   browserExperienceMode,

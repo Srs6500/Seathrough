@@ -6,8 +6,13 @@ import {
 } from "@/lib/auth/email";
 import { ensureProfileForUser } from "@/lib/auth/profile";
 import { authEmailRedirectTo } from "@/lib/auth/siteUrl";
-import { validatePassword } from "@/lib/auth/username";
+import {
+  isValidUsername,
+  normalizeUsername,
+  validatePassword,
+} from "@/lib/auth/username";
 import { getAnonSupabase } from "@/lib/supabase/anon";
+import { getServiceSupabase } from "@/lib/supabase/server";
 import { toUserFacingError } from "@/lib/errors/userFacing";
 
 export const runtime = "nodejs";
@@ -15,9 +20,8 @@ export const dynamic = "force-dynamic";
 
 type Body = {
   email?: string;
-  password?: string;
-  /** @deprecated username signup — ignored; use email. */
   username?: string;
+  password?: string;
 };
 
 export async function POST(request: Request) {
@@ -30,6 +34,7 @@ export async function POST(request: Request) {
 
   const email = normalizeEmail(body.email ?? "");
   const password = body.password ?? "";
+  const rawUsername = (body.username ?? "").trim();
 
   if (!isValidEmail(email)) {
     return NextResponse.json(
@@ -43,10 +48,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
-  const username = emailToUsernameCandidate(email);
+  let username = rawUsername
+    ? normalizeUsername(rawUsername)
+    : emailToUsernameCandidate(email);
+
+  if (!isValidUsername(username)) {
+    return NextResponse.json(
+      {
+        error:
+          "Username must be 3–24 characters: letters, numbers, or underscore",
+      },
+      { status: 400 },
+    );
+  }
+
   const emailRedirectTo = authEmailRedirectTo(request);
 
   try {
+    const service = getServiceSupabase();
+    const { data: existing } = await service
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "That username is already taken" },
+        { status: 409 },
+      );
+    }
+
     const anon = getAnonSupabase();
     const { data, error } = await anon.auth.signUp({
       email,
@@ -79,14 +111,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Profile even when email confirmation is pending (user id exists).
     const profileUsername = await ensureProfileForUser({
       userId: data.user.id,
       email,
       preferredUsername: username,
     });
 
-    // Confirm-email on: no session until they click the link.
     if (!data.session) {
       return NextResponse.json({
         needsConfirmation: true,

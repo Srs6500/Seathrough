@@ -9,6 +9,7 @@ import {
   Compass,
   HeartPulse,
   LayoutDashboard,
+  Library,
   Lightbulb,
   Mic,
   Monitor,
@@ -43,6 +44,11 @@ export const MODE_UI: Record<ModeId, ModeUi> = {
     icon: Newspaper,
     hint: "Ask what happened. Credible sources, photos, and quotes land on the board.",
     tone: "copper",
+  },
+  "course-generator": {
+    icon: Library,
+    hint: "Describe a topic. Get a course of whiteboard lessons, notes, and practice — each unit builds when you open it.",
+    tone: "blue",
   },
   "voice-tutor": {
     icon: Mic,

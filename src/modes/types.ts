@@ -28,7 +28,8 @@ export type ModeId =
   | "draw-engine"
   | "explain-video"
   | "explainer-videos"
-  | "course-creator";
+  | "course-creator"
+  | "course-generator";
 
 export type ModeKind = "learning" | "tool";
 

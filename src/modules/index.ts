@@ -1,6 +1,7 @@
 export { dashboardMode } from "@/modules/dashboard/mode";
 export { smartTutorMode } from "@/modules/smart-tutor/mode";
 export { newsMode } from "@/modules/news/mode";
+export { courseGeneratorMode } from "@/modules/course-generator/mode";
 export { voiceTutorMode } from "@/modules/voice-tutor/mode";
 export { physicsTutorMode } from "@/modules/physics-tutor/mode";
 export { browserExperienceMode } from "@/modules/browser-experience/mode";

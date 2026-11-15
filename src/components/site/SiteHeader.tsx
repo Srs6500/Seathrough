@@ -88,6 +88,7 @@ type MarketingNavItem = {
 /** Links in the landing-page nav. Pricing (#pricing) stays off for now. */
 const MARKETING_NAV: MarketingNavItem[] = [
   { label: "AI Tutor", href: "/smart-tutor", kind: "studio" },
+  { label: "Courses", href: "/course-generator", kind: "studio" },
   { label: "System Design", href: "/system-design", kind: "studio" },
 ];
 
