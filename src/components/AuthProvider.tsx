@@ -26,11 +26,8 @@ type AuthContextValue = {
   accessToken: string | null;
   /** Email or username. */
   login: (identifier: string, password: string) => Promise<string | null>;
-  signup: (
-    email: string,
-    password: string,
-    username?: string,
-  ) => Promise<SignupResult>;
+  /** Email or username — only one needed. */
+  signup: (identifier: string, password: string) => Promise<SignupResult>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -143,16 +140,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signup = useCallback(
-    async (
-      email: string,
-      password: string,
-      username?: string,
-    ): Promise<SignupResult> => {
+    async (identifier: string, password: string): Promise<SignupResult> => {
       try {
         const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, username }),
+          body: JSON.stringify({ identifier, password }),
         });
         const body = (await res.json()) as {
           error?: string;
@@ -172,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return {
             ok: true,
             needsConfirmation: true,
-            email: body.email ?? email,
+            email: body.email ?? identifier,
           };
         }
 

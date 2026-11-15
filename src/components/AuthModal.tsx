@@ -37,8 +37,6 @@ export function AuthModal({
   const { login, signup } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [identifier, setIdentifier] = useState("");
-  const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,10 +50,7 @@ export function AuthModal({
     setCheckEmail(null);
   }, [open, initialMode]);
 
-  const canSubmit =
-    mode === "login"
-      ? Boolean(identifier.trim() && password)
-      : Boolean(email.trim() && username.trim() && password);
+  const canSubmit = Boolean(identifier.trim() && password);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,19 +71,18 @@ export function AuthModal({
       return;
     }
 
-    const result = await signup(email, password, username);
+    const result = await signup(identifier, password);
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
     if (result.needsConfirmation) {
-      setCheckEmail(result.email ?? email);
+      setCheckEmail(result.email ?? identifier);
       setPassword("");
       return;
     }
-    setEmail("");
-    setUsername("");
+    setIdentifier("");
     setPassword("");
     onSuccess?.();
     onClose();
@@ -126,9 +120,7 @@ export function AuthModal({
         }}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
-          document
-            .getElementById(mode === "login" ? "auth-identifier" : "auth-email")
-            ?.focus();
+          document.getElementById("auth-identifier")?.focus();
         }}
         onEscapeKeyDown={(event) => {
           if (required || busy) event.preventDefault();
@@ -213,79 +205,34 @@ export function AuthModal({
                 className="mt-4 flex flex-col gap-3"
                 onSubmit={(e) => void onSubmit(e)}
               >
-                {mode === "login" ? (
-                  <div>
-                    <label
-                      htmlFor="auth-identifier"
-                      className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
-                    >
-                      Email or username
-                    </label>
-                    <input
-                      id="auth-identifier"
-                      type="text"
-                      inputMode="text"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      autoComplete="username"
-                      disabled={busy}
-                      placeholder="you@example.com or alex"
-                      className={FIELD}
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <label
-                        htmlFor="auth-email"
-                        className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
-                      >
-                        Email
-                      </label>
-                      <input
-                        id="auth-email"
-                        type="email"
-                        inputMode="email"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        autoComplete="email"
-                        disabled={busy}
-                        placeholder="you@example.com"
-                        className={FIELD}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="auth-username"
-                        className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
-                      >
-                        Username
-                      </label>
-                      <input
-                        id="auth-username"
-                        type="text"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        autoComplete="username"
-                        disabled={busy}
-                        placeholder="e.g. alex"
-                        className={FIELD}
-                      />
-                      <p className="mt-1 text-[11px] text-[#a1a1aa]">
-                        3–24 characters: letters, numbers, or underscore
-                      </p>
-                    </div>
-                  </>
-                )}
+                <div>
+                  <label
+                    htmlFor="auth-identifier"
+                    className="mb-1.5 block text-[12px] font-medium text-[#3f3f46]"
+                  >
+                    Email or username
+                  </label>
+                  <input
+                    id="auth-identifier"
+                    type="text"
+                    inputMode="text"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    autoComplete="username"
+                    disabled={busy}
+                    placeholder="you@example.com or alex"
+                    className={FIELD}
+                  />
+                  {mode === "signup" ? (
+                    <p className="mt-1 text-[11px] text-[#a1a1aa]">
+                      Use an email for a confirmation link, or a username
+                      (3–24 letters, numbers, _) to start right away.
+                    </p>
+                  ) : null}
+                </div>
 
                 <div>
                   <label
