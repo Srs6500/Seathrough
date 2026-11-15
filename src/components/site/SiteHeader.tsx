@@ -82,6 +82,7 @@ function FeatureRow({
 type MarketingNavItem = {
   label: string;
   href: string;
+  /** "anchor" reserved for in-page links (e.g. #pricing) when that nav returns. */
   kind: "studio" | "anchor";
 };
 
@@ -96,16 +97,16 @@ function goMarketingNav(
   item: MarketingNavItem,
   openStudio: (href: string) => void,
 ) {
-  if (item.kind === "anchor") {
-    const el = document.getElementById(item.href.replace(/^#/, ""));
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
-    window.location.assign(`/${item.href}`);
+  if (item.kind === "studio") {
+    openStudio(item.href);
     return;
   }
-  openStudio(item.href);
+  const el = document.getElementById(item.href.replace(/^#/, ""));
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  window.location.assign(`/${item.href}`);
 }
 
 function pathUnder(pathname: string, href: string) {
