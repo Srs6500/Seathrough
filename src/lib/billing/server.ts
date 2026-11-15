@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getUserFromRequest, type AuthUser } from "@/lib/auth/requestUser";
 import { getServiceSupabase } from "@/lib/supabase/server";
 import {
+  CONVERSATION_PAYWALL_ENABLED,
   FREE_CONVERSATIONS_PER_FEATURE,
   METERED_FEATURES,
   type BillingStatus,
@@ -162,21 +163,43 @@ async function isPro(user: AuthUser | null): Promise<boolean> {
 }
 
 /**
- * Record the start of a conversation on a feature, or refuse it.
- * The same conversationKey again is free (follow-ups). Free accounts get a
- * lifetime allotment of FREE_CONVERSATIONS_PER_FEATURE per feature.
+ * Record the start of a conversation on a feature.
+ * When CONVERSATION_PAYWALL_ENABLED is false, always allow.
+ * Reusing the same conversationKey does not consume another slot.
  */
 export async function beginConversation(
   requester: Requester,
   feature: MeteredFeature,
   conversationKey: string,
 ): Promise<ConversationAllowed | ConversationLimitHit> {
-  if (await isPro(requester.user)) {
+  const pro = await isPro(requester.user);
+  const plan: Plan = pro ? "pro" : "free";
+
+  const rows = dedupeByKey(await lifetimeUsage(requester, feature));
+  const alreadyCounted = rows.some(
+    (row) => row.conversation_key === conversationKey,
+  );
+
+  if (!CONVERSATION_PAYWALL_ENABLED) {
+    if (!alreadyCounted) {
+      const { error } = await getServiceSupabase()
+        .from("usage_conversations")
+        .insert({
+          feature,
+          conversation_key: conversationKey,
+          user_id: requester.user?.id ?? null,
+          anon_id: requester.anonId,
+        });
+      if (error) throw error;
+    }
+    return { allowed: true, plan, remaining: null };
+  }
+
+  if (pro) {
     return { allowed: true, plan: "pro", remaining: null };
   }
 
-  const rows = dedupeByKey(await lifetimeUsage(requester, feature));
-  if (rows.some((row) => row.conversation_key === conversationKey)) {
+  if (alreadyCounted) {
     return {
       allowed: true,
       plan: "free",

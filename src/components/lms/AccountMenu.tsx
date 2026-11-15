@@ -1,10 +1,9 @@
 "use client";
 
-import { CreditCard, LogOut, Sparkles, Ticket, UserRound } from "lucide-react";
+import { CreditCard, LogOut, UserRound } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import { useOptionalTheme } from "@/components/site/ThemeProvider";
-import { PRO_MONTHLY_PRICE_USD } from "@/lib/billing/config";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,7 @@ export function AccountMenu({
   variant = "default",
 }: AccountMenuProps) {
   const { user, loading, logout } = useAuth();
-  const { billing, openPromo, openBillingPortal } = useQuestionAccess();
+  const { billing, openBillingPortal } = useQuestionAccess();
   const marketing = variant === "marketing";
   const { theme } = useOptionalTheme();
   const dark = marketing && theme === "dark";
@@ -85,6 +84,8 @@ export function AccountMenu({
   }
 
   const initial = user.username.slice(0, 1).toUpperCase();
+  const stripePro =
+    billing?.plan === "pro" && billing.planSource === "stripe";
 
   return (
     <DropdownMenu>
@@ -104,26 +105,9 @@ export function AccountMenu({
         <DropdownMenuLabel className="flex items-center gap-2 font-normal">
           <UserRound className="size-3.5" />
           {user.username}
-          {billing?.plan === "pro" ? (
-            <span className="ml-auto rounded-full bg-[#eef5fb] px-1.5 py-0.5 text-[11px] font-medium text-[#1b6ca8]">
-              Unlimited
-            </span>
-          ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {billing?.plan !== "pro" ? (
-          <DropdownMenuItem onSelect={() => openPromo()}>
-            <Sparkles className="size-4" />
-            Upgrade — ${PRO_MONTHLY_PRICE_USD}/mo
-          </DropdownMenuItem>
-        ) : null}
-        {billing?.plan !== "pro" ? (
-          <DropdownMenuItem onSelect={() => openPromo()}>
-            <Ticket className="size-4" />
-            Redeem promo code
-          </DropdownMenuItem>
-        ) : null}
-        {billing?.plan === "pro" && billing.planSource === "stripe" ? (
+        {stripePro ? (
           <DropdownMenuItem
             onSelect={() => {
               void openBillingPortal();

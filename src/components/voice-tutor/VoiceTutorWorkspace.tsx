@@ -1727,10 +1727,6 @@ export function VoiceTutorWorkspace({
     ) {
       flashUserHeard(text);
       setOrbState("idle");
-      await speak(
-        "You've used your five free conversations. Upgrade to Pro for nine dollars a month for unlimited learning.",
-        { log: false, allowBarge: false },
-      );
       return;
     }
 

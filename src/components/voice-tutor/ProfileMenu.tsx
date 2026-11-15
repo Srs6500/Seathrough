@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, LogIn, LogOut, Sparkles, Ticket } from "lucide-react";
+import { CreditCard, LogIn, LogOut } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useQuestionAccess } from "@/components/usage/QuestionAccess";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PRO_MONTHLY_PRICE_USD } from "@/lib/billing/config";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -23,7 +22,7 @@ function initials(name: string) {
 /** Header profile: avatar + card when signed in, "Log in" chip when not. */
 export function ProfileMenu({ displayName, className }: Props) {
   const { user, loading, logout } = useAuth();
-  const { billing, openAuth, openPromo, openBillingPortal } = useQuestionAccess();
+  const { billing, openAuth, openBillingPortal } = useQuestionAccess();
   const [open, setOpen] = useState(false);
 
   if (loading) {
@@ -35,9 +34,6 @@ export function ProfileMenu({ displayName, className }: Props) {
     );
   }
 
-  const tutorUsage = billing?.usage["smart-tutor"];
-  const limit = tutorUsage?.limit ?? 5;
-  const left = Math.max(0, limit - (tutorUsage?.used ?? 0));
   const isPro = billing?.plan === "pro";
   const stripePro = isPro && billing?.planSource === "stripe";
 
@@ -46,7 +42,6 @@ export function ProfileMenu({ displayName, className }: Props) {
       <button
         type="button"
         onClick={() => openAuth("signup")}
-        title={`${left} of ${limit} free Smart tutor conversations left`}
         className={cn(
           "flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-[#ececee] bg-white px-3 text-[13px] font-medium text-[#16161a] transition hover:bg-[#fafafa]",
           className,
@@ -54,9 +49,6 @@ export function ProfileMenu({ displayName, className }: Props) {
       >
         <LogIn className="size-3.5" />
         Log in
-        <span className="rounded-full bg-[#f4f4f6] px-1.5 py-0.5 text-[11px] font-medium text-[#71717a]">
-          {left}/{limit}
-        </span>
       </button>
     );
   }
@@ -91,43 +83,7 @@ export function ProfileMenu({ displayName, className }: Props) {
             <p className="truncate text-[12px] text-[#71717a]">@{user.username}</p>
           </div>
         </div>
-        <div className="flex items-center justify-between px-4 py-3 text-[12px]">
-          <span className="text-[#71717a]">Plan</span>
-          {isPro ? (
-            <span className="rounded-full bg-[#eef5fb] px-2 py-0.5 font-medium text-[#1b6ca8]">Unlimited</span>
-          ) : (
-            <span className="rounded-full bg-[#f4f4f6] px-2 py-0.5 font-medium text-[#3f3f46]">
-              Free · {left}/{limit} left
-            </span>
-          )}
-        </div>
         <div className="border-t border-[#ececee] p-1.5">
-          {!isPro ? (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                openPromo();
-              }}
-              className="flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-[13px] font-medium text-[#1b6ca8] transition hover:bg-[#f4f4f6]"
-            >
-              <Sparkles className="size-3.5" />
-              Upgrade — ${PRO_MONTHLY_PRICE_USD}/mo
-            </button>
-          ) : null}
-          {!isPro ? (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                openPromo();
-              }}
-              className="flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-[13px] font-medium text-[#16161a] transition hover:bg-[#f4f4f6]"
-            >
-              <Ticket className="size-3.5" />
-              Redeem promo code
-            </button>
-          ) : null}
           {stripePro ? (
             <button
               type="button"

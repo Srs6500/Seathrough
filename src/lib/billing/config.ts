@@ -1,7 +1,13 @@
 /** Shared (client + server) billing constants. */
 
-/** Free conversations per metered feature for an account (lifetime — no rolling reset). */
+/**
+ * Legacy free-tier allotment. Conversation paywall is off — beginConversation
+ * always allows; this constant remains for older UI/docs imports.
+ */
 export const FREE_CONVERSATIONS_PER_FEATURE = 5;
+
+/** When false, users are never blocked after N conversations. */
+export const CONVERSATION_PAYWALL_ENABLED = false;
 
 /** Pro subscription list price shown in the paywall (USD / month). */
 export const PRO_MONTHLY_PRICE_USD = 9;
